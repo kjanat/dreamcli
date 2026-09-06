@@ -1,296 +1,22 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://dreamcli.kjanat.dev/schemas/definition/v1.schema.json",
-  "title": "@kjanat/dreamcli definition schema",
-  "description": "Runtime descriptor for the CLI program.\n\nStores the program name, version, description, and registered command schemas.\\\nSealed by createCLISchema and rebuilt by each CLIBuilder step.",
-  "type": "object",
-  "additionalProperties": false,
-  "properties": {
-    "$schema": {
-      "const": "https://dreamcli.kjanat.dev/schemas/definition/v1.schema.json"
-    },
-    "schemaVersion": {
-      "const": 1
-    },
-    "name": {
-      "type": "string",
-      "description": "Program name (used in help text, usage lines, and completion scripts)."
-    },
-    "version": {
-      "type": "string",
-      "description": "Program version (shown by `--version`)."
-    },
-    "description": {
-      "type": "string",
-      "description": "Program description (shown in root help)."
-    },
-    "defaultCommand": {
-      "$ref": "#/$defs/command",
-      "description": "Schema of the default command dispatched when no subcommand matches.\n\nWhen set, the CLI root behaves like a hybrid command group: subcommands\ndispatch by name as usual, but empty argv or flags-only argv falls\nthrough to this command instead of showing root help.\n\nSet via the .default() builder method\nor the `defaultCommand` field of CLIDefinition."
-    },
-    "commands": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/command"
-      },
-      "description": "Schemas of the registered commands, in registration order."
-    }
-  },
-  "required": [
-    "$schema",
-    "schemaVersion",
-    "name",
-    "commands"
-  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$defs": {
-    "command": {
+    "arg": {
+      "description": "The runtime descriptor stored inside every ArgBuilder. Consumers (parser,\nhelp generator) read this to understand the arg's shape without touching\ngenerics.",
       "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "The command name (used for dispatch, e.g. `'deploy'`)."
-        },
-        "description": {
-          "type": "string",
-          "description": "Human-readable description for help text."
-        },
-        "aliases": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Alternative names for this command."
-        },
-        "hidden": {
-          "const": true,
-          "description": "Whether this command is hidden from help listings."
-        },
-        "examples": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/example"
-          },
-          "description": "Usage examples for help text."
-        },
-        "flags": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/$defs/flag"
-          },
-          "description": "Named flag schemas, keyed by flag name."
-        },
-        "args": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/arg"
-          },
-          "description": "Ordered positional arg entries (name + schema)."
-        },
-        "commands": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/command"
-          },
-          "description": "Nested subcommand schemas (for help rendering and completion).\n\nPure data — no execution closures. Populated by `.command()` on\n`CommandBuilder`. Empty for leaf commands."
-        }
-      },
       "required": [
+        "kind",
         "name",
-        "flags",
-        "args",
-        "commands"
+        "presence"
       ],
-      "description": "Runtime descriptor produced by CommandBuilder.\n\nConsumers (parser, help generator, CLI dispatcher) read this to\nunderstand the command's shape — flags, args, aliases, subcommands,\nand interactive resolver."
-    },
-    "commandDocument": {
-      "type": "object",
-      "additionalProperties": false,
       "properties": {
-        "schemaVersion": {
-          "const": 1,
-          "description": "Version of the definition document format emitted by generateSchema\nand generateCommandSchema."
-        },
-        "name": {
-          "type": "string",
-          "description": "The command name used for dispatch."
-        },
-        "description": {
-          "type": "string",
-          "description": "Human-readable description for help text."
-        },
-        "aliases": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Alternative names accepted for this command."
-        },
-        "hidden": {
-          "const": true,
-          "description": "Whether the command is omitted from help listings."
-        },
-        "examples": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/example"
-          },
-          "description": "Usage examples attached to the command."
-        },
-        "flags": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/$defs/flag"
-          },
-          "description": "Named flag definitions keyed by flag name."
-        },
-        "args": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/arg"
-          },
-          "description": "Positional argument definitions in CLI order."
-        },
-        "commands": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/command"
-          },
-          "description": "Nested subcommand definitions."
-        }
-      },
-      "required": [
-        "schemaVersion",
-        "name",
-        "flags",
-        "args",
-        "commands"
-      ],
-      "description": "A single-command definition document, version 1.\n\nProduced by generateCommandSchema. Same shape as a\nCommandDefinitionFragmentV1 plus the `schemaVersion` every standalone\ndocument carries."
-    },
-    "flag": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "kind": {
-          "enum": [
-            "string",
-            "number",
-            "boolean",
-            "enum",
-            "array",
-            "custom",
-            "count",
-            "keyValue"
-          ],
-          "description": "What kind of value this flag accepts."
-        },
-        "presence": {
-          "enum": [
-            "optional",
-            "required",
-            "defaulted"
-          ],
-          "description": "Presence describes whether a flag value is guaranteed to exist when the\naction handler runs:\n\n- `'optional'`  — not required; unresolved value follows the kind-specific\n  optional fallback (`undefined` for most flags, `[]` for arrays)\n- `'required'`  — must be supplied; error if missing\n- `'defaulted'` — always present (falls back to default value)"
-        },
-        "defaultValue": {
-          "description": "Runtime default value (if any)."
-        },
-        "aliases": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Short/long aliases (e.g. `[{ name: 'f', hidden: false }]` for `--force`)."
-        },
-        "stdin": {
-          "$ref": "#/$defs/stdin",
-          "description": "Stdin binding set by `.stdin()` (`undefined` when the flag never reads\nstdin). See StdinBinding."
-        },
-        "envVar": {
-          "type": "string",
-          "description": "Environment variable name for v0.2+ resolution."
-        },
         "configPath": {
-          "type": "string",
-          "description": "Dotted config path for v0.2+ resolution (e.g. `'deploy.region'`)."
-        },
-        "description": {
-          "type": "string",
-          "description": "Human-readable description for help text."
-        },
-        "enumValues": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Allowed literal values when `kind === 'enum'`."
-        },
-        "numberConstraints": {
-          "$ref": "#/$defs/numberConstraints"
-        },
-        "stringConstraints": {
-          "$ref": "#/$defs/stringConstraints"
-        },
-        "elementSchema": {
-          "$ref": "#/$defs/flagElement",
-          "description": "Element schema when `kind === 'array'` or `kind === 'keyValue'`."
-        },
-        "separator": {
-          "type": "string",
-          "minLength": 1
-        },
-        "split": {
-          "$ref": "#/$defs/split"
-        },
-        "duplicateKeys": {
-          "enum": [
-            "first",
-            "last",
-            "error"
-          ]
-        },
-        "unique": {
-          "const": true
-        },
-        "pathChecks": {
-          "$ref": "#/$defs/pathChecks"
-        },
-        "valueHint": {
+          "description": "Dotted config path for config resolution (e.g. `'deploy.region'`).",
           "type": "string"
         },
-        "prompt": {
-          "$ref": "#/$defs/prompt",
-          "description": "Interactive prompt configuration for v0.3+ resolution."
-        },
-        "deprecated": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "const": true
-            }
-          ],
-          "description": "Deprecation marker.\n\n- `undefined` — not deprecated (default)\n- `true` — deprecated with no migration message\n- `string` — deprecated with a reason/migration message\n\nWhen a deprecated flag is used, a warning is emitted to stderr.\nHelp text shows `[deprecated]` or `[deprecated: <reason>]`."
-        },
-        "propagate": {
-          "const": true,
-          "description": "Whether this flag propagates to subcommands in nested command trees.\n\nWhen `true`, the flag is automatically available to all descendant\ncommands. A child command that defines a flag with the same name\nshadows the propagated parent flag.\n\nDefault: `false`"
-        },
-        "negation": {
-          "$ref": "#/$defs/negation",
-          "description": "Negation settings when `kind === 'boolean'` and `.negatable()` was\ncalled (`undefined` otherwise). See FlagNegation."
-        },
-        "duplicates": {
-          "enum": [
-            "last",
-            "first",
-            "error"
-          ],
-          "description": "How repeated CLI occurrences of a singleton flag combine.\n\n- `'last'`  — last occurrence wins (matches historic behavior)\n- `'first'` — first occurrence wins; later ones parse but are ignored\n- `'error'` — a second occurrence is a `ParseError` (`DUPLICATE_FLAG`)\n\nApplies to CLI token occurrences only — env/config/prompt/default\nresolution keeps its precedence semantics and never raises duplicates.\nOccurrences are counted per *logical* flag: aliases and the negated\nspelling all count toward the same flag.\n\nDefault: `'last'`"
-        },
         "defaultDescription": {
+          "description": "Human-readable replacement for the default value in help, or `false` to\nomit the default annotation.",
           "oneOf": [
             {
               "type": "string"
@@ -298,25 +24,420 @@
             {
               "const": false
             }
-          ],
-          "description": "Human-readable replacement for the default value in help, or `false` to\nomit the default annotation."
+          ]
+        },
+        "defaultValue": {
+          "description": "Runtime default value (if any)."
+        },
+        "deprecated": {
+          "description": "Deprecation marker.\n\n- `undefined` — not deprecated (default)\n- `true` — deprecated with no migration message\n- `string` — deprecated with a reason/migration message\n\nWhen a deprecated arg is used, a warning is emitted to stderr.\nHelp text shows `[deprecated]` or `[deprecated: <reason>]`.",
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "const": true
+            }
+          ]
+        },
+        "description": {
+          "description": "Human-readable description for help text.",
+          "type": "string"
+        },
+        "duplicateKeys": {
+          "enum": [
+            "first",
+            "last",
+            "error"
+          ]
+        },
+        "elementSchema": {
+          "$ref": "#/$defs/argElement",
+          "description": "Element schema when `kind === 'keyValue'`.\n\nDescribes the value of each entry, so `arg.keyValue(arg.number())` decodes\n`A=1` to the number `1`. `undefined` leaves entry values as strings."
+        },
+        "enumValues": {
+          "description": "Allowed literal values when `kind === 'enum'`.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "envVar": {
+          "description": "Environment variable name for env resolution.\n\nWhen set and the CLI value is absent, the resolver reads this env var\nand coerces the string to the arg's declared kind.",
+          "type": "string"
+        },
+        "kind": {
+          "description": "What kind of value this arg accepts.",
+          "enum": [
+            "string",
+            "number",
+            "boolean",
+            "enum",
+            "custom",
+            "keyValue"
+          ]
+        },
+        "name": {
+          "description": "A named positional argument entry in the command schema.\n\nPairs a user-facing arg name with its ArgSchema descriptor.\nThe array ordering in CommandSchema.args determines CLI position.",
+          "type": "string"
+        },
+        "numberConstraints": {
+          "$ref": "#/$defs/numberConstraints"
+        },
+        "pathChecks": {
+          "$ref": "#/$defs/pathChecks"
+        },
+        "presence": {
+          "description": "Presence describes whether a positional arg is guaranteed to exist when the\naction handler runs:\n\n- `'required'`  — must be supplied; error if missing (default)\n- `'optional'`  — may be `undefined` if not supplied\n- `'defaulted'` — always present (falls back to default value)",
+          "enum": [
+            "required",
+            "optional",
+            "defaulted"
+          ]
+        },
+        "prompt": {
+          "$ref": "#/$defs/prompt",
+          "description": "Interactive prompt configuration."
         },
         "sensitive": {
-          "const": true,
-          "description": "Whether values from this input must be kept out of user-facing projections."
+          "description": "Whether values from this input must be kept out of user-facing projections.",
+          "const": true
+        },
+        "separator": {
+          "type": "string",
+          "minLength": 1
+        },
+        "split": {
+          "$ref": "#/$defs/split"
+        },
+        "stdin": {
+          "$ref": "#/$defs/stdin",
+          "description": "Stdin binding set by `.stdin()` (`undefined` when the arg never reads\nstdin). See StdinBinding."
+        },
+        "stringConstraints": {
+          "$ref": "#/$defs/stringConstraints"
+        },
+        "unique": {
+          "const": true
+        },
+        "valueHint": {
+          "type": "string"
+        },
+        "variadic": {
+          "description": "Whether this arg consumes all remaining positionals.",
+          "const": true
         }
       },
+      "additionalProperties": false,
+      "anyOf": [
+        {
+          "not": {
+            "required": [
+              "elementSchema"
+            ]
+          }
+        },
+        {
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "keyValue"
+            }
+          }
+        }
+      ]
+    },
+    "argElement": {
+      "description": "Element schema when `kind === 'keyValue'`.\n\nDescribes the value of each entry, so `arg.keyValue(arg.number())` decodes\n`A=1` to the number `1`. `undefined` leaves entry values as strings.",
+      "type": "object",
       "required": [
         "kind",
         "presence"
       ],
-      "description": "The runtime descriptor stored inside every FlagBuilder. Consumers (parser,\nhelp generator, resolution chain) read this to understand the flag's shape\nwithout touching generics."
-    },
-    "flagElement": {
-      "type": "object",
-      "additionalProperties": false,
       "properties": {
+        "enumValues": {
+          "description": "Allowed literal values when `kind === 'enum'`.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "kind": {
+          "description": "What kind of value this arg accepts.",
+          "enum": [
+            "string",
+            "number",
+            "boolean",
+            "enum",
+            "custom"
+          ]
+        },
+        "numberConstraints": {
+          "$ref": "#/$defs/numberConstraints"
+        },
+        "pathChecks": {
+          "$ref": "#/$defs/pathChecks"
+        },
+        "presence": {
+          "description": "Entry values are required once their containing key-value argument is present.",
+          "const": "required"
+        },
+        "stringConstraints": {
+          "$ref": "#/$defs/stringConstraints"
+        },
+        "valueHint": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "choice": {
+      "description": "A selectable option for SelectPromptConfig and MultiselectPromptConfig prompts.",
+      "type": "object",
+      "required": [
+        "value"
+      ],
+      "properties": {
+        "description": {
+          "description": "Optional description shown alongside the choice.",
+          "type": "string"
+        },
+        "label": {
+          "description": "Display label shown to the user.\n\nDefault: value",
+          "type": "string"
+        },
+        "value": {
+          "description": "The value returned when this choice is selected.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "command": {
+      "description": "Runtime descriptor produced by CommandBuilder.\n\nConsumers (parser, help generator, CLI dispatcher) read this to\nunderstand the command's shape — flags, args, aliases, subcommands,\nand interactive resolver.",
+      "type": "object",
+      "required": [
+        "args",
+        "commands",
+        "flags",
+        "name"
+      ],
+      "properties": {
+        "aliases": {
+          "description": "Alternative names for this command.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "args": {
+          "description": "Ordered positional arg entries (name + schema).",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/arg"
+          }
+        },
+        "commands": {
+          "description": "Nested subcommand schemas (for help rendering and completion).\n\nPure data — no execution closures. Populated by `.command()` on\n`CommandBuilder`. Empty for leaf commands.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/command"
+          }
+        },
+        "description": {
+          "description": "Human-readable description for help text.",
+          "type": "string"
+        },
+        "examples": {
+          "description": "Usage examples for help text.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/example"
+          }
+        },
+        "flags": {
+          "description": "Named flag schemas, keyed by flag name.",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/flag"
+          }
+        },
+        "hidden": {
+          "description": "Whether this command is hidden from help listings.",
+          "const": true
+        },
+        "name": {
+          "description": "The command name (used for dispatch, e.g. `'deploy'`).",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "commandDocument": {
+      "description": "A single-command definition document, version 1.\n\nProduced by generateCommandSchema. Same shape as a\nCommandDefinitionFragmentV1 plus the `schemaVersion` every standalone\ndocument carries.",
+      "type": "object",
+      "required": [
+        "args",
+        "commands",
+        "flags",
+        "name",
+        "schemaVersion"
+      ],
+      "properties": {
+        "aliases": {
+          "description": "Alternative names accepted for this command.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "args": {
+          "description": "Positional argument definitions in CLI order.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/arg"
+          }
+        },
+        "commands": {
+          "description": "Nested subcommand definitions.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/command"
+          }
+        },
+        "description": {
+          "description": "Human-readable description for help text.",
+          "type": "string"
+        },
+        "examples": {
+          "description": "Usage examples attached to the command.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/example"
+          }
+        },
+        "flags": {
+          "description": "Named flag definitions keyed by flag name.",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/flag"
+          }
+        },
+        "hidden": {
+          "description": "Whether the command is omitted from help listings.",
+          "const": true
+        },
+        "name": {
+          "description": "The command name used for dispatch.",
+          "type": "string"
+        },
+        "schemaVersion": {
+          "description": "Version of the definition document format emitted by `generateSchema()`\nand `generateCommandSchema()` from `@kjanat/dreamcli/json-schema`.",
+          "const": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "example": {
+      "description": "A single usage example shown in help text.",
+      "type": "object",
+      "required": [
+        "command"
+      ],
+      "properties": {
+        "command": {
+          "description": "The command invocation (e.g. `'deploy production --force'`).",
+          "type": "string"
+        },
+        "description": {
+          "description": "Optional description of what this example does.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "flag": {
+      "description": "The runtime descriptor stored inside every FlagBuilder. Consumers (parser,\nhelp generator, resolution chain) read this to understand the flag's shape\nwithout touching generics.",
+      "type": "object",
+      "required": [
+        "kind",
+        "presence"
+      ],
+      "properties": {
+        "aliases": {
+          "description": "Short/long aliases (e.g. `[{ name: 'f', hidden: false }]` for `--force`).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "configPath": {
+          "description": "Dotted config path for v0.2+ resolution (e.g. `'deploy.region'`).",
+          "type": "string"
+        },
+        "defaultDescription": {
+          "description": "Human-readable replacement for the default value in help, or `false` to\nomit the default annotation.",
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "const": false
+            }
+          ]
+        },
+        "defaultValue": {
+          "description": "Runtime default value (if any)."
+        },
+        "deprecated": {
+          "description": "Deprecation marker.\n\n- `undefined` — not deprecated (default)\n- `true` — deprecated with no migration message\n- `string` — deprecated with a reason/migration message\n\nWhen a deprecated flag is used, a warning is emitted to stderr.\nHelp text shows `[deprecated]` or `[deprecated: <reason>]`.",
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "const": true
+            }
+          ]
+        },
+        "description": {
+          "description": "Human-readable description for help text.",
+          "type": "string"
+        },
+        "duplicateKeys": {
+          "enum": [
+            "first",
+            "last",
+            "error"
+          ]
+        },
+        "duplicates": {
+          "description": "How repeated CLI occurrences of a singleton flag combine.\n\n- `'last'`  — last occurrence wins (matches historic behavior)\n- `'first'` — first occurrence wins; later ones parse but are ignored\n- `'error'` — a second occurrence is a `ParseError` (`DUPLICATE_FLAG`)\n\nApplies to CLI token occurrences only — env/config/prompt/default\nresolution keeps its precedence semantics and never raises duplicates.\nOccurrences are counted per *logical* flag: aliases and the negated\nspelling all count toward the same flag.\n\nDefault: `'last'`",
+          "enum": [
+            "last",
+            "first",
+            "error"
+          ]
+        },
+        "elementSchema": {
+          "$ref": "#/$defs/flagElement",
+          "description": "Element schema when `kind === 'array'` or `kind === 'keyValue'`."
+        },
+        "enumValues": {
+          "description": "Allowed literal values when `kind === 'enum'`.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "envVar": {
+          "description": "Environment variable name for v0.2+ resolution.",
+          "type": "string"
+        },
+        "kind": {
+          "description": "What kind of value this flag accepts.",
           "enum": [
             "string",
             "number",
@@ -326,59 +447,37 @@
             "custom",
             "count",
             "keyValue"
-          ],
-          "description": "What kind of value this flag accepts."
+          ]
         },
-        "presence": {
-          "enum": [
-            "optional",
-            "required",
-            "defaulted"
-          ],
-          "description": "Presence describes whether a flag value is guaranteed to exist when the\naction handler runs:\n\n- `'optional'`  — not required; unresolved value follows the kind-specific\n  optional fallback (`undefined` for most flags, `[]` for arrays)\n- `'required'`  — must be supplied; error if missing\n- `'defaulted'` — always present (falls back to default value)"
-        },
-        "defaultValue": {
-          "description": "Runtime default value (if any)."
-        },
-        "aliases": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Short/long aliases (e.g. `[{ name: 'f', hidden: false }]` for `--force`)."
-        },
-        "stdin": {
-          "$ref": "#/$defs/stdin",
-          "description": "Stdin binding set by `.stdin()` (`undefined` when the flag never reads\nstdin). See StdinBinding."
-        },
-        "envVar": {
-          "type": "string",
-          "description": "Environment variable name for v0.2+ resolution."
-        },
-        "configPath": {
-          "type": "string",
-          "description": "Dotted config path for v0.2+ resolution (e.g. `'deploy.region'`)."
-        },
-        "description": {
-          "type": "string",
-          "description": "Human-readable description for help text."
-        },
-        "enumValues": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Allowed literal values when `kind === 'enum'`."
+        "negation": {
+          "$ref": "#/$defs/negation",
+          "description": "Negation settings when `kind === 'boolean'` and `.negatable()` was\ncalled (`undefined` otherwise). See FlagNegation."
         },
         "numberConstraints": {
           "$ref": "#/$defs/numberConstraints"
         },
-        "stringConstraints": {
-          "$ref": "#/$defs/stringConstraints"
+        "pathChecks": {
+          "$ref": "#/$defs/pathChecks"
         },
-        "elementSchema": {
-          "$ref": "#/$defs/flagElement",
-          "description": "Element schema when `kind === 'array'` or `kind === 'keyValue'`."
+        "presence": {
+          "description": "Presence describes whether a flag value is guaranteed to exist when the\naction handler runs:\n\n- `'optional'`  — not required; unresolved value follows the kind-specific\n  optional fallback (`undefined` for most flags, `[]` for arrays)\n- `'required'`  — must be supplied; error if missing\n- `'defaulted'` — always present (falls back to default value)",
+          "enum": [
+            "optional",
+            "required",
+            "defaulted"
+          ]
+        },
+        "prompt": {
+          "$ref": "#/$defs/prompt",
+          "description": "Interactive prompt configuration for v0.3+ resolution."
+        },
+        "propagate": {
+          "description": "Whether this flag propagates to subcommands in nested command trees.\n\nWhen `true`, the flag is automatically available to all descendant\ncommands. A child command that defines a flag with the same name\nshadows the propagated parent flag.\n\nDefault: `false`",
+          "const": true
+        },
+        "sensitive": {
+          "description": "Whether values from this input must be kept out of user-facing projections.",
+          "const": true
         },
         "separator": {
           "type": "string",
@@ -387,27 +486,46 @@
         "split": {
           "$ref": "#/$defs/split"
         },
-        "duplicateKeys": {
-          "enum": [
-            "first",
-            "last",
-            "error"
-          ]
+        "stdin": {
+          "$ref": "#/$defs/stdin",
+          "description": "Stdin binding set by `.stdin()` (`undefined` when the flag never reads\nstdin). See StdinBinding."
+        },
+        "stringConstraints": {
+          "$ref": "#/$defs/stringConstraints"
         },
         "unique": {
           "const": true
         },
-        "pathChecks": {
-          "$ref": "#/$defs/pathChecks"
-        },
         "valueHint": {
           "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "flagElement": {
+      "description": "Element schema when `kind === 'array'` or `kind === 'keyValue'`.",
+      "type": "object",
+      "required": [
+        "kind",
+        "presence"
+      ],
+      "properties": {
+        "aliases": {
+          "description": "Short/long aliases (e.g. `[{ name: 'f', hidden: false }]` for `--force`).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         },
-        "prompt": {
-          "$ref": "#/$defs/prompt",
-          "description": "Interactive prompt configuration for v0.3+ resolution."
+        "configPath": {
+          "description": "Dotted config path for v0.2+ resolution (e.g. `'deploy.region'`).",
+          "type": "string"
+        },
+        "defaultValue": {
+          "description": "Runtime default value (if any)."
         },
         "deprecated": {
+          "description": "Deprecation marker.\n\n- `undefined` — not deprecated (default)\n- `true` — deprecated with no migration message\n- `string` — deprecated with a reason/migration message\n\nWhen a deprecated flag is used, a warning is emitted to stderr.\nHelp text shows `[deprecated]` or `[deprecated: <reason>]`.",
           "oneOf": [
             {
               "type": "string"
@@ -415,65 +533,203 @@
             {
               "const": true
             }
-          ],
-          "description": "Deprecation marker.\n\n- `undefined` — not deprecated (default)\n- `true` — deprecated with no migration message\n- `string` — deprecated with a reason/migration message\n\nWhen a deprecated flag is used, a warning is emitted to stderr.\nHelp text shows `[deprecated]` or `[deprecated: <reason>]`."
+          ]
         },
-        "propagate": {
-          "const": true,
-          "description": "Whether this flag propagates to subcommands in nested command trees.\n\nWhen `true`, the flag is automatically available to all descendant\ncommands. A child command that defines a flag with the same name\nshadows the propagated parent flag.\n\nDefault: `false`"
+        "description": {
+          "description": "Human-readable description for help text.",
+          "type": "string"
+        },
+        "duplicateKeys": {
+          "enum": [
+            "first",
+            "last",
+            "error"
+          ]
+        },
+        "duplicates": {
+          "description": "How repeated CLI occurrences of a singleton flag combine.\n\n- `'last'`  — last occurrence wins (matches historic behavior)\n- `'first'` — first occurrence wins; later ones parse but are ignored\n- `'error'` — a second occurrence is a `ParseError` (`DUPLICATE_FLAG`)\n\nApplies to CLI token occurrences only — env/config/prompt/default\nresolution keeps its precedence semantics and never raises duplicates.\nOccurrences are counted per *logical* flag: aliases and the negated\nspelling all count toward the same flag.\n\nDefault: `'last'`",
+          "enum": [
+            "last",
+            "first",
+            "error"
+          ]
+        },
+        "elementSchema": {
+          "$ref": "#/$defs/flagElement",
+          "description": "Element schema when `kind === 'array'` or `kind === 'keyValue'`."
+        },
+        "enumValues": {
+          "description": "Allowed literal values when `kind === 'enum'`.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "envVar": {
+          "description": "Environment variable name for v0.2+ resolution.",
+          "type": "string"
+        },
+        "kind": {
+          "description": "What kind of value this flag accepts.",
+          "enum": [
+            "string",
+            "number",
+            "boolean",
+            "enum",
+            "array",
+            "custom",
+            "count",
+            "keyValue"
+          ]
         },
         "negation": {
           "$ref": "#/$defs/negation",
           "description": "Negation settings when `kind === 'boolean'` and `.negatable()` was\ncalled (`undefined` otherwise). See FlagNegation."
         },
-        "duplicates": {
+        "numberConstraints": {
+          "$ref": "#/$defs/numberConstraints"
+        },
+        "pathChecks": {
+          "$ref": "#/$defs/pathChecks"
+        },
+        "presence": {
+          "description": "Presence describes whether a flag value is guaranteed to exist when the\naction handler runs:\n\n- `'optional'`  — not required; unresolved value follows the kind-specific\n  optional fallback (`undefined` for most flags, `[]` for arrays)\n- `'required'`  — must be supplied; error if missing\n- `'defaulted'` — always present (falls back to default value)",
           "enum": [
-            "last",
-            "first",
-            "error"
-          ],
-          "description": "How repeated CLI occurrences of a singleton flag combine.\n\n- `'last'`  — last occurrence wins (matches historic behavior)\n- `'first'` — first occurrence wins; later ones parse but are ignored\n- `'error'` — a second occurrence is a `ParseError` (`DUPLICATE_FLAG`)\n\nApplies to CLI token occurrences only — env/config/prompt/default\nresolution keeps its precedence semantics and never raises duplicates.\nOccurrences are counted per *logical* flag: aliases and the negated\nspelling all count toward the same flag.\n\nDefault: `'last'`"
+            "optional",
+            "required",
+            "defaulted"
+          ]
+        },
+        "prompt": {
+          "$ref": "#/$defs/prompt",
+          "description": "Interactive prompt configuration for v0.3+ resolution."
+        },
+        "propagate": {
+          "description": "Whether this flag propagates to subcommands in nested command trees.\n\nWhen `true`, the flag is automatically available to all descendant\ncommands. A child command that defines a flag with the same name\nshadows the propagated parent flag.\n\nDefault: `false`",
+          "const": true
+        },
+        "separator": {
+          "type": "string",
+          "minLength": 1
+        },
+        "split": {
+          "$ref": "#/$defs/split"
+        },
+        "stdin": {
+          "$ref": "#/$defs/stdin",
+          "description": "Stdin binding set by `.stdin()` (`undefined` when the flag never reads\nstdin). See StdinBinding."
+        },
+        "stringConstraints": {
+          "$ref": "#/$defs/stringConstraints"
+        },
+        "unique": {
+          "const": true
+        },
+        "valueHint": {
+          "type": "string"
         }
       },
+      "additionalProperties": false
+    },
+    "negation": {
+      "description": "Negation settings for a boolean flag (set by `.negatable()`).\n\nThe negated spelling and the positive form are two spellings of ONE\nlogical flag: they share duplicate policy, and the last CLI occurrence\nwins across both. The negated spelling is presence-only — `--no-foo=x`\nis rejected.",
+      "type": "object",
+      "properties": {
+        "alias": {
+          "description": "Explicit negated spelling without the `--` prefix (e.g. `'no-sandbox'`).\n`undefined` synthesizes `no-<flagName>` wherever the flag name is known.",
+          "type": "string"
+        },
+        "hidden": {
+          "description": "Hide the negated spelling from help, completions, and suggestions.",
+          "const": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "numberConstraints": {
+      "type": "object",
+      "properties": {
+        "finite": {
+          "type": "boolean"
+        },
+        "int": {
+          "type": "boolean"
+        },
+        "max": {
+          "type": "number"
+        },
+        "min": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "pathChecks": {
+      "type": "object",
+      "required": [
+        "mustExist"
+      ],
+      "properties": {
+        "create": {
+          "const": true
+        },
+        "mustExist": {
+          "type": "boolean"
+        },
+        "type": {
+          "enum": [
+            "file",
+            "directory"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "prompt": {
+      "description": "Discriminated union of all prompt configurations.\n\nUse the `kind` field to narrow:\n```ts\nif (config.kind === 'select') {\n  config.choices // readonly SelectChoice[] | undefined\n}\n```",
+      "type": "object",
       "required": [
         "kind",
-        "presence"
+        "message"
       ],
-      "description": "Element schema when `kind === 'array'` or `kind === 'keyValue'`."
-    },
-    "stdin": {
-      "type": "object",
-      "additionalProperties": false,
       "properties": {
-        "when": {
-          "enum": [
-            "dash",
-            "missing",
-            "dash-or-missing"
-          ],
-          "description": "When this input reads the stdin stream."
+        "choices": {
+          "description": "Available choices. When omitted for `enum` flags, the enum values\nfrom the flag schema are used automatically.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/choice"
+          }
         },
-        "consume": {
+        "kind": {
+          "description": "The kind of interactive prompt to present.\n\n- `'confirm'`     — yes/no boolean question\n- `'input'`       — free-text string input\n- `'select'`      — single selection from a list\n- `'multiselect'` — multiple selections from a list",
           "enum": [
-            "exclusive",
-            "broadcast"
-          ],
-          "description": "Whether this input consumes the stream alone."
+            "confirm",
+            "input",
+            "select",
+            "multiselect"
+          ]
         },
-        "trim": {
-          "type": "boolean",
-          "description": "Whether one trailing line terminator is dropped from a single value."
+        "max": {
+          "description": "Maximum number of selections allowed.\n\nDefault: `Infinity`",
+          "type": "integer"
+        },
+        "message": {
+          "description": "The question displayed to the user.",
+          "type": "string"
+        },
+        "min": {
+          "description": "Minimum number of selections required.\n\nDefault: `0`",
+          "type": "integer"
+        },
+        "placeholder": {
+          "description": "Placeholder text shown before user types (informational only).",
+          "type": "string"
         }
       },
-      "required": [
-        "when",
-        "consume"
-      ],
-      "description": "The normalized stdin axis of a flag or an arg."
+      "additionalProperties": false
     },
     "split": {
       "type": "object",
-      "additionalProperties": false,
       "properties": {
         "env": {
           "$ref": "#/$defs/splitPolicy"
@@ -481,12 +737,19 @@
         "stdin": {
           "$ref": "#/$defs/splitPolicy"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "splitPolicy": {
       "type": "object",
-      "additionalProperties": false,
+      "required": [
+        "format"
+      ],
       "properties": {
+        "delimiter": {
+          "type": "string",
+          "minLength": 1
+        },
         "format": {
           "enum": [
             "whole",
@@ -494,26 +757,20 @@
             "lines",
             "json"
           ]
-        },
-        "delimiter": {
-          "type": "string",
-          "minLength": 1
         }
       },
-      "required": [
-        "format"
-      ],
+      "additionalProperties": false,
       "oneOf": [
         {
+          "required": [
+            "delimiter",
+            "format"
+          ],
           "properties": {
             "format": {
               "const": "delimiter"
             }
-          },
-          "required": [
-            "format",
-            "delimiter"
-          ]
+          }
         },
         {
           "properties": {
@@ -533,366 +790,109 @@
         }
       ]
     },
-    "negation": {
+    "stdin": {
+      "description": "The normalized stdin axis of a flag or an arg.",
       "type": "object",
-      "additionalProperties": false,
+      "required": [
+        "consume",
+        "when"
+      ],
       "properties": {
-        "alias": {
-          "type": "string",
-          "description": "Explicit negated spelling without the `--` prefix (e.g. `'no-sandbox'`).\n`undefined` synthesizes `no-<flagName>` wherever the flag name is known."
+        "consume": {
+          "description": "Whether this input consumes the stream alone.",
+          "enum": [
+            "exclusive",
+            "broadcast"
+          ]
         },
-        "hidden": {
-          "const": true,
-          "description": "Hide the negated spelling from help, completions, and suggestions."
+        "trim": {
+          "description": "Whether one trailing line terminator is dropped from a single value.",
+          "type": "boolean"
+        },
+        "when": {
+          "description": "When this input reads the stdin stream.",
+          "enum": [
+            "dash",
+            "missing",
+            "dash-or-missing"
+          ]
         }
       },
-      "description": "Negation settings for a boolean flag (set by `.negatable()`).\n\nThe negated spelling and the positive form are two spellings of ONE\nlogical flag: they share duplicate policy, and the last CLI occurrence\nwins across both. The negated spelling is presence-only — `--no-foo=x`\nis rejected."
-    },
-    "numberConstraints": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "min": {
-          "type": "number"
-        },
-        "max": {
-          "type": "number"
-        },
-        "int": {
-          "type": "boolean"
-        },
-        "finite": {
-          "type": "boolean"
-        }
-      }
+      "additionalProperties": false
     },
     "stringConstraints": {
       "type": "object",
-      "additionalProperties": false,
       "properties": {
-        "nonEmpty": {
-          "type": "boolean"
+        "maxLength": {
+          "type": "integer",
+          "minimum": 0
         },
         "minLength": {
           "type": "integer",
           "minimum": 0
         },
-        "maxLength": {
-          "type": "integer",
-          "minimum": 0
+        "nonEmpty": {
+          "type": "boolean"
         },
         "pattern": {
           "type": "object",
-          "additionalProperties": false,
+          "required": [
+            "flags",
+            "source"
+          ],
           "properties": {
-            "source": {
-              "type": "string"
-            },
             "flags": {
               "type": "string"
+            },
+            "source": {
+              "type": "string"
             }
           },
-          "required": [
-            "source",
-            "flags"
-          ]
+          "additionalProperties": false
         }
+      },
+      "additionalProperties": false
+    }
+  },
+  "title": "@kjanat/dreamcli definition schema",
+  "description": "Runtime descriptor for the CLI program.\n\nStores the program name, version, description, and registered command schemas.\\\nSealed by createCLISchema and rebuilt by each CLIBuilder step.",
+  "type": "object",
+  "required": [
+    "$schema",
+    "commands",
+    "name",
+    "schemaVersion"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "https://dreamcli.kjanat.dev/schemas/definition/v1.schema.json"
+    },
+    "commands": {
+      "description": "Schemas of the registered commands, in registration order.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/command"
       }
     },
-    "pathChecks": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "mustExist": {
-          "type": "boolean"
-        },
-        "type": {
-          "enum": [
-            "file",
-            "directory"
-          ]
-        },
-        "create": {
-          "const": true
-        }
-      },
-      "required": [
-        "mustExist"
-      ]
+    "defaultCommand": {
+      "$ref": "#/$defs/command",
+      "description": "Schema of the default command dispatched when no subcommand matches.\n\nWhen set, the CLI root behaves like a hybrid command group: subcommands\ndispatch by name as usual, but empty argv or flags-only argv falls\nthrough to this command instead of showing root help.\n\nSet via the .default() builder method\nor the `defaultCommand` field of CLIDefinition."
     },
-    "argElement": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "kind": {
-          "enum": [
-            "string",
-            "number",
-            "boolean",
-            "enum",
-            "custom"
-          ],
-          "description": "What kind of value this arg accepts."
-        },
-        "presence": {
-          "const": "required",
-          "description": "Entry values are required once their containing key-value argument is present."
-        },
-        "enumValues": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Allowed literal values when `kind === 'enum'`."
-        },
-        "numberConstraints": {
-          "$ref": "#/$defs/numberConstraints"
-        },
-        "stringConstraints": {
-          "$ref": "#/$defs/stringConstraints"
-        },
-        "pathChecks": {
-          "$ref": "#/$defs/pathChecks"
-        },
-        "valueHint": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "kind",
-        "presence"
-      ],
-      "description": "Element schema when `kind === 'keyValue'`.\n\nDescribes the value of each entry, so `arg.keyValue(arg.number())` decodes\n`A=1` to the number `1`. `undefined` leaves entry values as strings."
+    "description": {
+      "description": "Program description (shown in root help).",
+      "type": "string"
     },
-    "arg": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "A named positional argument entry in the command schema.\n\nPairs a user-facing arg name with its ArgSchema descriptor.\nThe array ordering in CommandSchema.args determines CLI position."
-        },
-        "kind": {
-          "enum": [
-            "string",
-            "number",
-            "boolean",
-            "enum",
-            "custom",
-            "keyValue"
-          ],
-          "description": "What kind of value this arg accepts."
-        },
-        "presence": {
-          "enum": [
-            "required",
-            "optional",
-            "defaulted"
-          ],
-          "description": "Presence describes whether a positional arg is guaranteed to exist when the\naction handler runs:\n\n- `'required'`  — must be supplied; error if missing (default)\n- `'optional'`  — may be `undefined` if not supplied\n- `'defaulted'` — always present (falls back to default value)"
-        },
-        "variadic": {
-          "const": true,
-          "description": "Whether this arg consumes all remaining positionals."
-        },
-        "stdin": {
-          "$ref": "#/$defs/stdin",
-          "description": "Stdin binding set by `.stdin()` (`undefined` when the arg never reads\nstdin). See StdinBinding."
-        },
-        "defaultValue": {
-          "description": "Runtime default value (if any)."
-        },
-        "defaultDescription": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "const": false
-            }
-          ],
-          "description": "Human-readable replacement for the default value in help, or `false` to\nomit the default annotation."
-        },
-        "sensitive": {
-          "const": true,
-          "description": "Whether values from this input must be kept out of user-facing projections."
-        },
-        "description": {
-          "type": "string",
-          "description": "Human-readable description for help text."
-        },
-        "envVar": {
-          "type": "string",
-          "description": "Environment variable name for env resolution.\n\nWhen set and the CLI value is absent, the resolver reads this env var\nand coerces the string to the arg's declared kind."
-        },
-        "configPath": {
-          "type": "string",
-          "description": "Dotted config path for config resolution (e.g. `'deploy.region'`)."
-        },
-        "enumValues": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Allowed literal values when `kind === 'enum'`."
-        },
-        "elementSchema": {
-          "$ref": "#/$defs/argElement",
-          "description": "Element schema when `kind === 'keyValue'`.\n\nDescribes the value of each entry, so `arg.keyValue(arg.number())` decodes\n`A=1` to the number `1`. `undefined` leaves entry values as strings."
-        },
-        "numberConstraints": {
-          "$ref": "#/$defs/numberConstraints"
-        },
-        "stringConstraints": {
-          "$ref": "#/$defs/stringConstraints"
-        },
-        "pathChecks": {
-          "$ref": "#/$defs/pathChecks"
-        },
-        "valueHint": {
-          "type": "string"
-        },
-        "separator": {
-          "type": "string",
-          "minLength": 1
-        },
-        "split": {
-          "$ref": "#/$defs/split"
-        },
-        "duplicateKeys": {
-          "enum": [
-            "first",
-            "last",
-            "error"
-          ]
-        },
-        "unique": {
-          "const": true
-        },
-        "prompt": {
-          "$ref": "#/$defs/prompt",
-          "description": "Interactive prompt configuration."
-        },
-        "deprecated": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "const": true
-            }
-          ],
-          "description": "Deprecation marker.\n\n- `undefined` — not deprecated (default)\n- `true` — deprecated with no migration message\n- `string` — deprecated with a reason/migration message\n\nWhen a deprecated arg is used, a warning is emitted to stderr.\nHelp text shows `[deprecated]` or `[deprecated: <reason>]`."
-        }
-      },
-      "required": [
-        "name",
-        "kind",
-        "presence"
-      ],
-      "anyOf": [
-        {
-          "not": {
-            "required": [
-              "elementSchema"
-            ]
-          }
-        },
-        {
-          "properties": {
-            "kind": {
-              "const": "keyValue"
-            }
-          },
-          "required": [
-            "kind"
-          ]
-        }
-      ],
-      "description": "The runtime descriptor stored inside every ArgBuilder. Consumers (parser,\nhelp generator) read this to understand the arg's shape without touching\ngenerics."
+    "name": {
+      "description": "Program name (used in help text, usage lines, and completion scripts).",
+      "type": "string"
     },
-    "prompt": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "kind": {
-          "enum": [
-            "confirm",
-            "input",
-            "select",
-            "multiselect"
-          ],
-          "description": "The kind of interactive prompt to present.\n\n- `'confirm'`     — yes/no boolean question\n- `'input'`       — free-text string input\n- `'select'`      — single selection from a list\n- `'multiselect'` — multiple selections from a list"
-        },
-        "message": {
-          "type": "string",
-          "description": "The question displayed to the user."
-        },
-        "placeholder": {
-          "type": "string",
-          "description": "Placeholder text shown before user types (informational only)."
-        },
-        "choices": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/choice"
-          },
-          "description": "Available choices. When omitted for `enum` flags, the enum values\nfrom the flag schema are used automatically."
-        },
-        "min": {
-          "type": "integer",
-          "description": "Minimum number of selections required.\n\nDefault: `0`"
-        },
-        "max": {
-          "type": "integer",
-          "description": "Maximum number of selections allowed.\n\nDefault: `Infinity`"
-        }
-      },
-      "required": [
-        "kind",
-        "message"
-      ],
-      "description": "Discriminated union of all prompt configurations.\n\nUse the `kind` field to narrow:\n```ts\nif (config.kind === 'select') {\n  config.choices // readonly SelectChoice[] | undefined\n}\n```"
+    "schemaVersion": {
+      "const": 1
     },
-    "choice": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "value": {
-          "type": "string",
-          "description": "The value returned when this choice is selected."
-        },
-        "label": {
-          "type": "string",
-          "description": "Display label shown to the user.\n\nDefault: value"
-        },
-        "description": {
-          "type": "string",
-          "description": "Optional description shown alongside the choice."
-        }
-      },
-      "required": [
-        "value"
-      ],
-      "description": "A selectable option for SelectPromptConfig and MultiselectPromptConfig prompts."
-    },
-    "example": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "command": {
-          "type": "string",
-          "description": "The command invocation (e.g. `'deploy production --force'`)."
-        },
-        "description": {
-          "type": "string",
-          "description": "Optional description of what this example does."
-        }
-      },
-      "required": [
-        "command"
-      ],
-      "description": "A single usage example shown in help text."
+    "version": {
+      "description": "Program version (shown by `--version`).",
+      "type": "string"
     }
-  }
+  },
+  "additionalProperties": false
 }

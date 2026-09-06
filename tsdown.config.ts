@@ -81,7 +81,7 @@ export default defineConfig({
 	publint: { enabled: 'local-only', level: 'suggestion', strict: true },
 	attw: {
 		enabled: 'local-only',
-		// biome-ignore lint/suspicious/noExplicitAny: shit
+		// biome-ignore lint/suspicious/noExplicitAny: JSON imports widen the attw profile literal union to string.
 		profile: profile as any satisfies AttwOptions['profile'],
 		ignoreRules,
 		level: 'warn',
