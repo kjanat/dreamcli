@@ -55,7 +55,7 @@ interface RuntimeAdapter {
 	/** Writer for stderr. Framework routes `out.warn`/`out.error` through this. */
 	readonly stderr: WriteFn;
 
-	/** Wait for pending output writes to settle, rejecting with the first output failure. */
+	/** Wait for pending output writes to settle, rejecting with a recorded output failure. */
 	readonly flush?: () => Promise<void>;
 
 	/**
