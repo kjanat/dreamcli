@@ -54,12 +54,18 @@ function nodeProcess(state: HostState, stdout: (text: string) => void): NodeProc
 			},
 		},
 		stdout: {
-			write: (data: string) => {
+			write: (data: string, callback?: () => void) => {
 				stdout(data);
+				callback?.();
 				return true;
 			},
 		},
-		stderr: { write: () => true },
+		stderr: {
+			write: (_data: string, callback?: () => void) => {
+				callback?.();
+				return true;
+			},
+		},
 		exit: (code: number): never => {
 			throw new ExitError(code);
 		},

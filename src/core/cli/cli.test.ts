@@ -302,6 +302,78 @@ describe('root help', () => {
 // --- Runtime name inheritance
 
 describe('CLIBuilder.run — runtime name inheritance', () => {
+	it('flushes captured output before terminating', async () => {
+		const events: string[] = [];
+		const base = createTestAdapter({
+			argv: ['node', 'cli.js', 'deploy', 'production'],
+			stdout: () => events.push('write'),
+		});
+		const adapter = {
+			...base,
+			flush: async () => {
+				await Promise.resolve();
+				events.push('flush');
+			},
+			exit: (code: number): never => {
+				events.push(`exit:${code}`);
+				throw new ExitError(code);
+			},
+		};
+
+		await expect(cli('mycli').command(deployCommand()).run({ adapter })).rejects.toMatchObject({
+			code: 0,
+		});
+		expect(events).toEqual(['write', 'flush', 'exit:0']);
+	});
+
+	it('flushes startup errors before terminating', async () => {
+		const events: string[] = [];
+		const base = createTestAdapter({
+			argv: ['node', 'cli.js', 'deploy'],
+			stderr: () => events.push('write'),
+			readFile: () => Promise.resolve('{not valid json'),
+		});
+		const adapter = {
+			...base,
+			flush: async () => {
+				await Promise.resolve();
+				events.push('flush');
+			},
+			exit: (code: number): never => {
+				events.push(`exit:${code}`);
+				throw new ExitError(code);
+			},
+		};
+		const app = cli('mycli').config('mycli').command(deployCommand());
+
+		await expect(app.run({ adapter })).rejects.toMatchObject({ code: 1 });
+		expect(events).toEqual(['write', 'write', 'flush', 'exit:1']);
+	});
+
+	it('exits 1 when a successful command cannot flush its output', async () => {
+		const adapter = {
+			...createTestAdapter({ argv: ['node', 'cli.js', 'deploy', 'production'] }),
+			flush: () => Promise.reject(new Error('write ENOSPC')),
+		};
+
+		await expect(cli('mycli').command(deployCommand()).run({ adapter })).rejects.toMatchObject({
+			code: 1,
+		});
+	});
+
+	it('keeps the startup error status when its output cannot be flushed', async () => {
+		const adapter = {
+			...createTestAdapter({
+				argv: ['node', 'cli.js', 'deploy'],
+				readFile: () => Promise.resolve('{not valid json'),
+			}),
+			flush: () => Promise.reject(new Error('write ENOSPC')),
+		};
+		const app = cli('mycli').config('mycli').command(deployCommand());
+
+		await expect(app.run({ adapter })).rejects.toMatchObject({ code: 1 });
+	});
+
 	it('uses the invoked entry basename in root help during .run()', async () => {
 		const stdoutLines: string[] = [];
 		const adapter = createTestAdapter({

@@ -2,13 +2,14 @@
  * Tests for the runtime adapter interface, Node adapter, and test adapter.
  */
 
+import { Writable } from 'node:stream';
 import { describe, expect, it, vi } from 'vitest';
 import { cli } from '#internals/core/cli/index.ts';
 import { arg } from '#internals/core/schema/arg.ts';
 import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import type { RuntimeAdapter } from './adapter.ts';
-import { createTestAdapter, ExitError } from './adapter.ts';
+import { createTestAdapter, ExitError, exitAfterFlush } from './adapter.ts';
 import type { NodeProcess } from './node.ts';
 import { createNodeAdapter } from './node.ts';
 
@@ -16,6 +17,17 @@ import { createNodeAdapter } from './node.ts';
 
 /** Empty async iterator — yields nothing, returns immediately. */
 async function* emptyAsyncIterator(): AsyncGenerator<Uint8Array> {}
+
+/** Node stream writer that completes each write immediately. */
+function immediateWrite(_data: string, callback?: (error?: Error | null) => void): boolean {
+	callback?.();
+	return true;
+}
+
+/** Error carrying a Node system error code. */
+function systemError(code: string): Error {
+	return Object.assign(new Error(`write ${code}`), { code });
+}
 
 /** Minimal stdin stub with async iterator (yields nothing). */
 function mockStdin(overrides?: Partial<NodeProcess['stdin']>): NodeProcess['stdin'] {
@@ -36,8 +48,8 @@ function mockNodeProcess(
 		cwd: overrides?.cwd ?? (() => '/'),
 		platform: overrides?.platform ?? 'linux',
 		stdin: overrides?.stdin ?? mockStdin(),
-		stdout: overrides?.stdout ?? { write: vi.fn() },
-		stderr: overrides?.stderr ?? { write: vi.fn() },
+		stdout: overrides?.stdout ?? { write: immediateWrite },
+		stderr: overrides?.stderr ?? { write: immediateWrite },
 		exit: overrides?.exit ?? (vi.fn() as unknown as (code: number) => never),
 	};
 }
@@ -176,6 +188,53 @@ describe('ExitError', () => {
 
 // --- createNodeAdapter
 
+describe('exitAfterFlush', () => {
+	function adapterWith(flush: () => Promise<void>): RuntimeAdapter {
+		return { ...createTestAdapter(), flush };
+	}
+
+	it('exits with the given code after a successful flush', async () => {
+		await expect(
+			exitAfterFlush(
+				adapterWith(() => Promise.resolve()),
+				3,
+			),
+		).rejects.toMatchObject({
+			code: 3,
+		});
+	});
+
+	it('exits 1 when a successful run cannot flush its output', async () => {
+		const failing = adapterWith(() => Promise.reject(new Error('write ENOSPC')));
+
+		await expect(exitAfterFlush(failing, 0)).rejects.toMatchObject({ code: 1 });
+	});
+
+	it.each([2, 7])('keeps code %i when the flush fails', async (code) => {
+		const failing = adapterWith(() => Promise.reject(new Error('write ENOSPC')));
+
+		await expect(exitAfterFlush(failing, code)).rejects.toMatchObject({ code });
+	});
+
+	it('calls exit once and lets its error propagate unchanged', async () => {
+		const codes: number[] = [];
+		const adapter = {
+			...adapterWith(() => Promise.resolve()),
+			exit: (code: number): never => {
+				codes.push(code);
+				throw new ExitError(code);
+			},
+		};
+
+		await expect(exitAfterFlush(adapter, 0)).rejects.toMatchObject({ code: 0 });
+		expect(codes).toEqual([0]);
+	});
+
+	it('exits with the given code when the adapter has no flush', async () => {
+		await expect(exitAfterFlush(createTestAdapter(), 0)).rejects.toMatchObject({ code: 0 });
+	});
+});
+
 describe('createNodeAdapter', () => {
 	it('creates adapter from mock NodeProcess', () => {
 		const mockProc: NodeProcess = {
@@ -210,7 +269,7 @@ describe('createNodeAdapter', () => {
 		const adapter = createNodeAdapter(mockProc);
 		adapter.stdout('hello world');
 
-		expect(writeFn).toHaveBeenCalledWith('hello world');
+		expect(writeFn).toHaveBeenCalledWith('hello world', expect.any(Function));
 	});
 
 	it('routes stderr writes to process.stderr.write', () => {
@@ -220,7 +279,257 @@ describe('createNodeAdapter', () => {
 		const adapter = createNodeAdapter(mockProc);
 		adapter.stderr('error message');
 
-		expect(writeFn).toHaveBeenCalledWith('error message');
+		expect(writeFn).toHaveBeenCalledWith('error message', expect.any(Function));
+	});
+
+	it('flush waits for pending stdout and stderr writes', async () => {
+		const callbacks: Array<(error?: Error | null) => void> = [];
+		const write = vi.fn((_data: string, callback?: (error?: Error | null) => void) => {
+			if (callback !== undefined) callbacks.push(callback);
+		});
+		const adapter = createNodeAdapter(mockNodeProcess({ stdout: { write }, stderr: { write } }));
+		adapter.stdout('output');
+		adapter.stderr('error');
+
+		let flushed = false;
+		const flushing = adapter.flush?.().then(() => {
+			flushed = true;
+		});
+		await Promise.resolve();
+		expect(flushed).toBe(false);
+
+		callbacks[0]?.();
+		await Promise.resolve();
+		expect(flushed).toBe(false);
+
+		callbacks[1]?.();
+		await flushing;
+		expect(flushed).toBe(true);
+	});
+
+	it('flush resolves when a write fails with EPIPE', async () => {
+		const adapter = createNodeAdapter(
+			mockNodeProcess({
+				stdout: { write: (_data, callback) => callback?.(systemError('EPIPE')) },
+			}),
+		);
+		adapter.stdout('output');
+
+		await expect(adapter.flush?.()).resolves.toBeUndefined();
+	});
+
+	it('flush ignores errors that follow EPIPE on the same stream', async () => {
+		const errors = [systemError('EPIPE'), systemError('ERR_STREAM_DESTROYED')];
+		const adapter = createNodeAdapter(
+			mockNodeProcess({
+				stdout: { write: (_data, callback) => callback?.(errors.shift()) },
+			}),
+		);
+		adapter.stdout('first');
+		adapter.stdout('second');
+
+		await expect(adapter.flush?.()).resolves.toBeUndefined();
+	});
+
+	it.each(['ENOSPC', 'EIO'])(
+		'flush rejects with %s only after the other stream settles',
+		async (code) => {
+			const failure = systemError(code);
+			let stdoutCallback: ((error?: Error | null) => void) | undefined;
+			let stderrCallback: ((error?: Error | null) => void) | undefined;
+			const adapter = createNodeAdapter(
+				mockNodeProcess({
+					stdout: {
+						write: (_data, callback) => {
+							stdoutCallback = callback;
+						},
+					},
+					stderr: {
+						write: (_data, callback) => {
+							stderrCallback = callback;
+						},
+					},
+				}),
+			);
+			adapter.stdout('output');
+			adapter.stderr('error');
+
+			let settled = false;
+			const flushing = adapter.flush?.().finally(() => {
+				settled = true;
+			});
+			stdoutCallback?.(failure);
+			await Promise.resolve();
+			expect(settled).toBe(false);
+
+			stderrCallback?.();
+			await expect(flushing).rejects.toBe(failure);
+		},
+	);
+
+	it('flush rejects after a failure that happened before it was called', async () => {
+		const failure = systemError('ENOSPC');
+		const adapter = createNodeAdapter(
+			mockNodeProcess({
+				stdout: { write: (_data, callback) => callback?.(failure) },
+			}),
+		);
+		adapter.stdout('output');
+
+		await expect(adapter.flush?.()).rejects.toBe(failure);
+		await expect(adapter.flush?.()).rejects.toBe(failure);
+	});
+
+	it('flush reports the first failure on a stream', async () => {
+		const first = systemError('ENOSPC');
+		const errors = [first, systemError('EIO')];
+		const adapter = createNodeAdapter(
+			mockNodeProcess({
+				stdout: { write: (_data, callback) => callback?.(errors.shift()) },
+			}),
+		);
+		adapter.stdout('first');
+		adapter.stdout('second');
+
+		await expect(adapter.flush?.()).rejects.toBe(first);
+	});
+
+	it('flush waits for the other stream when a real Writable fails and emits its error late', async () => {
+		const failure = systemError('ENOSPC');
+		let errorEmitted = false;
+		const stdout = new Writable({
+			write: (_chunk, _encoding, callback) => callback(failure),
+			destroy: (error, callback) => {
+				setTimeout(() => callback(error), 20);
+			},
+		});
+		stdout.on('error', () => {
+			errorEmitted = true;
+		});
+		let stderrCallback: ((error?: Error | null) => void) | undefined;
+		const stderrWrites: string[] = [];
+		const adapter = createNodeAdapter(
+			mockNodeProcess({
+				stdout,
+				stderr: {
+					write: (data, callback) => {
+						stderrWrites.push(data);
+						stderrCallback = callback;
+					},
+				},
+			}),
+		);
+		adapter.stdout('output');
+		adapter.stderr('remaining');
+
+		let settled = false;
+		const flushing = adapter.flush?.().finally(() => {
+			settled = true;
+		});
+		await new Promise((resolve) => setTimeout(resolve, 40));
+		expect(errorEmitted).toBe(true);
+		expect(settled).toBe(false);
+		expect(stderrWrites).toEqual(['remaining']);
+
+		stderrCallback?.();
+		await expect(flushing).rejects.toBe(failure);
+	});
+
+	it('flush rejects before a real Writable emits its late error', async () => {
+		const failure = systemError('ENOSPC');
+		let errorEmitted = false;
+		const stdout = new Writable({
+			write: (_chunk, _encoding, callback) => callback(failure),
+			destroy: (error, callback) => {
+				setTimeout(() => callback(error), 20);
+			},
+		});
+		stdout.on('error', () => {
+			errorEmitted = true;
+		});
+		const adapter = createNodeAdapter(mockNodeProcess({ stdout }));
+		adapter.stdout('output');
+
+		await expect(adapter.flush?.()).rejects.toBe(failure);
+		expect(errorEmitted).toBe(false);
+	});
+
+	it('shares stream failures between adapters on the same stream', async () => {
+		const listeners: Array<(error: Error) => void> = [];
+		const stdout: NodeProcess['stdout'] = {
+			on: (_event: string, listener: (error: Error) => void) => {
+				listeners.push(listener);
+			},
+			write: immediateWrite,
+		};
+		const first = createNodeAdapter(mockNodeProcess({ stdout }));
+		const second = createNodeAdapter(mockNodeProcess({ stdout }));
+		const failure = systemError('EIO');
+
+		listeners[0]?.(failure);
+
+		expect(listeners).toHaveLength(1);
+		await expect(first.flush?.()).rejects.toBe(failure);
+		await expect(second.flush?.()).rejects.toBe(failure);
+	});
+
+	it('keeps write bookkeeping consistent when stream.write throws synchronously', async () => {
+		const failure = new Error('write threw');
+		let stderrCallback: ((error?: Error | null) => void) | undefined;
+		const adapter = createNodeAdapter(
+			mockNodeProcess({
+				stdout: {
+					write: () => {
+						throw failure;
+					},
+				},
+				stderr: {
+					write: (_data, callback) => {
+						stderrCallback = callback;
+					},
+				},
+			}),
+		);
+
+		expect(() => adapter.stdout('output')).toThrow(failure);
+		adapter.stderr('error');
+		const flushing = adapter.flush?.();
+		stderrCallback?.();
+
+		await expect(flushing).resolves.toBeUndefined();
+	});
+
+	it('records stream error events without throwing', async () => {
+		const listeners: Array<(error: Error) => void> = [];
+		const on = (_event: string, listener: (error: Error) => void): void => {
+			listeners.push(listener);
+		};
+		const adapter = createNodeAdapter(
+			mockNodeProcess({
+				stdout: { on, write: immediateWrite },
+				stderr: { on, write: immediateWrite },
+			}),
+		);
+		const failure = systemError('EIO');
+
+		expect(listeners).toHaveLength(2);
+		expect(() => listeners[0]?.(systemError('EPIPE'))).not.toThrow();
+		expect(() => listeners[1]?.(failure)).not.toThrow();
+		await expect(adapter.flush?.()).rejects.toBe(failure);
+	});
+
+	it('attaches the error listener once per stream', () => {
+		const events: string[] = [];
+		const stdout: NodeProcess['stdout'] = {
+			on: (event: string) => {
+				events.push(event);
+			},
+			write: immediateWrite,
+		};
+		createNodeAdapter(mockNodeProcess({ stdout }));
+		createNodeAdapter(mockNodeProcess({ stdout }));
+
+		expect(events).toEqual(['error']);
 	});
 
 	it('delegates exit to process.exit', () => {
@@ -274,33 +583,29 @@ describe('createNodeAdapter', () => {
 	});
 
 	it('subscribes to stdout resize events when supported', () => {
-		let resizeListener: (() => void) | undefined;
-		let removed = false;
-		let calls = 0;
+		const subscribed: Array<{ readonly event: string; readonly listener: unknown }> = [];
+		const unsubscribed: Array<{ readonly event: string; readonly listener: unknown }> = [];
 		const adapter = createNodeAdapter(
 			mockNodeProcess({
 				stdout: {
 					isTTY: true,
 					write: vi.fn(),
-					on: (_event, listener) => {
-						resizeListener = listener;
+					on: (event, listener) => {
+						subscribed.push({ event, listener });
 					},
-					off: (_event, listener) => {
-						removed = resizeListener === listener;
-						resizeListener = undefined;
+					off: (event, listener) => {
+						unsubscribed.push({ event, listener });
 					},
 				},
 			}),
 		);
+		const onResize = (): void => {};
 
-		const cleanup = adapter.onTerminalResize(() => {
-			calls += 1;
-		});
-		resizeListener?.();
+		const cleanup = adapter.onTerminalResize(onResize);
+		expect(subscribed).toContainEqual({ event: 'resize', listener: onResize });
+
 		cleanup?.();
-
-		expect(calls).toBe(1);
-		expect(removed).toBe(true);
+		expect(unsubscribed).toEqual([{ event: 'resize', listener: onResize }]);
 	});
 
 	it('uses globalThis.process when no proc argument given', () => {

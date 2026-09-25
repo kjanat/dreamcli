@@ -67,13 +67,15 @@ interface NodeProcess {
 		readonly rows?: number;
 		getWindowSize?(): readonly [number, number];
 		on?(event: 'resize', listener: () => void): unknown;
+		on?(event: 'error', listener: (error: Error) => void): unknown;
 		off?(event: 'resize', listener: () => void): unknown;
 		removeListener?(event: 'resize', listener: () => void): unknown;
-		write(data: string): unknown;
+		write(data: string, callback?: (error?: Error | null) => void): unknown;
 	};
 	/** Standard error stream with write. */
 	readonly stderr: {
-		write(data: string): unknown;
+		on?(event: 'error', listener: (error: Error) => void): unknown;
+		write(data: string, callback?: (error?: Error | null) => void): unknown;
 	};
 	/** Terminate the process with the given exit code. */
 	exit(code: number): never;
@@ -172,13 +174,52 @@ function resolveConfigDir(
  */
 function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
 	const p = proc ?? getNodeProcess();
+	let pendingWrites = 0;
+	let flushWaiters: Array<{
+		readonly resolve: () => void;
+		readonly reject: (error: unknown) => void;
+	}> = [];
 
-	const stdoutWrite: WriteFn = (data) => {
-		p.stdout.write(data);
+	const settle = (): void => {
+		if (pendingWrites !== 0) return;
+		const waiters = flushWaiters;
+		flushWaiters = [];
+		const failure = outputFailure(p);
+		for (const waiter of waiters) {
+			if (failure === undefined) waiter.resolve();
+			else waiter.reject(failure.error);
+		}
 	};
-	const stderrWrite: WriteFn = (data) => {
-		p.stderr.write(data);
-	};
+
+	const trackedWrite =
+		(stream: NodeProcess['stdout'] | NodeProcess['stderr']): WriteFn =>
+		(data) => {
+			pendingWrites += 1;
+			let completed = false;
+			const complete = (error?: Error | null): void => {
+				if (completed) return;
+				completed = true;
+				if (error != null) recordStreamError(stream, error);
+				pendingWrites -= 1;
+				settle();
+			};
+			try {
+				stream.write(data, complete);
+			} catch (error) {
+				complete();
+				throw error;
+			}
+		};
+
+	watchStreamErrors(p.stdout);
+	watchStreamErrors(p.stderr);
+	const stdoutWrite = trackedWrite(p.stdout);
+	const stderrWrite = trackedWrite(p.stderr);
+	const flush = (): Promise<void> =>
+		new Promise((resolve, reject) => {
+			flushWaiters.push({ resolve, reject });
+			settle();
+		});
 
 	// Stdin line reading via readline — created lazily on first call.
 	// This avoids importing readline unless prompting actually occurs.
@@ -232,6 +273,7 @@ function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
 		cwd: p.cwd(),
 		stdout: stdoutWrite,
 		stderr: stderrWrite,
+		flush,
 		stdin: stdinRead,
 		readStdin: () => readNodeStdinAll(p, stdinIsTTY),
 		isTTY: p.stdout.isTTY === true,
@@ -247,6 +289,42 @@ function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
 		userConfigDirs,
 		systemConfigDirs,
 	};
+}
+
+/** State of a standard stream after its first error. @internal */
+type StreamState = { readonly kind: 'closed' } | { readonly kind: 'failed'; readonly error: Error };
+
+/** Watched standard streams and their state after the first error. @internal */
+const streamStates = new WeakMap<object, StreamState | undefined>();
+
+/** Record a stream's first error, where EPIPE closes the stream and any other error fails it. @internal */
+function recordStreamError(
+	stream: NodeProcess['stdout'] | NodeProcess['stderr'],
+	error: Error,
+): void {
+	if (streamStates.get(stream) !== undefined) return;
+	streamStates.set(
+		stream,
+		isNodeSystemError(error) && error.code === 'EPIPE'
+			? { kind: 'closed' }
+			: { kind: 'failed', error },
+	);
+}
+
+/** Attach one error listener per stream. @internal */
+function watchStreamErrors(stream: NodeProcess['stdout'] | NodeProcess['stderr']): void {
+	if (streamStates.has(stream)) return;
+	streamStates.set(stream, undefined);
+	stream.on?.('error', (error) => recordStreamError(stream, error));
+}
+
+/** The failure recorded on stdout, else on stderr. @internal */
+function outputFailure(proc: NodeProcess): { readonly error: Error } | undefined {
+	for (const stream of [proc.stdout, proc.stderr]) {
+		const state = streamStates.get(stream);
+		if (state?.kind === 'failed') return state;
+	}
+	return undefined;
 }
 
 /** Normalize terminal dimensions and discard unusable values. @internal */

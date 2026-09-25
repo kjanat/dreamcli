@@ -11,8 +11,17 @@ export default defineConfig({
 		// NO_COLOR and any non-empty value counts as on, so the setup file
 		// deletes inherited FORCE_* variables instead of overwriting them.
 		env: { NO_COLOR: '1' },
+		fsModuleCache: true,
+		isolate: false,
 		setupFiles: ['./vitest.setup.ts'],
-		include: ['src/**/*.test.ts', 'docs/.vitepress/data/*.test.ts'],
+		projects: [
+			{ test: { name: 'dreamcli', include: ['src/**/*.test.ts'] } },
+			{ test: { name: 'docs', include: ['docs/.vitepress/data/*.test.ts'] } },
+			{
+				resolve: { alias: { 'bun:test': 'vitest' } },
+				test: { name: 'pwsh-demo', include: ['examples/pwsh-demo/src/**/*.test.ts'] },
+			},
+		],
 		coverage: {
 			include: ['src/**/*.ts', 'docs/.vitepress/data/*.ts'],
 			exclude: [

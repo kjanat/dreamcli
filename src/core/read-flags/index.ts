@@ -30,6 +30,7 @@ import type { FlagBuilder, FlagConfig, InferFlags } from '#internals/core/schema
 import type { SourcesOf } from '#internals/core/schema/provenance.ts';
 import { invocationSelectsStdin } from '#internals/core/schema/source.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
+import { exitAfterFlush } from '#internals/runtime/adapter.ts';
 import { createAdapter } from '#internals/runtime/auto.ts';
 
 /**
@@ -321,7 +322,7 @@ async function readFlags<const F extends FlagMap>(
 		requestsHelp(argv)
 	) {
 		host().stdout(formatHelp(schema, { binName: scriptName(host()), isDefaultHelp: true }));
-		host().exit(0);
+		await exitAfterFlush(host(), 0);
 	}
 
 	const parsed = parse(

@@ -59,8 +59,18 @@ function nodeProcess(
 				return { next: () => Promise.resolve({ done: true, value: new Uint8Array(0) }) };
 			},
 		},
-		stdout: { write: () => true },
-		stderr: { write: () => true },
+		stdout: {
+			write: (_data: string, callback?: () => void) => {
+				callback?.();
+				return true;
+			},
+		},
+		stderr: {
+			write: (_data: string, callback?: () => void) => {
+				callback?.();
+				return true;
+			},
+		},
 		exit: (code: number): never => {
 			throw new Error(`process exited with code ${code}`);
 		},
@@ -899,6 +909,40 @@ describe('readFlags() built-in help', () => {
 		expect(text).not.toContain('standalone');
 		expect(text).toContain('--watch');
 		expect(text).toContain('-p, --port');
+	});
+
+	it('flushes help output before exiting', async () => {
+		const events: string[] = [];
+		const base = createTestAdapter({
+			argv: ['node', 'build.ts', '--help'],
+			stdout: () => events.push('write'),
+		});
+		const adapter = {
+			...base,
+			flush: async () => {
+				await Promise.resolve();
+				events.push('flush');
+			},
+			exit: (code: number): never => {
+				events.push(`exit:${code}`);
+				throw new ExitError(code);
+			},
+		};
+
+		await thrownBy(() => readFlags({ watch: flag.boolean() }, { adapter }));
+
+		expect(events).toEqual(['write', 'flush', 'exit:0']);
+	});
+
+	it('exits 1 when help output cannot be flushed', async () => {
+		const adapter = {
+			...createTestAdapter({ argv: ['node', 'build.ts', '--help'] }),
+			flush: () => Promise.reject(new Error('write ENOSPC')),
+		};
+
+		const error = await thrownBy(() => readFlags({ watch: flag.boolean() }, { adapter }));
+
+		expect(error instanceof ExitError && error.code).toBe(1);
 	});
 
 	it('renders help for -h', async () => {
