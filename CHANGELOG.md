@@ -16,6 +16,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - [ ] Commit and push the release preparation, then verify the target commit is signed, `master` matches the remote, and every required check is green.
 - [ ] Confirm the exact `v<version>` tag does not already exist and npm and JSR do not already contain that version before publishing the GitHub release.
 
+## [4.1.0] - 2026-09-25
+
+### Added
+
+- **`RuntimeAdapter.flush()`** (https://github.com/kjanat/dreamcli/issues/141).\
+  An optional member that waits for pending output writes to settle and rejects with a recorded output failure. `.run()` and the `readFlags()` help path call it before exiting. `createNodeAdapter()` implements it; the Deno adapter writes synchronously and does not need it.
+
+### Fixed
+
+- **Piped output is no longer cut off on Node and Bun** (https://github.com/kjanat/dreamcli/issues/141).\
+  On POSIX, Node and Bun write to a pipe asynchronously, and exiting dropped whatever was still queued, so output piped to another program stopped at 8192 bytes on Node and 16384 on Bun. The Node adapter now tracks its pending writes and exits only after they settle.
+- **Output write failures set a nonzero exit status.**\
+  A write error other than EPIPE, such as ENOSPC or EIO, turns exit status 0 into 1 and leaves a nonzero status unchanged. A reader that closes early, as in `mycli | head`, no longer prints an EPIPE stack trace, and the command exits with its own status.
+
 ## [4.0.0] - 2026-09-06
 
 The first stable v4 release includes the changes from the three release candidates below. See [Upgrading From 3.x To 4.0](https://dreamcli.kjanat.dev/guide/upgrading-v4) for migration instructions and the [stability policy](https://dreamcli.kjanat.dev/reference/stability) for compatibility guarantees throughout v4.
@@ -1092,7 +1106,8 @@ The stable 3.0.0 release. It ships the code of 3.0.0-rc.20 plus the fix and docu
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v4.0.0...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v4.1.0...HEAD
+[4.1.0]: https://github.com/kjanat/dreamcli/compare/v4.0.0...v4.1.0
 [4.0.0]: https://github.com/kjanat/dreamcli/compare/v4.0.0-rc.3...v4.0.0
 [4.0.0-rc.3]: https://github.com/kjanat/dreamcli/compare/v4.0.0-rc.2...v4.0.0-rc.3
 [4.0.0-rc.2]: https://github.com/kjanat/dreamcli/compare/v4.0.0-rc.1...v4.0.0-rc.2
