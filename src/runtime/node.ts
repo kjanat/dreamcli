@@ -67,13 +67,15 @@ interface NodeProcess {
 		readonly rows?: number;
 		getWindowSize?(): readonly [number, number];
 		on?(event: 'resize', listener: () => void): unknown;
+		on?(event: 'error', listener: (error: Error) => void): unknown;
 		off?(event: 'resize', listener: () => void): unknown;
 		removeListener?(event: 'resize', listener: () => void): unknown;
-		write(data: string): unknown;
+		write(data: string, callback?: (error?: Error | null) => void): unknown;
 	};
 	/** Standard error stream with write. */
 	readonly stderr: {
-		write(data: string): unknown;
+		on?(event: 'error', listener: (error: Error) => void): unknown;
+		write(data: string, callback?: (error?: Error | null) => void): unknown;
 	};
 	/** Terminate the process with the given exit code. */
 	exit(code: number): never;
@@ -172,13 +174,41 @@ function resolveConfigDir(
  */
 function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
 	const p = proc ?? getNodeProcess();
+	let pendingWrites = 0;
+	let flushWaiters: Array<() => void> = [];
 
-	const stdoutWrite: WriteFn = (data) => {
-		p.stdout.write(data);
-	};
-	const stderrWrite: WriteFn = (data) => {
-		p.stderr.write(data);
-	};
+	const trackedWrite =
+		(stream: NodeProcess['stdout'] | NodeProcess['stderr']): WriteFn =>
+		(data) => {
+			pendingWrites += 1;
+			let completed = false;
+			const complete = (): void => {
+				if (completed) return;
+				completed = true;
+				pendingWrites -= 1;
+				if (pendingWrites !== 0) return;
+				const waiters = flushWaiters;
+				flushWaiters = [];
+				for (const resolve of waiters) resolve();
+			};
+			try {
+				stream.write(data, complete);
+			} catch (error) {
+				complete();
+				throw error;
+			}
+		};
+
+	ignoreBrokenPipeOn(p.stdout);
+	ignoreBrokenPipeOn(p.stderr);
+	const stdoutWrite = trackedWrite(p.stdout);
+	const stderrWrite = trackedWrite(p.stderr);
+	const flush = (): Promise<void> =>
+		pendingWrites === 0
+			? Promise.resolve()
+			: new Promise((resolve) => {
+					flushWaiters.push(resolve);
+				});
 
 	// Stdin line reading via readline — created lazily on first call.
 	// This avoids importing readline unless prompting actually occurs.
@@ -232,6 +262,7 @@ function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
 		cwd: p.cwd(),
 		stdout: stdoutWrite,
 		stderr: stderrWrite,
+		flush,
 		stdin: stdinRead,
 		readStdin: () => readNodeStdinAll(p, stdinIsTTY),
 		isTTY: p.stdout.isTTY === true,
@@ -247,6 +278,22 @@ function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
 		userConfigDirs,
 		systemConfigDirs,
 	};
+}
+
+/** Streams that already carry the {@link ignoreBrokenPipe} listener. @internal */
+const brokenPipeGuarded = new WeakSet<object>();
+
+/** Drop EPIPE from a standard stream and rethrow any other stream error. @internal */
+function ignoreBrokenPipe(error: Error): void {
+	if (isNodeSystemError(error) && error.code === 'EPIPE') return;
+	throw error;
+}
+
+/** Attach {@link ignoreBrokenPipe} to a stream once. @internal */
+function ignoreBrokenPipeOn(stream: NodeProcess['stdout'] | NodeProcess['stderr']): void {
+	if (stream.on === undefined || brokenPipeGuarded.has(stream)) return;
+	brokenPipeGuarded.add(stream);
+	stream.on('error', ignoreBrokenPipe);
 }
 
 /** Normalize terminal dimensions and discard unusable values. @internal */

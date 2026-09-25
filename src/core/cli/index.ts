@@ -1705,6 +1705,7 @@ class CLIBuilder {
 					adapter.stderr(`Suggestion: ${preflight.error.suggest}\n`);
 				}
 			}
+			await adapter.flush?.();
 			return adapter.exit(preflight.error.exitCode);
 		}
 
@@ -1752,6 +1753,7 @@ class CLIBuilder {
 			adapter.stderr(line);
 		}
 
+		await adapter.flush?.();
 		return adapter.exit(result.exitCode);
 	}
 }

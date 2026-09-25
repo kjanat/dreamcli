@@ -55,6 +55,9 @@ interface RuntimeAdapter {
 	/** Writer for stderr. Framework routes `out.warn`/`out.error` through this. */
 	readonly stderr: WriteFn;
 
+	/** Wait for pending output writes to finish before terminating, when required by the host. */
+	readonly flush?: () => Promise<void>;
+
 	/**
 	 * Line reader for stdin. Used by the prompt engine for interactive input.
 	 *

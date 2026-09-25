@@ -321,6 +321,7 @@ async function readFlags<const F extends FlagMap>(
 		requestsHelp(argv)
 	) {
 		host().stdout(formatHelp(schema, { binName: scriptName(host()), isDefaultHelp: true }));
+		await host().flush?.();
 		host().exit(0);
 	}
 
