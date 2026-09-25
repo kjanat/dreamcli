@@ -11,6 +11,7 @@ env: { RUNNER_PM: bun }
 jobs:
   meta:
     name: Resolve Release Metadata
+    if: github.repository == 'kjanat/dreamcli'
     runs-on: ubuntu-latest
     env: { RELEASE_TAG: "${{ github.event.release.tag_name }}" }
     outputs:

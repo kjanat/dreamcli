@@ -16,6 +16,7 @@ env: { RUNNER_PM: bun }
 jobs:
   publish:
     name: Publish Preview
+    if: github.repository == 'kjanat/dreamcli'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

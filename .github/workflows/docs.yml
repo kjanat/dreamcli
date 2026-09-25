@@ -25,6 +25,7 @@ jobs:
 
   deploy:
     name: Deploy
+    if: github.repository == 'kjanat/dreamcli'
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 5
