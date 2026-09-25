@@ -18,13 +18,14 @@ jobs:
     concurrency: { group: "pages-build-${{ github.ref }}", cancel-in-progress: true }
     steps:
       - uses: actions/checkout@v7
-      - uses: ./.github/actions/setup
+      - uses: $/.github/actions/setup
       - run: runner install --frozen docs:build
       - uses: actions/upload-pages-artifact@v5
         with: { path: docs/.vitepress/dist }
 
   deploy:
     name: Deploy
+    if: github.repository == 'kjanat/dreamcli'
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 5

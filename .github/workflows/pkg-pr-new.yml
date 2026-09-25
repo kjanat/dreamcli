@@ -1,16 +1,25 @@
 name: pkg.pr.new
 
 on:
-  push: { branches: [master] }
-  pull_request: { branches: [master], types: [opened, synchronize, reopened, ready_for_review] }
+  push: { branches: &m [master] }
+  pull_request:
+    branches: *m
+    types: [opened, synchronize, reopened, ready_for_review]
 
-concurrency: { group: "pkg-pr-new-${{ github.event.pull_request.number || github.ref_name }}", cancel-in-progress: true }
+concurrency:
+  group: "pkg-pr-new-${{ github.event.pull_request.number || github.ref_name }}"
+  cancel-in-progress: true
+
 permissions: { contents: read }
 env: { RUNNER_PM: bun }
 
 jobs:
   publish:
     name: Publish Preview
+    if: github.repository == 'kjanat/dreamcli'
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    steps: [uses: actions/checkout@v7, uses: ./.github/actions/setup, run: runner install --frozen bd publish:preview]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: $/.github/actions/setup
+      - run: runner install --frozen bd publish:preview

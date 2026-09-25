@@ -8,13 +8,13 @@ permissions: { contents: read }
 concurrency: { group: "autofix-${{ github.ref }}", cancel-in-progress: true }
 jobs:
   autofix:
-    if: github.event_name != 'pull_request' || github.event.pull_request.stack == null
+    if: github.repository == 'kjanat/dreamcli' && (github.event_name != 'pull_request' || github.event.pull_request.stack == null)
     runs-on: ubuntu-latest
     timeout-minutes: 8
     env: { RUNNER_PM: bun }
     steps:
       - uses: actions/checkout@v7
-      - uses: ./.github/actions/setup
+      - uses: $/.github/actions/setup
       - run: runner install
       - run: run -s fmt:autofix lint:autofix
       # `dprint config update` queries every plugin registry and may download

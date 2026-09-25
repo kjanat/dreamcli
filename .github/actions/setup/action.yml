@@ -1,4 +1,4 @@
-name: bun-deno-runner
+name: bun-deno-runner-dprint
 description: A GitHub Action to setup Bun and Deno environments for running scripts, with runner/run bins.
 runs: {
   using: composite,
