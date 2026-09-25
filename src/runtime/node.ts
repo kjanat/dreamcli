@@ -175,21 +175,33 @@ function resolveConfigDir(
 function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
 	const p = proc ?? getNodeProcess();
 	let pendingWrites = 0;
-	let flushWaiters: Array<() => void> = [];
+	let flushWaiters: Array<{
+		readonly resolve: () => void;
+		readonly reject: (error: unknown) => void;
+	}> = [];
+
+	const settle = (): void => {
+		if (pendingWrites !== 0) return;
+		const waiters = flushWaiters;
+		flushWaiters = [];
+		const failure = outputFailure(p);
+		for (const waiter of waiters) {
+			if (failure === undefined) waiter.resolve();
+			else waiter.reject(failure.error);
+		}
+	};
 
 	const trackedWrite =
 		(stream: NodeProcess['stdout'] | NodeProcess['stderr']): WriteFn =>
 		(data) => {
 			pendingWrites += 1;
 			let completed = false;
-			const complete = (): void => {
+			const complete = (error?: Error | null): void => {
 				if (completed) return;
 				completed = true;
+				if (error != null) recordStreamError(stream, error);
 				pendingWrites -= 1;
-				if (pendingWrites !== 0) return;
-				const waiters = flushWaiters;
-				flushWaiters = [];
-				for (const resolve of waiters) resolve();
+				settle();
 			};
 			try {
 				stream.write(data, complete);
@@ -199,16 +211,15 @@ function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
 			}
 		};
 
-	ignoreBrokenPipeOn(p.stdout);
-	ignoreBrokenPipeOn(p.stderr);
+	watchStreamErrors(p.stdout);
+	watchStreamErrors(p.stderr);
 	const stdoutWrite = trackedWrite(p.stdout);
 	const stderrWrite = trackedWrite(p.stderr);
 	const flush = (): Promise<void> =>
-		pendingWrites === 0
-			? Promise.resolve()
-			: new Promise((resolve) => {
-					flushWaiters.push(resolve);
-				});
+		new Promise((resolve, reject) => {
+			flushWaiters.push({ resolve, reject });
+			settle();
+		});
 
 	// Stdin line reading via readline — created lazily on first call.
 	// This avoids importing readline unless prompting actually occurs.
@@ -280,20 +291,40 @@ function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
 	};
 }
 
-/** Streams that already carry the {@link ignoreBrokenPipe} listener. @internal */
-const brokenPipeGuarded = new WeakSet<object>();
+/** State of a standard stream after its first error. @internal */
+type StreamState = { readonly kind: 'closed' } | { readonly kind: 'failed'; readonly error: Error };
 
-/** Drop EPIPE from a standard stream and rethrow any other stream error. @internal */
-function ignoreBrokenPipe(error: Error): void {
-	if (isNodeSystemError(error) && error.code === 'EPIPE') return;
-	throw error;
+/** Watched standard streams and their state after the first error. @internal */
+const streamStates = new WeakMap<object, StreamState | undefined>();
+
+/** Record a stream's first error, where EPIPE closes the stream and any other error fails it. @internal */
+function recordStreamError(
+	stream: NodeProcess['stdout'] | NodeProcess['stderr'],
+	error: Error,
+): void {
+	if (streamStates.get(stream) !== undefined) return;
+	streamStates.set(
+		stream,
+		isNodeSystemError(error) && error.code === 'EPIPE'
+			? { kind: 'closed' }
+			: { kind: 'failed', error },
+	);
 }
 
-/** Attach {@link ignoreBrokenPipe} to a stream once. @internal */
-function ignoreBrokenPipeOn(stream: NodeProcess['stdout'] | NodeProcess['stderr']): void {
-	if (stream.on === undefined || brokenPipeGuarded.has(stream)) return;
-	brokenPipeGuarded.add(stream);
-	stream.on('error', ignoreBrokenPipe);
+/** Attach one error listener per stream. @internal */
+function watchStreamErrors(stream: NodeProcess['stdout'] | NodeProcess['stderr']): void {
+	if (streamStates.has(stream)) return;
+	streamStates.set(stream, undefined);
+	stream.on?.('error', (error) => recordStreamError(stream, error));
+}
+
+/** The failure recorded on stdout, else on stderr. @internal */
+function outputFailure(proc: NodeProcess): { readonly error: Error } | undefined {
+	for (const stream of [proc.stdout, proc.stderr]) {
+		const state = streamStates.get(stream);
+		if (state?.kind === 'failed') return state;
+	}
+	return undefined;
 }
 
 /** Normalize terminal dimensions and discard unusable values. @internal */

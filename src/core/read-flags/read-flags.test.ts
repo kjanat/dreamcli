@@ -934,6 +934,17 @@ describe('readFlags() built-in help', () => {
 		expect(events).toEqual(['write', 'flush', 'exit:0']);
 	});
 
+	it('exits 1 when help output cannot be flushed', async () => {
+		const adapter = {
+			...createTestAdapter({ argv: ['node', 'build.ts', '--help'] }),
+			flush: () => Promise.reject(new Error('write ENOSPC')),
+		};
+
+		const error = await thrownBy(() => readFlags({ watch: flag.boolean() }, { adapter }));
+
+		expect(error instanceof ExitError && error.code).toBe(1);
+	});
+
 	it('renders help for -h', async () => {
 		const written: string[] = [];
 		const adapter = createTestAdapter({

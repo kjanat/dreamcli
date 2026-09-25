@@ -55,7 +55,7 @@ interface RuntimeAdapter {
 	/** Writer for stderr. Framework routes `out.warn`/`out.error` through this. */
 	readonly stderr: WriteFn;
 
-	/** Wait for pending output writes to finish before terminating, when required by the host. */
+	/** Wait for pending output writes to settle, rejecting with the first output failure. */
 	readonly flush?: () => Promise<void>;
 
 	/**
@@ -395,7 +395,22 @@ function createTestAdapter(options?: TestAdapterOptions): RuntimeAdapter {
 	};
 }
 
+/**
+ * Flush pending output, then exit with `code`, or with 1 when a successful run's output failed.
+ *
+ * @internal
+ */
+async function exitAfterFlush(adapter: RuntimeAdapter, code: number): Promise<never> {
+	let status = code;
+	try {
+		await adapter.flush?.();
+	} catch {
+		status = code === 0 ? 1 : code;
+	}
+	return adapter.exit(status);
+}
+
 // --- Exports
 
 export type { RuntimeAdapter, TerminalSize, TestAdapterOptions };
-export { createTestAdapter, ExitError };
+export { createTestAdapter, ExitError, exitAfterFlush };

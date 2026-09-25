@@ -41,6 +41,7 @@ import type { FlagBuilder, FlagConfig } from '#internals/core/schema/flag.ts';
 import { getFlagAliasNames, getFlagNegatedName } from '#internals/core/schema/flag.ts';
 import type { InternalRunOptions, RunOptions, RunResult } from '#internals/core/schema/run.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
+import { exitAfterFlush } from '#internals/runtime/adapter.ts';
 import { createAdapter } from '#internals/runtime/auto.ts';
 import { BACKSLASH, SLASH, stripTrailing } from '#internals/strings.ts';
 import type { Builtins, BuiltinsConfig, BuiltinsDraft } from './builtins.ts';
@@ -1705,8 +1706,7 @@ class CLIBuilder {
 					adapter.stderr(`Suggestion: ${preflight.error.suggest}\n`);
 				}
 			}
-			await adapter.flush?.();
-			return adapter.exit(preflight.error.exitCode);
+			return exitAfterFlush(adapter, preflight.error.exitCode);
 		}
 
 		const effectiveBuilder =
@@ -1753,8 +1753,7 @@ class CLIBuilder {
 			adapter.stderr(line);
 		}
 
-		await adapter.flush?.();
-		return adapter.exit(result.exitCode);
+		return exitAfterFlush(adapter, result.exitCode);
 	}
 }
 
