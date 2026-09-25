@@ -71,8 +71,7 @@ specs/                      # planning/design docs
 - Explicit named re-exports only; no `export *`
 - `@module` JSDoc at top of source files; `@internal` marks non-public API
 - Public API stays factory-first: `cli()`, `command()`, `flag.*()`, `createOutput()`, `createAdapter()`
-- Tests are co-located `*.test.ts`; use `describe()` + `it()`, em dash in suite titles,
-  `// ===` and `// ---` section markers
+- Tests are co-located `*.test.ts`
 - No lifecycle hooks, no snapshots, no module mocks
 - Output assertions include trailing `\n`
 - Core stays runtime-agnostic; host I/O goes through `RuntimeAdapter`, `WriteFn`, or `ReadFn`
