@@ -69,7 +69,7 @@
 		"npm:@dprint/biome@0.13.12",
 		"npm:@dprint/markdown@0.24.0",
 		"npm:@dprint/ruff@0.8.9",
-		"npm:@dprint/json@0.24.0",
+		"npm:@dprint/json@0.25.0",
 		"npm:dprint-plugin-malva@0.16.0",
 		"npm:dprint-plugin-markup@0.27.5",
 		"npm:dprint-plugin-yaml@0.6.0",
