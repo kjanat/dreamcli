@@ -16,12 +16,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - **Consistent prompt failures across terminal, scripted, and custom engines.**\
-  Prompt sessions report exhausted invalid answers as `PROMPT_INVALID` with exit code 2 while cancellation retains exit code 130. Scripted schema passwords retry invalid answers, and `prompt.input()` always produces an input definition when reusing another prompt's options.
+  Prompt sessions and schema passwords report exhausted invalid answers as `PROMPT_INVALID` with exit code 2 while cancellation retains exit code 130. Scripted schema passwords retry invalid answers, and `prompt.input()` always produces an input definition when reusing another prompt's options. Serialized prompt metadata preserves sensitivity for every prompt kind.
 
 ### Security
 
 - **Protect password input and sensitive diagnostics.**\
-  Hidden reads discard bytes buffered during ordinary, echo-enabled input rather than accepting a password that was already visible. Password and dynamically sensitive schema prompts redact framework-controlled values in both initial and deferred validation errors without rerunning user parsers.
+  Hidden reads discard bytes buffered during ordinary, echo-enabled input rather than accepting a password that was already visible. Password and dynamically sensitive schema prompts redact framework-controlled values in CLI parse failures and both initial and deferred resolution errors without rerunning user parsers.
 
 ### Release checklist
 

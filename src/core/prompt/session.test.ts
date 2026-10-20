@@ -224,6 +224,159 @@ describe('prompt sessions', () => {
 });
 
 describe('password and text schema prompts', () => {
+	it.each(['flag', 'arg'] as const)(
+		'preserves custom password exhaustion for a schema %s',
+		async (surface) => {
+			let cmd = command('login');
+			const definition = prompt.password({ message: 'Password' });
+			if (surface === 'flag')
+				cmd = cmd.flag('password', flag.string().default('fallback').prompt(definition));
+			else cmd = cmd.arg('password', arg.string().default('fallback').prompt(definition));
+			const result = await runCommand(
+				cmd.action(({ out }) => out.log('executed')),
+				[],
+				{
+					prompter: { promptOne: async () => ({ answered: false, reason: 'invalid' }) },
+				},
+			);
+			expect(result.error?.code).toBe('PROMPT_INVALID');
+			expect(result.exitCode).toBe(2);
+			expect(result.stdout).toEqual([]);
+		},
+	);
+
+	it.each([
+		prompt.confirm({ message: 'Confirm', sensitive: true }),
+		prompt.select({ message: 'Select', sensitive: true, choices: [{ value: 'a' }] }),
+		prompt.multiselect({ message: 'Multi', sensitive: true, choices: [{ value: 'a' }] }),
+	])('serializes sensitivity for $kind prompts', (definition) => {
+		const cmd = command('test')
+			.flag('value', flag.custom((value) => value).prompt(definition))
+			.arg('value', arg.custom((value) => value).prompt(definition));
+		const schema = generateCommandSchema(cmd.schema, { includePrompts: true });
+		expect(schema.flags?.value?.prompt).toMatchObject({ kind: definition.kind, sensitive: true });
+		expect(schema.args?.[0]?.prompt).toMatchObject({ kind: definition.kind, sensitive: true });
+	});
+
+	it.each(['password', 'sensitive'] as const)(
+		'redacts dynamically %s CLI parse failures',
+		async (mode) => {
+			const secret = 'SYNTHETIC_SECRET';
+			const cmd = command('login')
+				.flag(
+					'token',
+					flag
+						.string()
+						.pattern(/^valid$/)
+						.alias('t'),
+				)
+				.flag('secret', flag.boolean())
+				.interactive(({ flags }) =>
+					flags.secret
+						? {
+								token:
+									mode === 'password'
+										? prompt.password({ message: 'Token' })
+										: prompt.input({ message: 'Token', sensitive: true }),
+							}
+						: {},
+				)
+				.action(({ out }) => out.log('executed'));
+			for (const argv of [
+				['--token', secret, '--secret'],
+				[`--token=${secret}`, '--secret'],
+				['-t', secret, '--secret'],
+				[`-t${secret}`, '--secret'],
+			]) {
+				const result = await runCommand(cmd, argv);
+				expect(result.error?.code).toBe('INVALID_VALUE');
+				expect(result.exitCode).toBe(2);
+				expect(JSON.stringify(result)).not.toContain(secret);
+				expect(result.stdout).toEqual([]);
+			}
+			const ordinary = await runCommand(cmd, ['--token', secret]);
+			expect(JSON.stringify(ordinary)).toContain(secret);
+		},
+	);
+
+	it.each(['cli', 'env', 'config'] as const)(
+		'uses %s branch inputs once when redacting a failed CLI parser',
+		async (source) => {
+			const secret = 'SYNTHETIC_SECRET';
+			let tokenCalls = 0;
+			let branchCalls = 0;
+			let interactiveCalls = 0;
+			const cmd = command('login')
+				.flag(
+					'token',
+					flag.custom(() => {
+						tokenCalls++;
+						throw new Error('invalid token');
+					}),
+				)
+				.flag(
+					'mode',
+					flag
+						.custom((value) => {
+							branchCalls++;
+							return value;
+						})
+						.env('MODE')
+						.config('mode'),
+				)
+				.interactive(({ flags }) => {
+					interactiveCalls++;
+					expect(flags).toEqual({ mode: 'secret' });
+					return flags.mode === 'secret' ? { token: prompt.password({ message: 'Token' }) } : {};
+				})
+				.action(({ out }) => out.log('executed'));
+			const result = await runCommand(
+				cmd,
+				['--token', secret, ...(source === 'cli' ? ['--mode', 'secret'] : [])],
+				{
+					...(source === 'env' ? { env: { MODE: 'secret' } } : {}),
+					...(source === 'config' ? { config: { mode: 'secret' } } : {}),
+					prompter: {
+						promptOne: async () => {
+							throw new Error('must not prompt');
+						},
+					},
+				},
+			);
+			expect(result.error?.code).toBe('INVALID_VALUE');
+			expect(JSON.stringify(result)).not.toContain(secret);
+			expect(result.error?.cause).toBeUndefined();
+			expect(result.stdout).toEqual([]);
+			expect(tokenCalls).toBe(1);
+			expect(branchCalls).toBe(1);
+			expect(interactiveCalls).toBe(1);
+		},
+	);
+
+	it.each([
+		{ builder: flag.number(), argv: ['--value=SYNTHETIC_SECRET'] },
+		{ builder: flag.boolean(), argv: ['--value=SYNTHETIC_SECRET'] },
+		{ builder: flag.count(), argv: ['--value=SYNTHETIC_SECRET'] },
+		{ builder: flag.keyValue(flag.string()), argv: ['--value=SYNTHETIC_SECRET'] },
+		{ builder: flag.array(flag.string().pattern(/^valid$/)), argv: ['--value=SYNTHETIC_SECRET'] },
+		{
+			builder: flag.string().duplicates('error'),
+			argv: ['--value=first', '--value=SYNTHETIC_SECRET'],
+		},
+	])(
+		'redacts dynamically sensitive CLI failures for $builder.schema.kind',
+		async ({ builder, argv }) => {
+			const cmd = command('test')
+				.flag('value', builder)
+				.interactive(() => ({ value: prompt.input({ message: 'Value', sensitive: true }) }))
+				.action(() => {});
+			const result = await runCommand(cmd, argv);
+			expect(result.exitCode).toBe(2);
+			expect(result.error?.name).toBe('ParseError');
+			expect(JSON.stringify(result)).not.toContain('SYNTHETIC_SECRET');
+		},
+	);
+
 	it.each(['scripted', 'terminal'] as const)(
 		'retries invalid schema passwords in %s mode',
 		async (mode) => {

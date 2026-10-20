@@ -744,7 +744,7 @@ function serializeStdin(stdin: StdinBinding): StdinBindingFragmentV1 {
  * @returns JSON-serializable object representing the prompt.
  */
 function serializePrompt(prompt: PromptConfig): PromptDefinitionFragmentV1 {
-	const textPolicy = {
+	const sensitivity = {
 		...(prompt.sensitive === true || prompt.kind === 'password' ? { sensitive: true } : {}),
 	};
 	switch (prompt.kind) {
@@ -753,7 +753,7 @@ function serializePrompt(prompt: PromptConfig): PromptDefinitionFragmentV1 {
 			return {
 				kind: prompt.kind,
 				message: prompt.message,
-				...textPolicy,
+				...sensitivity,
 				...(prompt.empty !== undefined ? { empty: prompt.empty } : {}),
 				...(prompt.trim !== undefined ? { trim: prompt.trim } : {}),
 				...(prompt.placeholder !== undefined ? { placeholder: prompt.placeholder } : {}),
@@ -762,25 +762,27 @@ function serializePrompt(prompt: PromptConfig): PromptDefinitionFragmentV1 {
 			return {
 				kind: prompt.kind,
 				message: prompt.message,
-				...textPolicy,
+				...sensitivity,
 				...(prompt.empty !== undefined ? { empty: prompt.empty } : {}),
 			};
 		case 'select':
 			return {
 				kind: prompt.kind,
 				message: prompt.message,
+				...sensitivity,
 				...(prompt.choices !== undefined ? { choices: prompt.choices.map(serializeChoice) } : {}),
 			};
 		case 'multiselect':
 			return {
 				kind: prompt.kind,
 				message: prompt.message,
+				...sensitivity,
 				...(prompt.choices !== undefined ? { choices: prompt.choices.map(serializeChoice) } : {}),
 				...(prompt.min !== undefined ? { min: prompt.min } : {}),
 				...(prompt.max !== undefined ? { max: prompt.max } : {}),
 			};
 		case 'confirm':
-			return { kind: prompt.kind, message: prompt.message };
+			return { kind: prompt.kind, message: prompt.message, ...sensitivity };
 	}
 }
 

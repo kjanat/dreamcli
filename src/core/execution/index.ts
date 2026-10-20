@@ -18,7 +18,7 @@ import { CLIError } from '#internals/core/errors/index.ts';
 import { formatHelp } from '#internals/core/help/index.ts';
 import type { CapturedOutput } from '#internals/core/output/index.ts';
 import { clearRequestedExitCode, getRequestedExitCode } from '#internals/core/output/index.ts';
-import { parse, requestsHelp } from '#internals/core/parse/index.ts';
+import { parse, parseForResolution, requestsHelp } from '#internals/core/parse/index.ts';
 import type { Ask } from '#internals/core/prompt/definitions.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import type { PromptSession } from '#internals/core/prompt/session.ts';
@@ -138,7 +138,11 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 			out,
 		});
 
-		const parsed = parse(schema, argv, options?.flags);
+		const parsed = (schema.interactive === undefined ? parse : parseForResolution)(
+			schema,
+			argv,
+			options?.flags,
+		);
 
 		const effectivePrompter = options?.prompter ?? (await scriptedPrompter(options?.answers));
 		const resolveOptions: ResolveOptions = {

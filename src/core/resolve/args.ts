@@ -5,7 +5,7 @@
  * @internal
  */
 
-import { ValidationError } from '#internals/core/errors/index.ts';
+import { CLIError, ValidationError } from '#internals/core/errors/index.ts';
 import { PromptCancelledError } from '#internals/core/prompt/errors.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import { resolvePromptConfig } from '#internals/core/prompt/index.ts';
@@ -244,6 +244,11 @@ async function resolveArgPromptValue(
 	const result = await prompter.promptOne(resolvedConfig);
 
 	if (!result.answered) {
+		if (promptConfig.kind === 'password' && result.reason === 'invalid')
+			throw new CLIError('Too many invalid prompt answers', {
+				code: 'PROMPT_INVALID',
+				exitCode: 2,
+			});
 		if (promptConfig.kind === 'password') throw new PromptCancelledError();
 		return { ok: false, error: undefined };
 	}

@@ -5,7 +5,8 @@
  * @internal
  */
 
-import { ValidationError } from '#internals/core/errors/index.ts';
+import { CLIError, ValidationError } from '#internals/core/errors/index.ts';
+import { pendingFlagErrors, redactFlagParseError } from '#internals/core/parse/index.ts';
 import { PromptCancelledError } from '#internals/core/prompt/errors.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import { resolvePromptConfig } from '#internals/core/prompt/index.ts';
@@ -79,6 +80,7 @@ async function resolveFlags(
 	const hardErrorFlags = new Set<string>();
 	const effectiveSchemas = new Map<string, FlagSchema>();
 	const firstPassErrors = new Map<string, number>();
+	const parseErrors = pendingFlagErrors(parsedFlags);
 	const state: StageState = {
 		env: options.env,
 		config: options.config,
@@ -87,6 +89,7 @@ async function resolveFlags(
 	};
 
 	for (const [name, schema] of Object.entries(flagSchemas)) {
+		if (parseErrors?.has(name)) continue;
 		const bindings = sourceBindings(schema);
 		const outcome = await runStages(
 			bindingsBeforePrompt(bindings),
@@ -99,6 +102,17 @@ async function resolveFlags(
 
 	const interactiveConfigs =
 		options.interactive !== undefined ? options.interactive({ flags: resolved }) : undefined;
+
+	if (parseErrors !== undefined) {
+		for (const [name, error] of parseErrors) {
+			const schema = flagSchemas[name];
+			if (schema === undefined) throw error;
+			const config = effectivePromptConfig(name, schema, interactiveConfigs);
+			throw schema.sensitive || config?.kind === 'password' || config?.sensitive === true
+				? redactFlagParseError(error)
+				: error;
+		}
+	}
 
 	for (const [name, originalSchema] of Object.entries(flagSchemas)) {
 		const config = effectivePromptConfig(name, originalSchema, interactiveConfigs);
@@ -390,6 +404,11 @@ async function resolvePromptValueWithConfig(
 	const result = await prompter.promptOne(resolvedConfig);
 
 	if (!result.answered) {
+		if (promptConfig.kind === 'password' && result.reason === 'invalid')
+			throw new CLIError('Too many invalid prompt answers', {
+				code: 'PROMPT_INVALID',
+				exitCode: 2,
+			});
 		if (promptConfig.kind === 'password') throw new PromptCancelledError();
 		return { ok: false, error: undefined };
 	}

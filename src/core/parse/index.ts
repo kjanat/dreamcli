@@ -209,6 +209,42 @@ interface ParseOptions {
 	readonly caseParity?: boolean;
 }
 
+/** Retained diagnostics are formatted again without decoding tokens again. */
+const sensitiveFlagDiagnostics = new WeakMap<ParseError, () => ParseError>();
+const deferredFlagDiagnostics = new WeakMap<object, Map<string, ParseError>>();
+
+/** @internal Invocation-local CLI failures waiting for dynamic prompt sensitivity. */
+export function pendingFlagErrors(flags: object): ReadonlyMap<string, ParseError> | undefined {
+	return deferredFlagDiagnostics.get(flags);
+}
+
+/** @internal Apply sensitivity to a retained flag failure without rerunning its parser. */
+export function redactFlagParseError(error: ParseError): ParseError {
+	return sensitiveFlagDiagnostics.get(error)?.() ?? error;
+}
+
+/** Keep the formatting recipe separate from value decoding. */
+function flagDiagnostic(
+	format: (sensitive: boolean) => ParseError,
+	sensitive: boolean,
+): ParseError {
+	const error = format(sensitive);
+	sensitiveFlagDiagnostics.set(error, () => format(true));
+	return error;
+}
+
+/** Keep a value failure private until resolution knows its prompt policy. */
+function retainFlagError(occurrences: object, name: string, error: unknown): void {
+	const errors = deferredFlagDiagnostics.get(occurrences);
+	if (
+		!(error instanceof ParseError) ||
+		!sensitiveFlagDiagnostics.has(error) ||
+		errors === undefined
+	)
+		throw error;
+	if (!errors.has(name)) errors.set(name, error);
+}
+
 // --- Flag-name case conversion (kebab↔camel parity)
 
 /** `do-this` → `doThis`. Returns the input unchanged when nothing converts. */
@@ -361,23 +397,43 @@ function recordFlagOccurrence(
 	displayName: string,
 	items: () => readonly Occurrence[],
 ): void {
+	try {
+		recordFlagValue(occurrences, name, schema, reported, displayName, items);
+	} catch (error) {
+		retainFlagError(occurrences, name, error);
+	}
+}
+
+/** Record an occurrence, allowing the invocation parser to retain value diagnostics. */
+function recordFlagValue(
+	occurrences: Map<string, FlagOccurrences>,
+	name: string,
+	schema: FlagSchema,
+	reported: unknown,
+	displayName: string,
+	items: () => readonly Occurrence[],
+): void {
 	const record = occurrencesOf(occurrences, name, schema);
 	record.counted += 1;
 
 	if (record.counted > 1 && schema.duplicates === 'error') {
-		const values = diagnosticValue(schema.sensitive, [
+		const count = record.counted;
+		const rawValues = [
 			...record.occurrences.filter((entry) => entry.policed).map((entry) => entry.reported),
 			reported,
-		]);
-		throw new ParseError(`Flag --${name} may only be specified once`, {
-			code: 'DUPLICATE_FLAG',
-			details: {
-				flag: name,
-				input: displayName,
-				count: record.counted,
-				...(values.kind === 'visible' ? { values: values.value } : {}),
-			},
-		});
+		];
+		throw flagDiagnostic((sensitive) => {
+			const values = diagnosticValue(sensitive, rawValues);
+			return new ParseError(`Flag --${name} may only be specified once`, {
+				code: 'DUPLICATE_FLAG',
+				details: {
+					flag: name,
+					input: displayName,
+					count,
+					...(values.kind === 'visible' ? { values: values.value } : {}),
+				},
+			});
+		}, schema.sensitive);
 	}
 	if (record.counted > 1 && schema.duplicates === 'first') return;
 	record.occurrences.push({ policed: true, reported, items: items() });
@@ -528,19 +584,21 @@ function coerceCountToken(
 	// Number('') is 0, which would silently accept `--verbose=`.
 	const count = raw.trim() === '' ? Number.NaN : Number(raw);
 	if (!Number.isInteger(count) || count < 0) {
-		const report = diagnosticValue(sensitive, raw);
-		throw new ParseError(
-			`Invalid count value '${report.text}' for flag ${displayName}. Use a non-negative integer`,
-			{
-				code: 'INVALID_VALUE',
-				details: {
-					flag: flagName,
-					input: displayName,
-					...(report.kind === 'visible' ? { value: report.value } : {}),
-					expected: 'count',
+		throw flagDiagnostic((effectiveSensitive) => {
+			const report = diagnosticValue(effectiveSensitive, raw);
+			return new ParseError(
+				`Invalid count value '${report.text}' for flag ${displayName}. Use a non-negative integer`,
+				{
+					code: 'INVALID_VALUE',
+					details: {
+						flag: flagName,
+						input: displayName,
+						...(report.kind === 'visible' ? { value: report.value } : {}),
+						expected: 'count',
+					},
 				},
-			},
-		);
+			);
+		}, sensitive);
 	}
 	return count;
 }
@@ -554,16 +612,21 @@ function coerceEntryToken(
 ): readonly [string, unknown] {
 	const pair = splitEntryPair(raw);
 	if (pair === undefined) {
-		const report = diagnosticValue(schema.sensitive, raw);
-		throw new ParseError(`Invalid value '${report.text}' for flag ${displayName}. Use KEY=VALUE`, {
-			code: 'INVALID_VALUE',
-			details: {
-				flag: flagName,
-				input: displayName,
-				...(report.kind === 'visible' ? { value: report.value } : {}),
-				expected: 'key=value',
-			},
-		});
+		throw flagDiagnostic((sensitive) => {
+			const report = diagnosticValue(sensitive, raw);
+			return new ParseError(
+				`Invalid value '${report.text}' for flag ${displayName}. Use KEY=VALUE`,
+				{
+					code: 'INVALID_VALUE',
+					details: {
+						flag: flagName,
+						input: displayName,
+						...(report.kind === 'visible' ? { value: report.value } : {}),
+						expected: 'key=value',
+					},
+				},
+			);
+		}, schema.sensitive);
 	}
 	return [pair[0], coerceElementToken(flagName, pair[1], schema, displayName)];
 }
@@ -684,16 +747,20 @@ function flagValueError(
 	failure: ValueFailure,
 	sensitive: boolean,
 ): ParseError {
-	return valueParseError(
-		{
-			details: { flag: flagName, input: displayName },
-			label: `flag ${displayName}`,
-			enumDetails: { flag: flagName, kind: 'enum', missing: 'enumValues' },
-			enumLabel: `Enum flag --${flagName}`,
-			sensitive,
-		},
-		raw,
-		failure,
+	return flagDiagnostic(
+		(effectiveSensitive) =>
+			valueParseError(
+				{
+					details: { flag: flagName, input: displayName },
+					label: `flag ${displayName}`,
+					enumDetails: { flag: flagName, kind: 'enum', missing: 'enumValues' },
+					enumLabel: `Enum flag --${flagName}`,
+					sensitive: effectiveSensitive,
+				},
+				raw,
+				failure,
+			),
+		sensitive,
 	);
 }
 
@@ -793,12 +860,32 @@ function parse(
 	argv: readonly string[],
 	options?: ParseOptions,
 ): ParseResult {
+	return parseCommand(schema, argv, options, new Map());
+}
+
+/** @internal Retain CLI value failures until the interactive resolver determines sensitivity. */
+export function parseForResolution(
+	schema: CommandSchema,
+	argv: readonly string[],
+	options?: ParseOptions,
+): ParseResult {
+	const occurrences = new Map<string, FlagOccurrences>();
+	deferredFlagDiagnostics.set(occurrences, new Map());
+	return parseCommand(schema, argv, options, occurrences);
+}
+
+/** Shared parser walk; public parsing still throws value failures immediately. */
+function parseCommand(
+	schema: CommandSchema,
+	argv: readonly string[],
+	options: ParseOptions | undefined,
+	occurrences: Map<string, FlagOccurrences>,
+): ParseResult {
 	const tokens = tokenize(argv);
 	const flagLookup = buildFlagLookup(schema.flags, options);
 
 	// Mutable accumulators — projected into the result
 	const positionals: string[] = [];
-	const occurrences = new Map<string, FlagOccurrences>();
 
 	let i = 0;
 	while (i < tokens.length) {
@@ -828,7 +915,10 @@ function parse(
 	// Map positionals to named args
 	const args = mapPositionals(schema.args, positionals);
 
-	return { flags: projectFlags(occurrences), args };
+	const flags = projectFlags(occurrences);
+	const errors = deferredFlagDiagnostics.get(occurrences);
+	if (errors !== undefined) deferredFlagDiagnostics.set(flags, errors);
+	return { flags, args };
 }
 
 // --- Long flag parsing
@@ -869,15 +959,19 @@ function parseLongFlag(
 	if (negated) {
 		// Negated spelling is presence-only: it always means `false`.
 		if (token.value !== undefined) {
-			const report = diagnosticValue(flagSchema.sensitive, token.value);
-			throw new ParseError(`Flag ${displayName} does not take a value`, {
-				code: 'INVALID_VALUE',
-				details: {
-					flag: canonicalName,
-					input: token.name,
-					...(report.kind === 'visible' ? { value: report.value } : {}),
-				},
-			});
+			const error = flagDiagnostic((sensitive) => {
+				const report = diagnosticValue(sensitive, token.value);
+				return new ParseError(`Flag ${displayName} does not take a value`, {
+					code: 'INVALID_VALUE',
+					details: {
+						flag: canonicalName,
+						input: token.name,
+						...(report.kind === 'visible' ? { value: report.value } : {}),
+					},
+				});
+			}, flagSchema.sensitive);
+			retainFlagError(occurrences, canonicalName, error);
+			return startIdx + 1;
 		}
 		recordFlagOccurrence(occurrences, canonicalName, flagSchema, false, displayName, () => [
 			NEGATED_OCCURRENCE,
@@ -888,15 +982,19 @@ function parseLongFlag(
 	if (!flagExpectsValue(flagSchema)) {
 		// Boolean or count flag — consumes no value token
 		if (token.value !== undefined) {
-			const item = flagTokenOccurrence(canonicalName, token.value, flagSchema, displayName);
-			recordFlagOccurrence(
-				occurrences,
-				canonicalName,
-				flagSchema,
-				occurrenceValue(item),
-				displayName,
-				() => [item],
-			);
+			try {
+				const item = flagTokenOccurrence(canonicalName, token.value, flagSchema, displayName);
+				recordFlagOccurrence(
+					occurrences,
+					canonicalName,
+					flagSchema,
+					occurrenceValue(item),
+					displayName,
+					() => [item],
+				);
+			} catch (error) {
+				retainFlagError(occurrences, canonicalName, error);
+			}
 		} else if (flagSchema.kind === 'count') {
 			recordCountIncrement(occurrences, canonicalName, flagSchema);
 		} else {
