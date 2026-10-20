@@ -58,7 +58,9 @@ def render_template(template: str, replacements: dict[str, str]) -> str:
 
 def write_file(path: Path, content: str, force: bool) -> None:
     if path.exists() and not force:
-        raise FileExistsError(f"Refusing to overwrite existing file: {path}. Use --force to overwrite.")
+        raise FileExistsError(
+            f"Refusing to overwrite existing file: {path}. Use --force to overwrite."
+        )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content)
 
@@ -246,7 +248,9 @@ def detect_vitest_usage_in_project(project_root: Path, manager_root: Path | None
     return False
 
 
-def choose_test_template(mode: str, package_manager: str | None, uses_vitest: bool) -> tuple[str, str]:
+def choose_test_template(
+    mode: str, package_manager: str | None, uses_vitest: bool
+) -> tuple[str, str]:
     if package_manager == "bun" and not uses_vitest:
         return (f"{mode}-command.bun-test.ts.tpl", "bun:test")
     return (f"{mode}-command.test.ts.tpl", "vitest")
@@ -275,7 +279,9 @@ def format_run_path(path: Path, cwd: Path) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Scaffold Bun-first DreamCLI starter files from templates.")
+    parser = argparse.ArgumentParser(
+        description="Scaffold Bun-first DreamCLI starter files from templates."
+    )
     parser.add_argument("--name", required=True, help="CLI name (e.g. mycli)")
     parser.add_argument(
         "--mode",
@@ -331,7 +337,9 @@ def main() -> int:
         print(f"[OK] Wrote {entry_path}")
 
         if include_test:
-            test_template_name, test_framework = choose_test_template(args.mode, package_manager, uses_vitest)
+            test_template_name, test_framework = choose_test_template(
+                args.mode, package_manager, uses_vitest
+            )
             test_template_path = templates_dir / test_template_name
             test_template = read_template(test_template_path)
             test_content = render_template(test_template, replacements)
