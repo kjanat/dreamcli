@@ -478,9 +478,11 @@ function createLazyTerminalPrompter(adapter: RuntimeAdapter): PromptEngine {
 	return {
 		async promptOne(config) {
 			engine ??= import('#internals/core/prompt/terminal.ts').then(({ createTerminalPrompter }) =>
-				createTerminalPrompter(adapter.stdin, adapter.stderr, {
-					...(adapter.readSecret !== undefined ? { readSecret: adapter.readSecret } : {}),
-				}),
+				createTerminalPrompter(
+					adapter.stdin,
+					adapter.stderr,
+					adapter.readSecret !== undefined ? { readSecret: adapter.readSecret } : {},
+				),
 			);
 			return (await engine).promptOne(config);
 		},
