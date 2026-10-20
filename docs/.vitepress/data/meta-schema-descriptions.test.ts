@@ -4,20 +4,19 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { collectPublicApiIndex } from './api-index.ts';
 import {
 	buildDefinitionMetaSchemaDescriptions,
 	renderDefinitionMetaSchemaDescriptions,
 } from './meta-schema-descriptions.ts';
-import { packageJsonPath } from './paths.ts';
-import { collectTypeDocModel } from './typedoc.ts';
+import { createTypeDocFixture } from './typedoc-fixture.ts';
+
+const collectModel = createTypeDocFixture();
 
 describe('definition meta-schema descriptions', () => {
 	it('extracts root and nested property descriptions from the normalized TypeDoc model', {
 		timeout: 60_000,
 	}, async () => {
-		const publicApi = await collectPublicApiIndex(packageJsonPath);
-		const { normalized } = await collectTypeDocModel(packageJsonPath, publicApi);
+		const { normalized } = await collectModel();
 		const descriptions = buildDefinitionMetaSchemaDescriptions(normalized);
 
 		expect(descriptions.root.description).toContain('Runtime descriptor for the CLI program.');
@@ -40,8 +39,7 @@ describe('definition meta-schema descriptions', () => {
 	it('renders the generated source module shape consumed by json-schema', {
 		timeout: 60_000,
 	}, async () => {
-		const publicApi = await collectPublicApiIndex(packageJsonPath);
-		const { normalized } = await collectTypeDocModel(packageJsonPath, publicApi);
+		const { normalized } = await collectModel();
 		const rendered = renderDefinitionMetaSchemaDescriptions(
 			buildDefinitionMetaSchemaDescriptions(normalized),
 		);

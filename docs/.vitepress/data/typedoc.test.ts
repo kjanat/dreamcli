@@ -4,16 +4,15 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { collectPublicApiIndex } from './api-index.ts';
-import { packageJsonPath } from './paths.ts';
-import { collectTypeDocModel } from './typedoc.ts';
+import { createTypeDocFixture } from './typedoc-fixture.ts';
+
+const collectModel = createTypeDocFixture();
 
 describe('typedoc normalization', () => {
 	it('normalizes public entrypoints into a DreamCLI-owned docs model', {
 		timeout: 60_000,
 	}, async () => {
-		const publicApi = await collectPublicApiIndex(packageJsonPath);
-		const { normalized, rawProject } = await collectTypeDocModel(packageJsonPath, publicApi);
+		const { normalized, rawProject } = await collectModel();
 
 		expect(rawProject.schemaVersion).toBe(normalized.typedocSchemaVersion);
 		expect(normalized.entrypoints).toEqual([
@@ -102,8 +101,7 @@ describe('typedoc normalization', () => {
 	it('preserves symbol docs, overloads, and nested property types without leaking raw TypeDoc shape', {
 		timeout: 60_000,
 	}, async () => {
-		const publicApi = await collectPublicApiIndex(packageJsonPath);
-		const { normalized } = await collectTypeDocModel(packageJsonPath, publicApi);
+		const { normalized } = await collectModel();
 
 		const cliExport = normalized.exports.find((entry) => entry.id === '@kjanat/dreamcli:cli');
 		expect(cliExport?.reflection.kind).toBe('function');
