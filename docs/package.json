@@ -14,16 +14,16 @@
 		"@kjanat/dreamcli": "file:.."
 	},
 	"devDependencies": {
-		"@shikijs/transformers": "^4.4.3",
-		"@shikijs/vitepress-twoslash": "^4.4.3",
+		"@shikijs/transformers": "^4.5.0",
+		"@shikijs/vitepress-twoslash": "^4.5.0",
 		"@types/node": "catalog:",
-		"floating-vue": "^5.2.2",
-		"mermaid": "^11.16.1",
+		"floating-vue": "^5.4.0",
+		"mermaid": "^12.2.0",
 		"typedoc": "^0.28.20",
 		"typescript": "catalog:",
-		"vite": "^8.2.1",
+		"vite": "^8.3.4",
 		"vitepress": "next",
 		"vitest": "catalog:",
-		"wrangler": "4.129.0"
+		"wrangler": "4.151.3"
 	}
 }
