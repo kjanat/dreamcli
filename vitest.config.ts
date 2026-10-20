@@ -23,6 +23,8 @@ export default defineConfig({
 					// Each TypeDoc conversion builds a full TypeScript program. Avoid
 					// competing conversions while CI tests Bun and Node together.
 					fileParallelism: false,
+					// Projects with different worker counts need separate execution groups.
+					sequence: { groupOrder: 1 },
 				},
 			},
 			{
