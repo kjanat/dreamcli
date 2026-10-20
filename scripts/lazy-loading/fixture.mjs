@@ -21,6 +21,7 @@ function ttyAdapter(stdinLine) {
 		isTTY: false,
 		stdinIsTTY: true,
 		stdin: async () => stdinLine,
+		readSecret: async () => stdinLine,
 		readStdin: async () => null,
 		getTerminalSize: () => undefined,
 		onTerminalResize: () => undefined,
@@ -42,6 +43,13 @@ function ttyAdapter(stdinLine) {
 const deploy = command('deploy')
 	.flag('region', flag.string().prompt({ kind: 'input', message: 'Region?' }))
 	.action(() => {});
+
+const unlock = command('unlock')
+	.flag('check', flag.boolean())
+	.action(async ({ flags, ask }) => {
+		if (flags.check) return;
+		await ask({ kind: 'password', message: 'Password' });
+	});
 
 const scenario = process.env.DREAMCLI_SCENARIO;
 switch (scenario) {
@@ -78,6 +86,12 @@ switch (scenario) {
 		await cli('app')
 			.command(deploy)
 			.execute(['deploy'], { answers: ['eu'] });
+		break;
+	case 'handler-check':
+	case 'handler-prompt':
+		await cli('app')
+			.command(unlock)
+			.run({ adapter: ttyAdapter('synthetic-secret') });
 		break;
 	default:
 		throw new Error(`unknown scenario: ${scenario}`);

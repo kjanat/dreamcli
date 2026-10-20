@@ -151,13 +151,18 @@ type PromptChoiceFragmentV1 = {
  * prompt survives.
  */
 type PromptDefinitionFragmentV1 = {
-	readonly kind: PromptKind;
-	readonly message: string;
-	readonly placeholder?: string;
-	readonly choices?: readonly PromptChoiceFragmentV1[];
-	readonly min?: number;
-	readonly max?: number;
-};
+	[K in PromptKind]: {
+		readonly kind: K;
+		readonly message: string;
+		readonly placeholder?: string;
+		readonly trim?: boolean;
+		readonly empty?: K extends 'password' ? 'accept' | 'retry' : 'skip' | 'accept' | 'retry';
+		readonly sensitive?: boolean;
+		readonly choices?: readonly PromptChoiceFragmentV1[];
+		readonly min?: number;
+		readonly max?: number;
+	};
+}[PromptKind];
 
 /**
  * Stdin binding of a flag or arg fragment.
@@ -739,30 +744,45 @@ function serializeStdin(stdin: StdinBinding): StdinBindingFragmentV1 {
  * @returns JSON-serializable object representing the prompt.
  */
 function serializePrompt(prompt: PromptConfig): PromptDefinitionFragmentV1 {
+	const sensitivity = {
+		...(prompt.sensitive === true || prompt.kind === 'password' ? { sensitive: true } : {}),
+	};
 	switch (prompt.kind) {
 		case 'input':
 			// validate fn omitted — not serializable
 			return {
 				kind: prompt.kind,
 				message: prompt.message,
+				...sensitivity,
+				...(prompt.empty !== undefined ? { empty: prompt.empty } : {}),
+				...(prompt.trim !== undefined ? { trim: prompt.trim } : {}),
 				...(prompt.placeholder !== undefined ? { placeholder: prompt.placeholder } : {}),
+			};
+		case 'password':
+			return {
+				kind: prompt.kind,
+				message: prompt.message,
+				...sensitivity,
+				...(prompt.empty !== undefined ? { empty: prompt.empty } : {}),
 			};
 		case 'select':
 			return {
 				kind: prompt.kind,
 				message: prompt.message,
+				...sensitivity,
 				...(prompt.choices !== undefined ? { choices: prompt.choices.map(serializeChoice) } : {}),
 			};
 		case 'multiselect':
 			return {
 				kind: prompt.kind,
 				message: prompt.message,
+				...sensitivity,
 				...(prompt.choices !== undefined ? { choices: prompt.choices.map(serializeChoice) } : {}),
 				...(prompt.min !== undefined ? { min: prompt.min } : {}),
 				...(prompt.max !== undefined ? { max: prompt.max } : {}),
 			};
 		case 'confirm':
-			return { kind: prompt.kind, message: prompt.message };
+			return { kind: prompt.kind, message: prompt.message, ...sensitivity };
 	}
 }
 
@@ -1533,9 +1553,12 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 				type: 'object',
 				additionalProperties: false,
 				properties: {
-					kind: { enum: ['confirm', 'input', 'select', 'multiselect'] },
+					kind: { enum: ['confirm', 'input', 'password', 'select', 'multiselect'] },
 					message: { type: 'string' },
 					placeholder: { type: 'string' },
+					trim: { type: 'boolean' },
+					empty: { enum: ['skip', 'accept', 'retry'] },
+					sensitive: { const: true },
 					choices: { type: 'array', items: { $ref: '#/$defs/choice' } },
 					min: { type: 'integer' },
 					max: { type: 'integer' },

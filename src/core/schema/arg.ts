@@ -29,6 +29,7 @@ import type {
 	ConfirmPromptConfig,
 	InputPromptConfig,
 	MultiselectPromptConfig,
+	PasswordPromptConfig,
 	PromptConfig,
 	SelectPromptConfig,
 } from './prompt.ts';
@@ -194,7 +195,7 @@ type ArgDefaultValue<C extends ArgConfig> = C['argKind'] extends 'keyValue'
  * - `'keyValue'` → `never` (not promptable)
  */
 type PromptConfigByArgKind = {
-	readonly string: InputPromptConfig | SelectPromptConfig;
+	readonly string: InputPromptConfig | PasswordPromptConfig | SelectPromptConfig;
 	readonly number: InputPromptConfig;
 	readonly boolean: ConfirmPromptConfig;
 	readonly enum: SelectPromptConfig | InputPromptConfig;
@@ -882,7 +883,8 @@ function assembleArgSchema<K extends ArgKind>(
 		stdin: stdin === undefined ? undefined : normalizeStdinBinding(stdin),
 		defaultValue: undefined,
 		defaultDescription: undefined,
-		sensitive: sensitive ?? false,
+		sensitive:
+			sensitive === true || rest.prompt?.kind === 'password' || rest.prompt?.sensitive === true,
 		description: undefined,
 		envVar: undefined,
 		configPath: undefined,
@@ -1475,6 +1477,7 @@ class ArgBuilder<C extends ArgConfig> {
 		return new ArgBuilder({
 			...this.schema,
 			prompt: config,
+			sensitive: this.schema.sensitive || config.kind === 'password' || config.sensitive === true,
 		});
 	}
 
@@ -1493,7 +1496,8 @@ class ArgBuilder<C extends ArgConfig> {
 	sensitive(value = true): ArgBuilder<WithoutArgElementEligibility<C>> {
 		return new ArgBuilder({
 			...this.schema,
-			sensitive: value,
+			sensitive:
+				value || this.schema.prompt?.kind === 'password' || this.schema.prompt?.sensitive === true,
 		});
 	}
 

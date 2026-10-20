@@ -7,6 +7,7 @@ import type {
 	InferFlag,
 	InputPromptConfig,
 	MultiselectPromptConfig,
+	PasswordPromptConfig,
 	PromptConfig,
 	PromptKind,
 	PromptResult,
@@ -18,8 +19,10 @@ import { flag } from './flag.ts';
 // --- PromptConfig discriminated union — type-level tests
 
 describe('PromptConfig types', () => {
-	it('PromptKind covers all four kinds', () => {
-		expectTypeOf<PromptKind>().toEqualTypeOf<'confirm' | 'input' | 'select' | 'multiselect'>();
+	it('PromptKind covers all prompt kinds', () => {
+		expectTypeOf<PromptKind>().toEqualTypeOf<
+			'confirm' | 'input' | 'password' | 'select' | 'multiselect'
+		>();
 	});
 
 	it('PromptConfig discriminates on kind', () => {
@@ -447,7 +450,7 @@ describe('AllowedPromptConfig type constraints', () => {
 			readonly elementEligible: false;
 		};
 		expectTypeOf<AllowedPromptConfig<StrConfig>>().toEqualTypeOf<
-			InputPromptConfig | SelectPromptConfig
+			InputPromptConfig | PasswordPromptConfig | SelectPromptConfig
 		>();
 	});
 

@@ -14,9 +14,10 @@
  * @module dreamcli/core/schema/middleware
  */
 
+import type { Ask } from '#internals/core/prompt/definitions.ts';
 import type { CommandMeta, ErasedInputSources, Out } from './command.ts';
 
-// --- Middleware parameter types
+// Middleware parameter types
 
 /**
  * Parameters received by a middleware function at runtime.
@@ -42,6 +43,8 @@ interface MiddlewareParams {
 	readonly ctx: Readonly<Record<string, unknown>>;
 	/** Output channel. */
 	readonly out: Out;
+	/** Invocation-scoped interactive questions. */
+	readonly ask: Ask;
 	/** CLI program metadata (name, bin, version, command). */
 	readonly meta: CommandMeta;
 	/**
@@ -54,7 +57,7 @@ interface MiddlewareParams {
 	readonly next: (additions: Record<string, unknown>) => Promise<void>;
 }
 
-// --- Handler types
+// Handler types
 
 /**
  * Type-erased middleware handler stored on the command builder.
@@ -76,12 +79,14 @@ type MiddlewareHandler<Output extends Record<string, unknown>> = (params: {
 	readonly sources: ErasedInputSources;
 	readonly ctx: Readonly<Record<string, unknown>>;
 	readonly out: Out;
+	/** Invocation-scoped interactive questions. */
+	readonly ask: Ask;
 	readonly meta: CommandMeta;
 	/** Pass context additions downstream. Must include all `Output` properties. */
 	readonly next: (additions: Output) => Promise<void>;
 }) => void | Promise<void>;
 
-// --- Middleware type — phantom-branded
+// Middleware type — phantom-branded
 
 /**
  * Internal runtime representation of middleware.
@@ -116,7 +121,7 @@ type Middleware<Output extends Record<string, unknown>> = MiddlewareImpl & {
 	readonly _output: Output;
 };
 
-// --- Factory
+// Factory
 
 /**
  * Create a middleware definition.
@@ -165,7 +170,7 @@ function middleware<Output extends Record<string, unknown>>(
 	return impl as Middleware<Output>;
 }
 
-// --- Exports
+// Exports
 
 export type {
 	ErasedMiddlewareHandler,

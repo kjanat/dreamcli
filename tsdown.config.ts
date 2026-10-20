@@ -20,7 +20,7 @@ const LAZY_MODULES = [
 	/\/src\/core\/completion\/(index|shells\/[^/]+)\.ts$/,
 	/\/src\/core\/json-schema\/(index|meta-descriptions\.generated)\.ts$/,
 	/\/src\/core\/config\/(index|package-json)\.ts$/,
-	/\/src\/core\/prompt\/(terminal|test-prompter)\.ts$/,
+	/\/src\/core\/prompt\/(terminal|test-prompter|session)\.ts$/,
 ];
 
 function isCoreModule(id: string): boolean {

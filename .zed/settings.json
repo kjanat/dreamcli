@@ -71,6 +71,13 @@
 		"dprint": {
 			"binary": { "path": "bunx", "arguments": ["dprint", "lsp"] }
 		},
+		"biome": {
+			"binary": {
+				"env": {
+					"BIOME_WATCHER_KIND": "none" // https://github.com/biomejs/biome/pull/12459
+				}
+			}
+		},
 		"json-language-server": {
 			"settings": {
 				"json": {

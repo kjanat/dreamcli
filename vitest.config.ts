@@ -16,7 +16,17 @@ export default defineConfig({
 		setupFiles: ['./vitest.setup.ts'],
 		projects: [
 			{ test: { name: 'dreamcli', include: ['src/**/*.test.ts'] } },
-			{ test: { name: 'docs', include: ['docs/.vitepress/data/*.test.ts'] } },
+			{
+				test: {
+					name: 'docs',
+					include: ['docs/.vitepress/data/*.test.ts'],
+					// Each TypeDoc conversion builds a full TypeScript program. Avoid
+					// competing conversions while CI tests Bun and Node together.
+					fileParallelism: false,
+					// Projects with different worker counts need separate execution groups.
+					sequence: { groupOrder: 1 },
+				},
+			},
 			{
 				resolve: { alias: { 'bun:test': 'vitest' } },
 				test: { name: 'pwsh-demo', include: ['examples/pwsh-demo/src/**/*.test.ts'] },

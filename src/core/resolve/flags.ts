@@ -5,7 +5,13 @@
  * @internal
  */
 
-import { ValidationError } from '#internals/core/errors/index.ts';
+import { CLIError, ValidationError } from '#internals/core/errors/index.ts';
+import {
+	pendingFlagErrors,
+	pendingFlagReads,
+	redactFlagParseError,
+} from '#internals/core/parse/index.ts';
+import { PromptCancelledError } from '#internals/core/prompt/errors.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import { resolvePromptConfig } from '#internals/core/prompt/index.ts';
 import { dedupe } from '#internals/core/schema/cardinality.ts';
@@ -23,16 +29,18 @@ import {
 	withPromptBinding,
 } from '#internals/core/schema/source.ts';
 import { flagValueSchema, valueEnumValues } from '#internals/core/schema/value.ts';
-import { coerceValue, finishCliFlagValue } from './coerce.ts';
+import { coerceValue, finishCliFlagValue, redactCoercionError } from './coerce.ts';
 import type { DeprecationWarning, ResolutionProvenance } from './contracts.ts';
 import { isNonEmpty, throwAggregatedErrors } from './errors.ts';
 import type { MkdirFn, StatFn } from './path-checks.ts';
 import { pathValuesOf, validatePathChecks } from './path-checks.ts';
 import type { PromptOutcome, StageInput, StageOutcome, StageState } from './stages.ts';
-import { readCliValue, runStages } from './stages.ts';
+import { readCliValue, runEarlyStages, runStages } from './stages.ts';
 
 /** External state and collectors one flag-resolution pass shares. */
 interface FlagResolutionOptions {
+	/** Inputs made sensitive by invocation-specific prompt overrides. */
+	readonly sensitiveInputs?: Set<string>;
 	/** Environment variable snapshot. */
 	readonly env: Readonly<Record<string, string | undefined>>;
 	/** Parsed config file contents. */
@@ -74,6 +82,12 @@ async function resolveFlags(
 	const resolved: Record<string, unknown> = {};
 	const errors: ValidationError[] = [];
 	const hardErrorFlags = new Set<string>();
+	const effectiveSchemas = new Map<string, FlagSchema>();
+	const firstPassErrors = new Map<string, number>();
+	const parseErrors = pendingFlagErrors(parsedFlags);
+	const pendingReads = pendingFlagReads(parsedFlags);
+	const lazyValues = new Map<PropertyKey, () => unknown>();
+	let uncertainSensitivity = false;
 	const state: StageState = {
 		env: options.env,
 		config: options.config,
@@ -82,28 +96,104 @@ async function resolveFlags(
 	};
 
 	for (const [name, schema] of Object.entries(flagSchemas)) {
+		if (parseErrors?.has(name)) continue;
 		const bindings = sourceBindings(schema);
+		if (parseErrors?.size && flagValueSchema(schema).codec.name === 'custom') {
+			// Do not run unrelated user parsers after failure. Resolve only callback reads.
+			let done = false;
+			let value: unknown;
+			Object.defineProperty(resolved, name, {
+				enumerable: true,
+				configurable: true,
+				get: () => {
+					if (!done) {
+						done = true;
+						try {
+							const read = pendingReads?.get(name);
+							const parsed = read === undefined ? parsedFlags : { [name]: read() };
+							const outcome = runEarlyStages(
+								bindingsBeforePrompt(bindings),
+								stageInput(name, schema, parsed, bindings, options.prompter),
+								state,
+							);
+							if (outcome.kind === 'value') value = outcome.value;
+							if (outcome.kind === 'absent') delete resolved[name];
+							if (outcome.kind === 'error') uncertainSensitivity = true;
+						} catch {
+							uncertainSensitivity = true;
+						}
+					}
+					return value;
+				},
+			});
+			lazyValues.set(name, () => resolved[name]);
+			continue;
+		}
 		const outcome = await runStages(
 			bindingsBeforePrompt(bindings),
 			stageInput(name, schema, parsedFlags, bindings, options.prompter),
 			state,
 		);
+		if (outcome.kind === 'error') firstPassErrors.set(name, errors.length);
 		record(name, schema, outcome, resolved, errors, hardErrorFlags, options);
 	}
 
-	const interactiveConfigs =
-		options.interactive !== undefined ? options.interactive({ flags: resolved }) : undefined;
+	let interactiveConfigs: InteractiveResult | undefined;
+	try {
+		const partial = lazyValues.size
+			? new Proxy(resolved, {
+					ownKeys: (target) => {
+						for (const read of lazyValues.values()) read();
+						return Reflect.ownKeys(target);
+					},
+					has: (target, key) => {
+						lazyValues.get(key)?.();
+						return Reflect.has(target, key);
+					},
+					getOwnPropertyDescriptor: (target, key) => {
+						lazyValues.get(key)?.();
+						return Reflect.getOwnPropertyDescriptor(target, key);
+					},
+				})
+			: resolved;
+		interactiveConfigs = options.interactive?.({ flags: partial });
+	} catch (error) {
+		if (!parseErrors?.size) throw error;
+		uncertainSensitivity = true;
+	}
 
-	for (const [name, schema] of Object.entries(flagSchemas)) {
+	if (parseErrors !== undefined) {
+		for (const [name, error] of parseErrors) {
+			const schema = flagSchemas[name];
+			if (schema === undefined) throw error;
+			const config = effectivePromptConfig(name, schema, interactiveConfigs);
+			throw uncertainSensitivity ||
+				schema.sensitive ||
+				config?.kind === 'password' ||
+				config?.sensitive === true
+				? redactFlagParseError(error)
+				: error;
+		}
+	}
+
+	for (const [name, originalSchema] of Object.entries(flagSchemas)) {
+		const config = effectivePromptConfig(name, originalSchema, interactiveConfigs);
+		const sensitive =
+			originalSchema.sensitive || config?.kind === 'password' || config?.sensitive === true;
+		const schema = sensitive ? { ...originalSchema, sensitive: true } : originalSchema;
+		if (sensitive) options.sensitiveInputs?.add(name);
+		effectiveSchemas.set(name, schema);
+		const errorIndex = firstPassErrors.get(name);
+		const firstPassError = errorIndex === undefined ? undefined : errors[errorIndex];
+		if (sensitive && errorIndex !== undefined && firstPassError !== undefined) {
+			errors[errorIndex] = redactCoercionError(firstPassError);
+		}
+
 		if (Object.hasOwn(resolved, name) || hardErrorFlags.has(name)) {
 			continue;
 		}
 
-		const bindings = withPromptBinding(
-			schema,
-			sourceBindings(schema),
-			effectivePromptConfig(name, schema, interactiveConfigs),
-		);
+		const bindings = withPromptBinding(schema, sourceBindings(schema), config);
 		const outcome = await runStages(
 			bindingsFromPrompt(bindings),
 			stageInput(name, schema, parsedFlags, bindings, options.prompter),
@@ -146,7 +236,8 @@ async function resolveFlags(
 
 	// Post-resolution pass — rules that apply to the final value regardless
 	// of which source produced it.
-	for (const [name, schema] of Object.entries(flagSchemas)) {
+	for (const [name, originalSchema] of Object.entries(flagSchemas)) {
+		const schema = effectiveSchemas.get(name) ?? originalSchema;
 		// A flag whose resolution threw has no entry here, and a flag named
 		// after an Object.prototype member would otherwise read that inherited
 		// method as its resolved value.
@@ -256,11 +347,11 @@ function effectivePromptConfig(
 /** Maps each flag kind to the prompt kinds that produce compatible values. */
 const COMPATIBLE_PROMPT_KINDS: Record<FlagKind, readonly PromptKind[]> = {
 	boolean: ['confirm'],
-	string: ['input', 'select'],
+	string: ['input', 'password', 'select'],
 	number: ['input'],
 	enum: ['select', 'input'],
 	array: ['multiselect'],
-	custom: ['input', 'select', 'confirm', 'multiselect'],
+	custom: ['input', 'password', 'select', 'confirm', 'multiselect'],
 	count: [],
 	keyValue: [],
 };
@@ -358,7 +449,11 @@ async function resolvePromptValueWithConfig(
 	binding: PromptSourceBinding,
 	prompter: PromptEngine,
 ): Promise<PromptOutcome> {
-	const promptConfig = binding.prompt;
+	const promptConfig = {
+		...binding.prompt,
+		sensitive:
+			schema.sensitive || binding.prompt.sensitive === true || binding.prompt.kind === 'password',
+	};
 	const mismatch = validatePromptFlagCompatibility(flagName, schema.kind, promptConfig.kind);
 	if (mismatch !== undefined) {
 		return { ok: false, error: mismatch };
@@ -371,6 +466,12 @@ async function resolvePromptValueWithConfig(
 	const result = await prompter.promptOne(resolvedConfig);
 
 	if (!result.answered) {
+		if (promptConfig.kind === 'password' && result.reason === 'invalid')
+			throw new CLIError('Too many invalid prompt answers', {
+				code: 'PROMPT_INVALID',
+				exitCode: 2,
+			});
+		if (promptConfig.kind === 'password') throw new PromptCancelledError();
 		return { ok: false, error: undefined };
 	}
 
@@ -382,13 +483,19 @@ async function resolvePromptValueWithConfig(
 	if (
 		promptConfig.kind === 'input' &&
 		promptConfig.default === undefined &&
+		(promptConfig.empty ?? 'skip') === 'skip' &&
 		typeof result.value === 'string' &&
-		result.value.trim() === ''
+		(promptConfig.trim === false ? result.value : result.value.trim()) === ''
 	) {
 		return { ok: false, error: undefined };
 	}
 
-	return coerceValue(flagName, binding, result.value, schema);
+	return coerceValue(
+		flagName,
+		binding,
+		result.value,
+		promptConfig.sensitive ? { ...schema, sensitive: true } : schema,
+	);
 }
 
 /** Build a human-readable suggestion listing all available sources for a required flag. @internal */

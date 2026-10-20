@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Reusable, typed prompt definitions and sessions** ([#148](https://github.com/kjanat/dreamcli/pull/148)).\
+  Use `prompt.input()`, `prompt.password()`, `prompt.confirm()`, `prompt.select()`, and `prompt.multiselect()` with schema-bound prompts, handler-level `ask`, or standalone `createPromptSession()` calls through `@kjanat/dreamcli/prompt`. Selection answers preserve literal choice types; standalone selections require explicit, non-empty choices. Handler prompts can run after authentication branches or server challenges are known.
+- **Hidden password entry and configurable text validation.**\
+  Node, Bun, and Deno adapters support password prompts that preserve whitespace, restore terminal state, and reject unsupported hidden input. Text prompts support async validation, trimming, empty-answer policies, and shared scripted answer queues.
+
+### Fixed
+
+- **Consistent prompt failures across terminal, scripted, and custom engines.**\
+  Prompt sessions and schema passwords report exhausted invalid answers as `PROMPT_INVALID` with exit code 2 while cancellation retains exit code 130. Scripted schema passwords retry invalid answers, and scripted input respects empty-answer retry policies. Supplied answers take precedence over automatic terminal prompting. `prompt.input()` always produces an input definition when reusing another prompt's options. Serialized prompt metadata preserves sensitivity for every prompt kind. Interactive commands preserve the earliest parse failure and evaluate later custom inputs only when needed to determine sensitivity.
+
+### Security
+
+- **Protect password input and sensitive diagnostics.**\
+  Hidden reads discard bytes buffered while terminal echo was enabled. Password and dynamically sensitive prompts redact framework-controlled values in parse and resolution errors without rerunning user parsers. Sensitive confirmations use neutral hints that conceal their configured default.
+
 ### Release checklist
 
 - [ ] Set the intended version in `package.json` and `deno.json`, add the dated changelog section, and update every comparison link.

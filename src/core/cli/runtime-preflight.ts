@@ -18,6 +18,7 @@ import type { Verbosity } from '#internals/core/output/index.ts';
 import type { ParseOptions } from '#internals/core/parse/index.ts';
 import { parse } from '#internals/core/parse/index.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
+import type { TestAnswer } from '#internals/core/prompt/test-prompter.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
 import { invocationSelectsStdin } from '#internals/core/schema/source.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
@@ -128,6 +129,8 @@ interface RuntimePreflightOptions {
 	readonly stdinData?: string | null;
 	/** Custom prompt engine; bypasses terminal prompter auto-creation. */
 	readonly prompter?: PromptEngine;
+	/** Scripted answers suppress automatic terminal prompting. */
+	readonly answers?: readonly TestAnswer[];
 	/** Output verbosity level override. */
 	readonly verbosity?: Verbosity;
 	/** Force JSON output mode regardless of `--json` flag presence. */
@@ -475,7 +478,9 @@ function createLazyTerminalPrompter(adapter: RuntimeAdapter): PromptEngine {
 	return {
 		async promptOne(config) {
 			engine ??= import('#internals/core/prompt/terminal.ts').then(({ createTerminalPrompter }) =>
-				createTerminalPrompter(adapter.stdin, adapter.stderr),
+				createTerminalPrompter(adapter.stdin, adapter.stderr, {
+					...(adapter.readSecret !== undefined ? { readSecret: adapter.readSecret } : {}),
+				}),
 			);
 			return (await engine).promptOne(config);
 		},
@@ -534,7 +539,9 @@ async function prepareRuntimePreflight(
 	}
 
 	const autoPrompter =
-		options.options?.prompter === undefined && options.adapter.stdinIsTTY
+		options.options?.prompter === undefined &&
+		options.options?.answers === undefined &&
+		options.adapter.stdinIsTTY
 			? createLazyTerminalPrompter(options.adapter)
 			: undefined;
 	const stdinData =

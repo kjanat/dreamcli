@@ -59,6 +59,23 @@ type CoerceResult =
 	| { readonly ok: true; readonly value: unknown }
 	| { readonly ok: false; readonly error: ValidationError };
 
+/** Rebuild diagnostics after dynamic sensitivity is known, without decoding again. */
+const sensitiveDiagnostics = new WeakMap<ValidationError, () => ValidationError>();
+
+function sensitivityError(
+	sensitive: boolean,
+	build: (sensitive: boolean) => ValidationError,
+): ValidationError {
+	const error = build(sensitive);
+	if (!sensitive) sensitiveDiagnostics.set(error, () => build(true));
+	return error;
+}
+
+/** Redact a captured coercion failure without repeating a parser or source read. */
+function redactCoercionError(error: ValidationError): ValidationError {
+	return sensitiveDiagnostics.get(error)?.() ?? error;
+}
+
 function sourceLabel(source: CoerceSource): string {
 	switch (source.kind) {
 		case 'stdin':
@@ -194,8 +211,14 @@ function coerceValue(
 		raw,
 		(element) =>
 			coerceValueSchema(flagName, source, element, flagValueSchema(schema), schema.sensitive),
-		flagCollectionErrors(flagName, source, schema.sensitive),
-		flagAggregationErrors(flagName, schema.sensitive),
+		(fault) =>
+			sensitivityError(schema.sensitive, (sensitive) =>
+				flagCollectionErrors(flagName, source, sensitive)(fault),
+			),
+		(fault, source) =>
+			sensitivityError(schema.sensitive, (sensitive) =>
+				flagAggregationErrors(flagName, sensitive)(fault, source),
+			),
 	);
 }
 
@@ -233,22 +256,23 @@ function coerceCount(
 	if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
 		return { ok: true, value };
 	}
-	const report = diagnosticValue(sensitive, raw);
 	return {
 		ok: false,
-		error: coercionError(
-			flagName,
-			source,
-			'TYPE_MISMATCH',
-			'count',
-			report,
-			(text) => `Invalid count value '${text}'`,
-			suggestBySource(source, {
-				stdin: `Pipe a non-negative integer to stdin for --${flagName}`,
-				env: (envVar) => `Set ${envVar} to a non-negative integer`,
-				config: (configPath) => `Set ${configPath} to a non-negative integer in your config`,
-				prompt: `Enter a non-negative integer for --${flagName}`,
-			}),
+		error: sensitivityError(sensitive, (sensitive) =>
+			coercionError(
+				flagName,
+				source,
+				'TYPE_MISMATCH',
+				'count',
+				diagnosticValue(sensitive, raw),
+				(text) => `Invalid count value '${text}'`,
+				suggestBySource(source, {
+					stdin: `Pipe a non-negative integer to stdin for --${flagName}`,
+					env: (envVar) => `Set ${envVar} to a non-negative integer`,
+					config: (configPath) => `Set ${configPath} to a non-negative integer in your config`,
+					prompt: `Enter a non-negative integer for --${flagName}`,
+				}),
+			),
 		),
 	};
 }
@@ -708,7 +732,12 @@ function coerceValueSchema(
 	if (decoded.ok) {
 		return { ok: true, value: decoded.value };
 	}
-	return { ok: false, error: valueCoercionError(name, source, raw, decoded.failure, sensitive) };
+	return {
+		ok: false,
+		error: sensitivityError(sensitive, (sensitive) =>
+			valueCoercionError(name, source, raw, decoded.failure, sensitive),
+		),
+	};
 }
 
 /**
@@ -1180,8 +1209,14 @@ function finishCliFlagValue(
 				flagValueSchema(schema),
 				schema.sensitive,
 			),
-		flagCollectionErrors(flagName, { kind: 'stdin' }, schema.sensitive),
-		flagAggregationErrors(flagName, schema.sensitive),
+		(fault) =>
+			sensitivityError(schema.sensitive, (sensitive) =>
+				flagCollectionErrors(flagName, { kind: 'stdin' }, sensitive)(fault),
+			),
+		(fault, source) =>
+			sensitivityError(schema.sensitive, (sensitive) =>
+				flagAggregationErrors(flagName, sensitive)(fault, source),
+			),
 	);
 }
 
@@ -1364,4 +1399,4 @@ function readStdinOccurrence(
 }
 
 export type { CliFinish, CoerceResult };
-export { coerceArgValue, coerceValue, finishCliArgValue, finishCliFlagValue };
+export { coerceArgValue, coerceValue, finishCliArgValue, finishCliFlagValue, redactCoercionError };

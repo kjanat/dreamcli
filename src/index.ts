@@ -139,6 +139,7 @@ export {
 	stripBeforeSeparator,
 	tokenize,
 } from './core/parse/index.ts';
+export type { Ask, InferPrompt } from './core/prompt/definitions.ts';
 export type {
 	PromptEngine,
 	ReadFn,
@@ -228,6 +229,7 @@ export type {
 	NumberConstraintViolation,
 	NumberFlagDefinition,
 	Out,
+	PasswordPromptConfig,
 	PathChecks,
 	PathFlagOptions,
 	ProgressHandle,

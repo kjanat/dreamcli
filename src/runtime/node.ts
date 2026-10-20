@@ -13,8 +13,8 @@
  */
 
 import type { WriteFn } from '#internals/core/output/index.ts';
-import type { ReadFn } from '#internals/core/prompt/index.ts';
 import type { RuntimeAdapter, TerminalSize } from './adapter.ts';
+import { createInputReader } from './input.ts';
 import { resolveConfigDirectory, resolveHomeDirectory } from './paths.ts';
 
 // --- Node.js error shape — for ENOENT detection without @types/node
@@ -57,6 +57,8 @@ interface NodeProcess {
 	/** Standard input stream with TTY detection and async iteration. */
 	readonly stdin: {
 		readonly isTTY?: boolean;
+		readonly isRaw?: boolean;
+		setRawMode?(mode: boolean): unknown;
 		/** Async iterable for reading all of stdin (used by readStdin). */
 		[Symbol.asyncIterator](): AsyncIterator<Uint8Array>;
 	};
@@ -221,9 +223,7 @@ function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
 			settle();
 		});
 
-	// Stdin line reading via readline — created lazily on first call.
-	// This avoids importing readline unless prompting actually occurs.
-	const stdinRead = createNodeReadLine(p);
+	const input = createNodeInput(p);
 
 	// --- Filesystem primitives for config discovery ---
 
@@ -274,7 +274,8 @@ function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
 		stdout: stdoutWrite,
 		stderr: stderrWrite,
 		flush,
-		stdin: stdinRead,
+		stdin: input.readLine,
+		...(input.readSecret !== undefined ? { readSecret: input.readSecret } : {}),
 		readStdin: () => readNodeStdinAll(p, stdinIsTTY),
 		isTTY: p.stdout.isTTY === true,
 		stdinIsTTY,
@@ -411,38 +412,31 @@ async function readNodeStdinAll(proc: NodeProcess, stdinIsTTY: boolean): Promise
  *
  * @internal
  */
-function createNodeReadLine(proc: NodeProcess): ReadFn {
-	const iter = proc.stdin[Symbol.asyncIterator]();
+function createNodeInput(proc: NodeProcess): ReturnType<typeof createInputReader> {
+	let iter: AsyncIterator<Uint8Array> | undefined;
 	const decoder = new TextDecoder();
-	let buffer = '';
-	let done = false;
-
-	return async (): Promise<string | null> => {
-		for (;;) {
-			const nlIndex = buffer.indexOf('\n');
-			if (nlIndex !== -1) {
-				const line = buffer.slice(0, nlIndex).replace(/\r$/, '');
-				buffer = buffer.slice(nlIndex + 1);
-				return line;
+	let flushed = false;
+	return createInputReader(
+		async () => {
+			if (flushed) return null;
+			iter ??= proc.stdin[Symbol.asyncIterator]();
+			const chunk = await iter.next();
+			if (chunk.done) {
+				flushed = true;
+				return decoder.decode() || null;
 			}
-
-			if (done) {
-				if (buffer.length === 0) return null;
-				const line = buffer;
-				buffer = '';
-				return line;
-			}
-
-			const result = await iter.next();
-			if (result.done) {
-				buffer += decoder.decode();
-				done = true;
-				continue;
-			}
-
-			buffer += decoder.decode(result.value, { stream: true });
-		}
-	};
+			return decoder.decode(chunk.value, { stream: true });
+		},
+		proc.stdin.isTTY === true && proc.stdin.setRawMode !== undefined
+			? () => {
+					const previous = proc.stdin.isRaw === true;
+					proc.stdin.setRawMode?.(true);
+					return () => {
+						proc.stdin.setRawMode?.(previous);
+					};
+				}
+			: undefined,
+	);
 }
 
 // --- Exports

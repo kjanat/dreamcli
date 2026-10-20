@@ -10,6 +10,9 @@
  * @module @kjanat/dreamcli/prompt
  */
 
+export type { Ask, InferPrompt } from './core/prompt/definitions.ts';
+export { prompt } from './core/prompt/definitions.ts';
+export { PromptCancelledError } from './core/prompt/errors.ts';
 export type {
 	PromptEngine,
 	ReadFn,
@@ -18,4 +21,8 @@ export type {
 	ResolvedSelectPromptConfig,
 } from './core/prompt/index.ts';
 export { resolvePromptConfig } from './core/prompt/index.ts';
+export type { PromptSession, PromptSessionOptions } from './core/prompt/session.ts';
+export { createPromptSession } from './core/prompt/session.ts';
+export type { TerminalPrompterOptions } from './core/prompt/terminal.ts';
 export { createTerminalPrompter } from './core/prompt/terminal.ts';
+export type { PasswordPromptConfig } from './core/schema/prompt.ts';

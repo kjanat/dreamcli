@@ -28,6 +28,7 @@ import type {
 	ConfirmPromptConfig,
 	InputPromptConfig,
 	MultiselectPromptConfig,
+	PasswordPromptConfig,
 	PromptConfig,
 	SelectPromptConfig,
 } from './prompt.ts';
@@ -189,7 +190,7 @@ type InferFlags<T extends Record<string, FlagBuilder<FlagConfig>>> = {
  * - `'count'` / `'keyValue'` → `never` (not promptable)
  */
 type PromptConfigByFlagKind = {
-	readonly string: InputPromptConfig | SelectPromptConfig;
+	readonly string: InputPromptConfig | PasswordPromptConfig | SelectPromptConfig;
 	readonly number: InputPromptConfig;
 	readonly boolean: ConfirmPromptConfig;
 	readonly enum: SelectPromptConfig | InputPromptConfig;
@@ -1134,7 +1135,8 @@ function assembleFlagSchema<K extends FlagKind>(
 		presence: presence ?? 'optional',
 		defaultValue: undefined,
 		defaultDescription: undefined,
-		sensitive: sensitive ?? false,
+		sensitive:
+			sensitive === true || rest.prompt?.kind === 'password' || rest.prompt?.sensitive === true,
 		stdin: stdin === undefined ? undefined : normalizeStdinBinding(stdin),
 		envVar: undefined,
 		configPath: undefined,
@@ -1369,7 +1371,8 @@ class FlagBuilder<C extends FlagConfig> {
 	sensitive(value = true): FlagBuilder<WithoutElementEligibility<C>> {
 		return new FlagBuilder({
 			...this.schema,
-			sensitive: value,
+			sensitive:
+				value || this.schema.prompt?.kind === 'password' || this.schema.prompt?.sensitive === true,
 		});
 	}
 
@@ -1545,6 +1548,7 @@ class FlagBuilder<C extends FlagConfig> {
 		return new FlagBuilder({
 			...this.schema,
 			prompt: config,
+			sensitive: this.schema.sensitive || config.kind === 'password' || config.sensitive === true,
 		});
 	}
 
@@ -2576,6 +2580,7 @@ export type {
 	ConfirmPromptConfig,
 	InputPromptConfig,
 	MultiselectPromptConfig,
+	PasswordPromptConfig,
 	PromptConfig,
 	PromptConfigBase,
 	PromptKind,

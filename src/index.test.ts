@@ -308,7 +308,13 @@ describe('optional feature subpaths', () => {
 
 	it('prompt exports the terminal engine and config resolution', async () => {
 		const mod = await import('#dreamcli/prompt');
-		expect(Object.keys(mod).sort()).toEqual(['createTerminalPrompter', 'resolvePromptConfig']);
+		expect(Object.keys(mod).sort()).toEqual([
+			'PromptCancelledError',
+			'createPromptSession',
+			'createTerminalPrompter',
+			'prompt',
+			'resolvePromptConfig',
+		]);
 	});
 
 	it('root entry does not carry the optional feature implementations', async () => {
@@ -319,7 +325,7 @@ describe('optional feature subpaths', () => {
 			...Object.keys(await import('#dreamcli/json-schema')),
 			...Object.keys(await import('#dreamcli/prompt')),
 		].filter((name) => !ROOT_KEPT.has(name));
-		expect(moved).toHaveLength(16);
+		expect(moved).toHaveLength(19);
 		for (const name of moved) {
 			expect(mod).not.toHaveProperty(name);
 		}

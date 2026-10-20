@@ -22,7 +22,9 @@
 import type {
 	ConfirmPromptConfig,
 	InputPromptConfig,
+	PasswordPromptConfig,
 	PromptConfig,
+	PromptConfigBase,
 	PromptResult,
 	SelectChoice,
 } from '#internals/core/schema/prompt.ts';
@@ -35,7 +37,7 @@ import type {
  * The resolution chain populates choices from `FlagSchema.enumValues`
  * when the user's {@linkcode PromptConfig} omits them.
  */
-interface ResolvedSelectPromptConfig {
+interface ResolvedSelectPromptConfig extends PromptConfigBase {
 	/** Discriminant — single-choice selection prompt. */
 	readonly kind: 'select';
 	/** User-facing question text. */
@@ -50,7 +52,7 @@ interface ResolvedSelectPromptConfig {
  * Same guarantee as {@linkcode ResolvedSelectPromptConfig} — choices are always
  * present and non-empty.
  */
-interface ResolvedMultiselectPromptConfig {
+interface ResolvedMultiselectPromptConfig extends PromptConfigBase {
 	/** Discriminant — multiple-choice selection prompt. */
 	readonly kind: 'multiselect';
 	/** User-facing question text. */
@@ -73,6 +75,7 @@ interface ResolvedMultiselectPromptConfig {
 type ResolvedPromptConfig =
 	| ConfirmPromptConfig
 	| InputPromptConfig
+	| PasswordPromptConfig
 	| ResolvedSelectPromptConfig
 	| ResolvedMultiselectPromptConfig;
 
@@ -105,7 +108,8 @@ interface PromptEngine {
 	 *
 	 * @param config - The resolved prompt configuration (choices guaranteed
 	 *   for select/multiselect).
-	 * @returns The user's answer, or `{ answered: false }` if cancelled.
+	 * @returns The user's answer, `{ answered: false }` if cancelled, or
+	 *   `{ answered: false, reason: 'invalid' }` when invalid attempts are exhausted.
 	 */
 	promptOne(config: ResolvedPromptConfig): Promise<PromptResult>;
 }
@@ -146,7 +150,7 @@ function resolvePromptConfig(
 	config: PromptConfig,
 	enumValues: readonly string[] | undefined,
 ): ResolvedPromptConfig {
-	if (config.kind === 'confirm' || config.kind === 'input') {
+	if (config.kind === 'confirm' || config.kind === 'input' || config.kind === 'password') {
 		return config;
 	}
 
@@ -164,12 +168,11 @@ function resolvePromptConfig(
 	const choices = rawChoices as readonly [SelectChoice, ...SelectChoice[]];
 
 	if (config.kind === 'select') {
-		return { kind: 'select', message: config.message, choices };
+		return { ...config, choices };
 	}
 
 	return {
-		kind: 'multiselect',
-		message: config.message,
+		...config,
 		choices,
 		...(config.min !== undefined ? { min: config.min } : {}),
 		...(config.max !== undefined ? { max: config.max } : {}),
