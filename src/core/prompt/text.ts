@@ -7,7 +7,7 @@ import type { InputPromptConfig, PasswordPromptConfig } from '#internals/core/sc
 /** An accepted value or a reason to request another answer. */
 type TextAnswer =
 	| { readonly ok: true; readonly value: string }
-	| { readonly ok: false; readonly message: string };
+	| { readonly ok: false; readonly message: string; readonly reason: 'empty' | 'validation' };
 
 /** Apply prompt text policy without touching password whitespace. */
 export async function prepareTextAnswer(
@@ -20,12 +20,12 @@ export async function prepareTextAnswer(
 			return { ok: true, value: config.default };
 		}
 		if ((config.empty ?? (config.kind === 'password' ? 'retry' : 'skip')) === 'retry') {
-			return { ok: false, message: 'Please enter a value.' };
+			return { ok: false, message: 'Please enter a value.', reason: 'empty' };
 		}
 		if (config.kind === 'input' && (config.empty ?? 'skip') === 'skip') return { ok: true, value };
 	}
 	const result = await config.validate?.(value);
 	return result === undefined || result === true
 		? { ok: true, value }
-		: { ok: false, message: result };
+		: { ok: false, message: result, reason: 'validation' };
 }

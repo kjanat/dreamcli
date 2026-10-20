@@ -6,7 +6,11 @@
  */
 
 import { CLIError, ValidationError } from '#internals/core/errors/index.ts';
-import { pendingFlagErrors, redactFlagParseError } from '#internals/core/parse/index.ts';
+import {
+	pendingFlagErrors,
+	pendingFlagReads,
+	redactFlagParseError,
+} from '#internals/core/parse/index.ts';
 import { PromptCancelledError } from '#internals/core/prompt/errors.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import { resolvePromptConfig } from '#internals/core/prompt/index.ts';
@@ -31,7 +35,7 @@ import { isNonEmpty, throwAggregatedErrors } from './errors.ts';
 import type { MkdirFn, StatFn } from './path-checks.ts';
 import { pathValuesOf, validatePathChecks } from './path-checks.ts';
 import type { PromptOutcome, StageInput, StageOutcome, StageState } from './stages.ts';
-import { readCliValue, runStages } from './stages.ts';
+import { readCliValue, runEarlyStages, runStages } from './stages.ts';
 
 /** External state and collectors one flag-resolution pass shares. */
 interface FlagResolutionOptions {
@@ -81,6 +85,9 @@ async function resolveFlags(
 	const effectiveSchemas = new Map<string, FlagSchema>();
 	const firstPassErrors = new Map<string, number>();
 	const parseErrors = pendingFlagErrors(parsedFlags);
+	const pendingReads = pendingFlagReads(parsedFlags);
+	const lazyValues = new Map<PropertyKey, () => unknown>();
+	let uncertainSensitivity = false;
 	const state: StageState = {
 		env: options.env,
 		config: options.config,
@@ -91,6 +98,37 @@ async function resolveFlags(
 	for (const [name, schema] of Object.entries(flagSchemas)) {
 		if (parseErrors?.has(name)) continue;
 		const bindings = sourceBindings(schema);
+		if (parseErrors?.size && flagValueSchema(schema).codec.name === 'custom') {
+			// Do not run unrelated user parsers after failure. Resolve only callback reads.
+			let done = false;
+			let value: unknown;
+			Object.defineProperty(resolved, name, {
+				enumerable: true,
+				configurable: true,
+				get: () => {
+					if (!done) {
+						done = true;
+						try {
+							const read = pendingReads?.get(name);
+							const parsed = read === undefined ? parsedFlags : { [name]: read() };
+							const outcome = runEarlyStages(
+								bindingsBeforePrompt(bindings),
+								stageInput(name, schema, parsed, bindings, options.prompter),
+								state,
+							);
+							if (outcome.kind === 'value') value = outcome.value;
+							if (outcome.kind === 'absent') delete resolved[name];
+							if (outcome.kind === 'error') uncertainSensitivity = true;
+						} catch {
+							uncertainSensitivity = true;
+						}
+					}
+					return value;
+				},
+			});
+			lazyValues.set(name, () => resolved[name]);
+			continue;
+		}
 		const outcome = await runStages(
 			bindingsBeforePrompt(bindings),
 			stageInput(name, schema, parsedFlags, bindings, options.prompter),
@@ -100,15 +138,39 @@ async function resolveFlags(
 		record(name, schema, outcome, resolved, errors, hardErrorFlags, options);
 	}
 
-	const interactiveConfigs =
-		options.interactive !== undefined ? options.interactive({ flags: resolved }) : undefined;
+	let interactiveConfigs: InteractiveResult | undefined;
+	try {
+		const partial = lazyValues.size
+			? new Proxy(resolved, {
+					ownKeys: (target) => {
+						for (const read of lazyValues.values()) read();
+						return Reflect.ownKeys(target);
+					},
+					has: (target, key) => {
+						lazyValues.get(key)?.();
+						return Reflect.has(target, key);
+					},
+					getOwnPropertyDescriptor: (target, key) => {
+						lazyValues.get(key)?.();
+						return Reflect.getOwnPropertyDescriptor(target, key);
+					},
+				})
+			: resolved;
+		interactiveConfigs = options.interactive?.({ flags: partial });
+	} catch (error) {
+		if (!parseErrors?.size) throw error;
+		uncertainSensitivity = true;
+	}
 
 	if (parseErrors !== undefined) {
 		for (const [name, error] of parseErrors) {
 			const schema = flagSchemas[name];
 			if (schema === undefined) throw error;
 			const config = effectivePromptConfig(name, schema, interactiveConfigs);
-			throw schema.sensitive || config?.kind === 'password' || config?.sensitive === true
+			throw uncertainSensitivity ||
+				schema.sensitive ||
+				config?.kind === 'password' ||
+				config?.sensitive === true
 				? redactFlagParseError(error)
 				: error;
 		}

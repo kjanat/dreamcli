@@ -212,6 +212,12 @@ interface ParseOptions {
 /** Retained diagnostics are formatted again without decoding tokens again. */
 const sensitiveFlagDiagnostics = new WeakMap<ParseError, () => ParseError>();
 const deferredFlagDiagnostics = new WeakMap<object, Map<string, ParseError>>();
+const deferredCustomFlags = new WeakMap<object, Map<string, (project?: boolean) => unknown>>();
+
+/** @internal Custom CLI values evaluated only if the sensitivity resolver needs them. */
+export function pendingFlagReads(flags: object): ReadonlyMap<string, () => unknown> | undefined {
+	return deferredCustomFlags.get(flags);
+}
 
 /** @internal Invocation-local CLI failures waiting for dynamic prompt sensitivity. */
 export function pendingFlagErrors(flags: object): ReadonlyMap<string, ParseError> | undefined {
@@ -397,6 +403,26 @@ function recordFlagOccurrence(
 	displayName: string,
 	items: () => readonly Occurrence[],
 ): void {
+	const deferred = deferredCustomFlags.get(occurrences);
+	if (
+		deferred !== undefined &&
+		deferredFlagDiagnostics.get(occurrences)?.size &&
+		flagValueSchema(schema).codec.name === 'custom'
+	) {
+		const previous = deferred.get(name);
+		deferred.set(name, (project = true) => {
+			previous?.(false);
+			recordFlagValue(occurrences, name, schema, reported, displayName, items);
+			if (project) {
+				const record = occurrencesOf(occurrences, name, schema);
+				return projectOccurrences(
+					flagCardinality(schema),
+					record.occurrences.flatMap((entry) => entry.items),
+				);
+			}
+		});
+		return;
+	}
 	try {
 		recordFlagValue(occurrences, name, schema, reported, displayName, items);
 	} catch (error) {
@@ -871,6 +897,7 @@ export function parseForResolution(
 ): ParseResult {
 	const occurrences = new Map<string, FlagOccurrences>();
 	deferredFlagDiagnostics.set(occurrences, new Map());
+	deferredCustomFlags.set(occurrences, new Map());
 	return parseCommand(schema, argv, options, occurrences);
 }
 
@@ -903,21 +930,27 @@ function parseCommand(
 			continue;
 		}
 
-		if (token.kind === 'long-flag') {
-			i = parseLongFlag(token, tokens, i, flagLookup, occurrences);
-			continue;
+		try {
+			i =
+				token.kind === 'long-flag'
+					? parseLongFlag(token, tokens, i, flagLookup, occurrences)
+					: parseShortFlags(token, tokens, i, flagLookup, occurrences);
+		} catch (error) {
+			if (!(error instanceof ParseError) || !deferredFlagDiagnostics.get(occurrences)?.size)
+				throw error;
+			// Keep the earliest failure. Continue scanning flags for sensitivity inputs.
+			i++;
 		}
-
-		// token.kind === 'short-flags'
-		i = parseShortFlags(token, tokens, i, flagLookup, occurrences);
 	}
 
 	// Map positionals to named args
-	const args = mapPositionals(schema.args, positionals);
+	const errors = deferredFlagDiagnostics.get(occurrences);
+	const args = errors?.size ? {} : mapPositionals(schema.args, positionals);
 
 	const flags = projectFlags(occurrences);
-	const errors = deferredFlagDiagnostics.get(occurrences);
 	if (errors !== undefined) deferredFlagDiagnostics.set(flags, errors);
+	const deferred = deferredCustomFlags.get(occurrences);
+	if (deferred?.size) deferredCustomFlags.set(flags, deferred);
 	return { flags, args };
 }
 

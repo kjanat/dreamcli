@@ -1,10 +1,12 @@
 /** Typed sessions, engine parity, and hidden-input contracts. */
 import { describe, expect, expectTypeOf, it } from 'vitest';
+import { cli } from '#internals/core/cli/index.ts';
 import { generateCommandSchema } from '#internals/core/json-schema/index.ts';
 import { arg } from '#internals/core/schema/arg.ts';
 import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { runCommand } from '#internals/core/testkit/index.ts';
+import { createTestAdapter } from '#internals/runtime/adapter.ts';
 import { type Ask, prompt } from './definitions.ts';
 import { PromptCancelledError } from './errors.ts';
 import type { PromptEngine } from './index.ts';
@@ -13,6 +15,205 @@ import { createTerminalPrompter } from './terminal.ts';
 import { createTestPrompter, PROMPT_CANCEL } from './test-prompter.ts';
 
 describe('prompt sessions', () => {
+	it.each([true, false])('hides sensitive confirmation defaults (%s)', async (defaultValue) => {
+		for (const mode of ['engine', 'session', 'schema'] as const) {
+			const output: string[] = [];
+			const prompter = createTerminalPrompter(
+				async () => '',
+				(text) => output.push(text),
+			);
+			const definition = prompt.confirm({
+				message: 'Continue?',
+				default: defaultValue,
+				sensitive: true,
+			});
+			if (mode === 'engine')
+				expect(await prompter.promptOne(definition)).toEqual({
+					answered: true,
+					value: defaultValue,
+				});
+			else if (mode === 'session')
+				expect(await createPromptSession({ prompter }).ask(definition)).toBe(defaultValue);
+			else {
+				const cmd = command('test')
+					.flag('confirm', flag.boolean().prompt(definition))
+					.action(({ flags }) => {
+						expect(flags.confirm).toBe(defaultValue);
+					});
+				expect((await runCommand(cmd, [], { prompter })).exitCode).toBe(0);
+			}
+			expect(output.join('')).toBe('Continue? (y/n) ');
+		}
+	});
+
+	it('uses one scripted queue on a TTY without reading real input', async () => {
+		let reads = 0;
+		const read = async () => {
+			reads++;
+			throw new Error('Unexpected terminal read');
+		};
+		const cmd = command('login')
+			.flag('email', flag.string().prompt(prompt.input({ message: 'Email' })))
+			.action(async ({ flags, ask, out }) => {
+				const password = await ask(prompt.password({ message: 'Password' }));
+				out.log(`${flags.email}:${password}`);
+			});
+		const output: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['bun', 'test', 'login'],
+			stdinIsTTY: true,
+			stdin: read,
+			readSecret: read,
+			stdout: (text) => output.push(text),
+		});
+		await expect(
+			cli('test')
+				.command(cmd)
+				.run({ adapter, answers: ['email', 'secret'] }),
+		).rejects.toMatchObject({ code: 0 });
+		expect(reads).toBe(0);
+		expect(output).toEqual(['email:secret\n']);
+	});
+
+	it.each(['flag', 'arg'] as const)('retries scripted empty schema %s input', async (surface) => {
+		const definition = prompt.input({ message: 'Value' });
+		const cmd =
+			surface === 'flag'
+				? command('test')
+						.flag('value', flag.string().default('fallback').prompt(definition))
+						.action(({ flags, out }) => out.log(flags.value))
+				: command('test')
+						.arg('value', arg.string().default('fallback').prompt(definition))
+						.action(({ args, out }) => out.log(args.value));
+		const result = await runCommand(cmd, [], { answers: ['', 'valid'] });
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toEqual(['valid\n']);
+	});
+
+	it.each([['--unknown'], ['--later'], ['-x'], ['extra']])(
+		'retains the first invalid CLI value before %j',
+		async (...later) => {
+			const cmd = command('test')
+				.flag('count', flag.number())
+				.flag('later', flag.string())
+				.interactive(() => ({}))
+				.action(() => {});
+			const result = await runCommand(cmd, ['--count=bad', ...later]);
+			expect(result.error).toMatchObject({ code: 'INVALID_VALUE', details: { flag: 'count' } });
+		},
+	);
+
+	it('does not run unrelated custom parsers after a retained parse error', async () => {
+		let calls = 0;
+		const cmd = command('test')
+			.flag('count', flag.number())
+			.flag(
+				'later',
+				flag.custom((value) => {
+					calls++;
+					return value;
+				}),
+			)
+			.interactive(() => ({}))
+			.action(() => {});
+		const result = await runCommand(cmd, ['--count=bad', '--later=value']);
+		expect(result.error?.code).toBe('INVALID_VALUE');
+		expect(calls).toBe(0);
+	});
+
+	it('preserves the first error and sensitivity across later syntax and positional failures', async () => {
+		let positionalCalls = 0;
+		const cmd = command('test')
+			.flag('token', flag.string().pattern(/^valid$/))
+			.flag('secret', flag.boolean())
+			.arg(
+				'other',
+				arg.custom((value) => {
+					positionalCalls++;
+					return value;
+				}),
+			)
+			.interactive(({ flags }) =>
+				flags.secret ? { token: prompt.password({ message: 'Token' }) } : {},
+			)
+			.action(() => {});
+		const result = await runCommand(cmd, [
+			'--token=SYNTHETIC_SECRET',
+			'--unknown',
+			'--secret',
+			'other',
+		]);
+		expect(result.error).toMatchObject({ code: 'INVALID_VALUE', details: { flag: 'token' } });
+		expect(JSON.stringify(result)).not.toContain('SYNTHETIC_SECRET');
+		expect(positionalCalls).toBe(0);
+	});
+
+	it('keeps partial flag presence accurate while reading custom sensitivity inputs', async () => {
+		let observed: unknown;
+		const cmd = command('test')
+			.flag('token', flag.number())
+			.flag(
+				'absent',
+				flag.custom((value) => value),
+			)
+			.interactive(({ flags }) => {
+				observed = {
+					present: 'absent' in flags,
+					own: Object.hasOwn(flags, 'absent'),
+					keys: Object.keys(flags),
+				};
+				return {};
+			})
+			.action(() => {});
+		expect((await runCommand(cmd, ['--token=bad'])).error?.code).toBe('INVALID_VALUE');
+		expect(observed).toEqual({ present: false, own: false, keys: [] });
+	});
+
+	it('keeps the earliest error private when a needed sensitivity parser fails', async () => {
+		let calls = 0;
+		const cmd = command('test')
+			.flag('token', flag.number())
+			.flag(
+				'mode',
+				flag.custom(() => {
+					calls++;
+					throw new Error('later failure');
+				}),
+			)
+			.interactive(({ flags }) =>
+				flags.mode ? { token: prompt.input({ message: 'Token', sensitive: true }) } : {},
+			)
+			.action(() => {});
+		const result = await runCommand(cmd, ['--token=SYNTHETIC_SECRET', '--mode=bad']);
+		expect(result.error).toMatchObject({ code: 'INVALID_VALUE', details: { flag: 'token' } });
+		expect(JSON.stringify(result)).not.toContain('SYNTHETIC_SECRET');
+		expect(result.error?.message).not.toContain('later failure');
+		expect(calls).toBe(1);
+	});
+
+	it('retries empty scripted input without changing validator-failure cancellation', async () => {
+		const engine = createTestPrompter(['', 'bad', 'good']);
+		const definition = prompt.input({
+			message: 'Value',
+			validate: (value) => value === 'good' || 'Please enter a value.',
+		});
+		expect(await engine.promptOne(definition)).toEqual({ answered: false });
+		expect(await engine.promptOne(definition)).toEqual({ answered: true, value: 'good' });
+	});
+
+	it('reports scripted empty-input exhaustion like the terminal engine', async () => {
+		const definition = prompt.input({ message: 'Value' });
+		for (const engine of [
+			createTestPrompter(Array.from({ length: 10 }, () => '')),
+			createTerminalPrompter(
+				async () => '',
+				() => {},
+			),
+		]) {
+			expect(await engine.promptOne(definition)).toEqual({ answered: false, reason: 'invalid' });
+		}
+	});
+
 	it('stamps the input kind even when options come from another definition', async () => {
 		const config = prompt.input(prompt.password({ message: 'Secret' }));
 		expect(config.kind).toBe('input');
@@ -306,6 +507,7 @@ describe('password and text schema prompts', () => {
 			let tokenCalls = 0;
 			let branchCalls = 0;
 			let interactiveCalls = 0;
+			let observed: unknown;
 			const cmd = command('login')
 				.flag(
 					'token',
@@ -326,7 +528,7 @@ describe('password and text schema prompts', () => {
 				)
 				.interactive(({ flags }) => {
 					interactiveCalls++;
-					expect(flags).toEqual({ mode: 'secret' });
+					observed = { ...flags };
 					return flags.mode === 'secret' ? { token: prompt.password({ message: 'Token' }) } : {};
 				})
 				.action(({ out }) => out.log('executed'));
@@ -350,6 +552,7 @@ describe('password and text schema prompts', () => {
 			expect(tokenCalls).toBe(1);
 			expect(branchCalls).toBe(1);
 			expect(interactiveCalls).toBe(1);
+			expect(observed).toEqual({ mode: 'secret' });
 		},
 	);
 

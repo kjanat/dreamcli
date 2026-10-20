@@ -83,7 +83,9 @@ interface TestPrompterOptions {
  * prompter exhausting its retries — so prompt validation is integration-testable
  * via {@linkcode runCommand} rather than silently accepted as the resolved value.
  * Password prompts instead consume further queued answers on validation failure,
- * and reject with `PROMPT_INVALID` after ten invalid attempts. `PROMPT_CANCEL`
+ * and reject with `PROMPT_INVALID` after ten invalid attempts. Input prompts
+ * also retry empty answers when `empty: 'retry'`; ordinary validator failures
+ * retain their cancellation fallback. `PROMPT_CANCEL`
  * remains a distinct user cancellation.
  *
  * @param answers - Ordered queue of answers. Use `PROMPT_CANCEL` for
@@ -124,15 +126,16 @@ function createTestPrompter(
 					if (config.kind === 'password') throw new PromptCancelledError();
 					return Promise.resolve({ answered: false });
 				}
-				// Passwords retry from the shared queue. Ordinary input retains its
-				// cancellation fallback; malformed values remain available to resolver tests.
+				// Retry passwords and empty-input policies from the same queue; ordinary
+				// validator failures retain their compatibility cancellation fallback.
 				if ((config.kind === 'input' || config.kind === 'password') && typeof answer === 'string') {
 					const prepared = await prepareTextAnswer(config, answer);
-					if (!prepared.ok && config.kind === 'password') continue;
+					if (!prepared.ok && (config.kind === 'password' || prepared.reason === 'empty')) continue;
 					return prepared.ok ? { answered: true, value: prepared.value } : { answered: false };
 				}
 				return Promise.resolve({ answered: true, value: answer });
 			}
+			if (config.kind !== 'password') return { answered: false, reason: 'invalid' };
 			throw new CLIError('Too many invalid prompt answers', {
 				code: 'PROMPT_INVALID',
 				exitCode: 2,

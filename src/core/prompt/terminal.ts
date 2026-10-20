@@ -145,7 +145,7 @@ async function promptConfirm(
 	let retries = 0;
 
 	while (retries < MAX_RETRIES) {
-		const hint = defaultValue ? '(Y/n)' : '(y/N)';
+		const hint = config.sensitive ? '(y/n)' : defaultValue ? '(Y/n)' : '(y/N)';
 		write(`${config.message} ${hint} `);
 
 		const line = await read();

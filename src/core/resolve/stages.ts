@@ -93,19 +93,36 @@ async function runStages(
 ): Promise<StageOutcome> {
 	const stdin = stdinBindingOf(bindings);
 	for (const binding of bindings) {
-		const outcome = await runStage(binding, stdin, input, state);
+		const outcome = await (binding.stage === 'prompt'
+			? promptStage(binding, input, state)
+			: runNonPromptStage(binding, stdin, input, state));
 		if (outcome.kind !== 'absent') return outcome;
 	}
 	return ABSENT;
 }
 
-/** Attempt one binding. */
-async function runStage(
-	binding: SourceBinding,
+/** Resolve synchronous sources only, for values read by a sensitivity callback after parse failure. */
+function runEarlyStages(
+	bindings: readonly SourceBinding[],
+	input: StageInput,
+	state: StageState,
+): StageOutcome {
+	const stdin = stdinBindingOf(bindings);
+	for (const binding of bindings) {
+		if (binding.stage === 'prompt' || binding.stage === 'default') break;
+		const outcome = runNonPromptStage(binding, stdin, input, state);
+		if (outcome.kind !== 'absent') return outcome;
+	}
+	return ABSENT;
+}
+
+/** Synchronous stages shared by ordinary resolution and deferred sensitivity inputs. */
+function runNonPromptStage(
+	binding: Exclude<SourceBinding, PromptSourceBinding>,
 	stdin: StdinSourceBinding | undefined,
 	input: StageInput,
 	state: StageState,
-): Promise<StageOutcome> {
+): StageOutcome {
 	switch (binding.stage) {
 		case 'cli':
 			return cliStage(stdin, input, state);
@@ -115,8 +132,6 @@ async function runStage(
 			return envStage(binding, input, state);
 		case 'config':
 			return configStage(binding, input, state);
-		case 'prompt':
-			return promptStage(binding, input, state);
 		case 'default':
 			return { kind: 'value', value: binding.defaultValue, provenance: { stage: 'default' } };
 	}
@@ -262,4 +277,4 @@ function readCliValue(
 }
 
 export type { CliValue, PromptOutcome, StageInput, StageOutcome, StageState };
-export { readCliValue, runStages };
+export { readCliValue, runEarlyStages, runStages };
