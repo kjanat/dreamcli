@@ -7,19 +7,29 @@
  * @module dreamcli/core/prompt/terminal
  */
 
+import { CLIError } from '#internals/core/errors/index.ts';
 import type { WriteFn } from '#internals/core/output/index.ts';
 import type {
 	ConfirmPromptConfig,
 	InputPromptConfig,
+	PasswordPromptConfig,
 	PromptResult,
 	SelectChoice,
 } from '#internals/core/schema/prompt.ts';
+import { PromptCancelledError } from './errors.ts';
 import type {
 	PromptEngine,
 	ReadFn,
 	ResolvedMultiselectPromptConfig,
 	ResolvedSelectPromptConfig,
 } from './index.ts';
+import { prepareTextAnswer } from './text.ts';
+
+/** Optional terminal capabilities. Hidden input must never fall back to an ordinary reader. */
+export interface TerminalPrompterOptions {
+	/** Read without terminal echo; restore terminal state before settling. */
+	readonly readSecret?: ReadFn;
+}
 
 /**
  * Create a prompt engine backed by line-based terminal I/O.
@@ -64,7 +74,11 @@ import type {
  * const prompter = createTerminalPrompter(read, write);
  * ```
  */
-function createTerminalPrompter(read: ReadFn, write: WriteFn): PromptEngine {
+function createTerminalPrompter(
+	read: ReadFn,
+	write: WriteFn,
+	options?: TerminalPrompterOptions,
+): PromptEngine {
 	return {
 		promptOne(config): Promise<PromptResult> {
 			switch (config.kind) {
@@ -72,6 +86,30 @@ function createTerminalPrompter(read: ReadFn, write: WriteFn): PromptEngine {
 					return promptConfirm(config, read, write);
 				case 'input':
 					return promptInput(config, read, write);
+				case 'password': {
+					const readSecret = options?.readSecret;
+					if (readSecret === undefined) {
+						return Promise.reject(
+							new CLIError('Hidden password input is unavailable', {
+								code: 'PROMPT_UNSUPPORTED',
+								suggest: 'Use a runtime adapter or prompt engine with hidden-input support',
+							}),
+						);
+					}
+					return promptInput(
+						config,
+						async () => {
+							try {
+								const value = await readSecret();
+								if (value === null) throw new PromptCancelledError('eof');
+								return value;
+							} finally {
+								write('\n');
+							}
+						},
+						write,
+					);
+				}
 				case 'select':
 					return promptSelect(config, read, write);
 				case 'multiselect':
@@ -148,15 +186,16 @@ async function promptConfirm(
  * @returns Resolved {@link PromptResult} — trimmed string value (or default), or cancelled on EOF/exhausted retries
  */
 async function promptInput(
-	config: InputPromptConfig,
+	config: InputPromptConfig | PasswordPromptConfig,
 	read: ReadFn,
 	write: WriteFn,
 ): Promise<PromptResult> {
 	let retries = 0;
 
 	const hints: string[] = [];
-	if (config.placeholder !== undefined) hints.push(config.placeholder);
-	if (config.default !== undefined) hints.push(`default: ${config.default}`);
+	if (config.kind === 'input' && config.placeholder !== undefined) hints.push(config.placeholder);
+	if (config.kind === 'input' && config.default !== undefined && !config.sensitive)
+		hints.push(`default: ${config.default}`);
 	const hint = hints.length > 0 ? ` (${hints.join(', ')})` : '';
 
 	while (retries < MAX_RETRIES) {
@@ -165,29 +204,14 @@ async function promptInput(
 		const line = await read();
 		if (line === null) return { answered: false };
 
-		const trimmed = line.trim();
-
-		// An empty submission is the absence of a value, not a value to validate:
-		// resolve to the configured default, else return blank so the resolver can
-		// treat it as "no answer" and fall through to the flag's own default.
-		if (trimmed === '') {
-			return config.default !== undefined
-				? { answered: true, value: config.default }
-				: { answered: true, value: '' };
-		}
-
-		if (config.validate !== undefined) {
-			const result = config.validate(trimmed);
-			if (result !== true) {
-				write(`${result}\n`);
-				retries += 1;
-				continue;
-			}
-		}
-
-		return { answered: true, value: trimmed };
+		const result = await prepareTextAnswer(config, line);
+		if (result.ok) return { answered: true, value: result.value };
+		write(`${result.message}\n`);
+		retries += 1;
 	}
 
+	if (config.kind === 'password')
+		throw new CLIError('Too many invalid prompt answers', { code: 'PROMPT_INVALID', exitCode: 2 });
 	// Exhausted retries — cancel
 	write('Too many invalid attempts.\n');
 	return { answered: false };

@@ -109,6 +109,39 @@ function makeDenoError(name: string, message?: string): Error {
 // === createDenoAdapter
 
 describe('createDenoAdapter', () => {
+	it('reads hidden input using Deno raw mode and restores the terminal', async () => {
+		const modes: boolean[] = [];
+		const adapter = createDenoAdapter(
+			mockDeno({
+				stdin: {
+					isTerminal: () => true,
+					setRaw: (mode) => {
+						modes.push(mode);
+					},
+					readable: mockReadableStream(['  pässword  \r']),
+				},
+			}),
+		);
+		expect(await adapter.readSecret?.()).toBe('  pässword  ');
+		expect(modes).toEqual([true, false]);
+	});
+
+	it('restores Deno terminal mode when a hidden read is interrupted', async () => {
+		const modes: boolean[] = [];
+		const adapter = createDenoAdapter(
+			mockDeno({
+				stdin: {
+					isTerminal: () => true,
+					setRaw: (mode) => {
+						modes.push(mode);
+					},
+					readable: mockReadableStream(['\u0003']),
+				},
+			}),
+		);
+		await expect(adapter.readSecret?.()).rejects.toMatchObject({ code: 'PROMPT_CANCELLED' });
+		expect(modes).toEqual([true, false]);
+	});
 	// --- basic contract
 
 	describe('basic contract', () => {

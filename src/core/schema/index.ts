@@ -100,6 +100,7 @@ export type {
 	KeyValueFlagDefinition,
 	MultiselectPromptConfig,
 	NumberFlagDefinition,
+	PasswordPromptConfig,
 	PathChecks,
 	PathFlagOptions,
 	PromptConfig,

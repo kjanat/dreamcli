@@ -6,6 +6,7 @@
  */
 
 import { ValidationError } from '#internals/core/errors/index.ts';
+import { PromptCancelledError } from '#internals/core/prompt/errors.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import { resolvePromptConfig } from '#internals/core/prompt/index.ts';
 import { argCardinality, dedupe } from '#internals/core/schema/cardinality.ts';
@@ -216,7 +217,11 @@ async function resolveArgPromptValue(
 	binding: PromptSourceBinding,
 	prompter: PromptEngine,
 ): Promise<PromptOutcome> {
-	const promptConfig = binding.prompt;
+	const promptConfig = {
+		...binding.prompt,
+		sensitive:
+			schema.sensitive || binding.prompt.sensitive === true || binding.prompt.kind === 'password',
+	};
 	const { allowed, kindWord } = argPromptCompatibility(schema);
 	if (!allowed.includes(promptConfig.kind)) {
 		return {
@@ -239,6 +244,7 @@ async function resolveArgPromptValue(
 	const result = await prompter.promptOne(resolvedConfig);
 
 	if (!result.answered) {
+		if (promptConfig.kind === 'password') throw new PromptCancelledError();
 		return { ok: false, error: undefined };
 	}
 
@@ -247,13 +253,19 @@ async function resolveArgPromptValue(
 	if (
 		promptConfig.kind === 'input' &&
 		promptConfig.default === undefined &&
+		(promptConfig.empty ?? 'skip') === 'skip' &&
 		typeof result.value === 'string' &&
-		result.value.trim() === ''
+		(promptConfig.trim === false ? result.value : result.value.trim()) === ''
 	) {
 		return { ok: false, error: undefined };
 	}
 
-	return coerceArgValue(argName, binding, result.value, schema);
+	return coerceArgValue(
+		argName,
+		binding,
+		result.value,
+		promptConfig.sensitive ? { ...schema, sensitive: true } : schema,
+	);
 }
 
 function buildRequiredArgSuggest(name: string, schema: ArgSchema, variadic?: boolean): string {

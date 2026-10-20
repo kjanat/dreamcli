@@ -139,6 +139,7 @@ async function applyStandardValidators(
 	schema: CommandSchema,
 	flags: Readonly<Record<string, unknown>>,
 	args: Readonly<Record<string, unknown>>,
+	sensitiveInputs?: ReadonlySet<string>,
 ): Promise<StandardValidationResult> {
 	const errors: ValidationError[] = [];
 
@@ -153,7 +154,7 @@ async function applyStandardValidators(
 			flagValueSchema(flagSchema).standard,
 			flagAggregateStandard(flagSchema),
 			errors,
-			flagSchema.sensitive,
+			flagSchema.sensitive || sensitiveInputs?.has(name) === true,
 		);
 		if (validated.changed) nextFlags[name] = validated.value;
 	}

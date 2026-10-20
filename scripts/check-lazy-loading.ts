@@ -41,6 +41,8 @@ const SCENARIOS: readonly Scenario[] = [
 	{ name: 'tty-no-prompt', argv: ['deploy', '--region', 'eu'], exactly: HOT_PATH },
 	{ name: 'tty-prompt', argv: ['deploy'], exactly: [...FEATURE_BASE, 'terminal'] },
 	{ name: 'answers', argv: [], exactly: [...FEATURE_BASE, 'test-prompter'] },
+	{ name: 'handler-check', argv: ['unlock', '--check'], exactly: HOT_PATH },
+	{ name: 'handler-prompt', argv: ['unlock'], exactly: [...FEATURE_BASE, 'session', 'terminal'] },
 ];
 
 function chunkName(url: string): string {

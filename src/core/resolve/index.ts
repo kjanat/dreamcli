@@ -72,6 +72,7 @@ async function resolve(
 	const deprecations: DeprecationWarning[] = [];
 	const flagProvenance = provenanceRecord();
 	const argProvenance = provenanceRecord();
+	const sensitiveInputs = new Set<string>();
 	const shared = {
 		env: options?.env ?? {},
 		config: options?.config ?? {},
@@ -90,6 +91,7 @@ async function resolve(
 			...shared,
 			interactive: schema.interactive,
 			provenance: flagProvenance,
+			sensitiveInputs,
 		});
 	} catch (error) {
 		if (!isValidationError(error)) {
@@ -110,7 +112,7 @@ async function resolve(
 		errors.push(...collectValidationErrors(error));
 	}
 
-	const validated = await applyStandardValidators(schema, flags, args);
+	const validated = await applyStandardValidators(schema, flags, args, sensitiveInputs);
 	flags = validated.flags;
 	args = validated.args;
 	errors.push(...validated.errors);

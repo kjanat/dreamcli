@@ -12,7 +12,7 @@
 import type { WriteFn } from '#internals/core/output/index.ts';
 import type { ReadFn } from '#internals/core/prompt/index.ts';
 
-// --- Runtime adapter interface — the single platform abstraction boundary
+// Runtime adapter interface — the single platform abstraction boundary
 
 /**
  * Runtime adapter interface.
@@ -66,6 +66,9 @@ interface RuntimeAdapter {
 	 */
 	readonly stdin: ReadFn;
 
+	/** Hidden terminal input. Absent when echo suppression is unsupported. */
+	readonly readSecret?: ReadFn;
+
 	/**
 	 * Read all of stdin as a single string (for piped data).
 	 *
@@ -98,7 +101,7 @@ interface RuntimeAdapter {
 	 */
 	readonly exit: (code: number) => never;
 
-	// --- Filesystem primitives (config file discovery) ---
+	// Filesystem primitives (config file discovery)
 
 	/**
 	 * Read a file as UTF-8 text.
@@ -176,7 +179,7 @@ interface TerminalSize {
 	readonly rows: number;
 }
 
-// --- Test adapter — injectable stub for testing
+// Test adapter — injectable stub for testing
 
 /**
  * Options for creating a test adapter.
@@ -207,6 +210,9 @@ interface TestAdapterOptions {
 	 * Use a custom {@linkcode ReadFn} to simulate user input in tests.
 	 */
 	readonly stdin?: ReadFn;
+
+	/** Hidden reader stub; omitted adapters report unsupported hidden input. */
+	readonly readSecret?: ReadFn;
 
 	/**
 	 * Piped stdin data for testing args with `.stdin()` configured.
@@ -242,7 +248,7 @@ interface TestAdapterOptions {
 	 */
 	readonly exit?: (code: number) => never;
 
-	// --- Filesystem stubs ---
+	// Filesystem stubs
 
 	/**
 	 * File reader stub (defaults to returning `null` — all files not found).
@@ -368,6 +374,7 @@ function createTestAdapter(options?: TestAdapterOptions): RuntimeAdapter {
 		stdout: options?.stdout ?? noopWrite,
 		stderr: options?.stderr ?? noopWrite,
 		stdin: options?.stdin ?? eofRead,
+		...(options?.readSecret !== undefined ? { readSecret: options.readSecret } : {}),
 		readStdin: () => {
 			if (stdinData === undefined) {
 				return Promise.resolve(null);
@@ -410,7 +417,7 @@ async function exitAfterFlush(adapter: RuntimeAdapter, code: number): Promise<ne
 	return adapter.exit(status);
 }
 
-// --- Exports
+// Exports
 
 export type { RuntimeAdapter, TerminalSize, TestAdapterOptions };
 export { createTestAdapter, ExitError, exitAfterFlush };

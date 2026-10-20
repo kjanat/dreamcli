@@ -20,8 +20,8 @@
  */
 
 import type { WriteFn } from '#internals/core/output/index.ts';
-import type { ReadFn } from '#internals/core/prompt/index.ts';
 import type { RuntimeAdapter, TerminalSize } from './adapter.ts';
+import { createInputReader } from './input.ts';
 import { resolveConfigDirectory, resolveHomeDirectory } from './paths.ts';
 
 // --- Minimal Deno namespace shape — avoids @types/deno dependency
@@ -93,6 +93,8 @@ interface DenoNamespace {
 
 	/** Standard input — TTY detection and readable byte stream. */
 	readonly stdin: {
+		/** Toggle raw terminal input; disabling restores the saved terminal configuration. */
+		setRaw?(mode: boolean): void;
 		/** Whether stdin is connected to a TTY. */
 		isTerminal(): boolean;
 		/** Readable stream for stdin bytes. */
@@ -203,7 +205,7 @@ function createDenoAdapter(ns?: DenoNamespace): RuntimeAdapter {
 	};
 
 	// --- Stdin line reading ---
-	const stdinRead = createDenoReadLine(d);
+	const input = createDenoInput(d);
 
 	// --- Filesystem ---
 	const readFile = async (path: string): Promise<string | null> => {
@@ -248,7 +250,8 @@ function createDenoAdapter(ns?: DenoNamespace): RuntimeAdapter {
 		cwd,
 		stdout: stdoutWrite,
 		stderr: stderrWrite,
-		stdin: stdinRead,
+		stdin: input.readLine,
+		...(input.readSecret !== undefined ? { readSecret: input.readSecret } : {}),
 		readStdin: () => readDenoStdinAll(d, stdinIsTTY),
 		isTTY: d.stdout.isTerminal(),
 		stdinIsTTY,
@@ -370,41 +373,33 @@ async function readDenoStdinAll(deno: DenoNamespace, stdinIsTTY: boolean): Promi
  *
  * @internal
  */
-function createDenoReadLine(deno: DenoNamespace): ReadFn {
+function createDenoInput(deno: DenoNamespace): ReturnType<typeof createInputReader> {
 	const decoder = new TextDecoder();
-	let buffer = '';
 	let done = false;
-
-	return async (): Promise<string | null> => {
-		const reader = deno.stdin.readable.getReader();
-		try {
-			for (;;) {
-				const newlineIndex = buffer.indexOf('\n');
-				if (newlineIndex !== -1) {
-					const line = buffer.slice(0, newlineIndex).replace(/\r$/, '');
-					buffer = buffer.slice(newlineIndex + 1);
-					return line;
-				}
-
-				if (done) {
-					if (buffer.length === 0) return null;
-					const line = buffer;
-					buffer = '';
-					return line;
-				}
-
-				const { value, done: readDone } = await reader.read();
-				if (readDone) {
-					buffer += decoder.decode();
+	return createInputReader(
+		async () => {
+			if (done) return null;
+			const reader = deno.stdin.readable.getReader();
+			try {
+				const chunk = await reader.read();
+				if (chunk.done) {
 					done = true;
-					continue;
+					return decoder.decode() || null;
 				}
-				buffer += decoder.decode(value, { stream: true });
+				return decoder.decode(chunk.value, { stream: true });
+			} finally {
+				reader.releaseLock();
 			}
-		} finally {
-			reader.releaseLock();
-		}
-	};
+		},
+		deno.stdin.isTerminal() && deno.stdin.setRaw !== undefined
+			? () => {
+					deno.stdin.setRaw?.(true);
+					return () => {
+						deno.stdin.setRaw?.(false);
+					};
+				}
+			: undefined,
+	);
 }
 
 // --- Home / config directory resolution

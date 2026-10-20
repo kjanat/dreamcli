@@ -9,7 +9,9 @@
  */
 
 import type { PromptResult } from '#internals/core/schema/prompt.ts';
+import { PromptCancelledError } from './errors.ts';
 import type { PromptEngine } from './index.ts';
+import { prepareTextAnswer } from './text.ts';
 
 // --- Sentinel for cancelled prompts in test prompter
 
@@ -33,9 +35,9 @@ const PROMPT_CANCEL: unique symbol = Symbol.for('dreamcli.prompt.cancel') as typ
 /**
  * A queued answer consumed by {@link createTestPrompter}.
  *
- * The test prompter returns these values exactly as provided; it does not
- * coerce them. The one exception mirrors the terminal prompter: a string answer
- * to an `input` prompt is run through the prompt's `validate` function, and a
+ * The test prompter leaves malformed non-string values intact for resolver
+ * error tests. Text answers use the same whitespace, empty-answer, default,
+ * and validation policy as the terminal prompter; a
  * failing answer is rejected as a cancellation (see {@link createTestPrompter}).
  * The normal resolution pipeline performs any later type coercion, so tests can
  * supply values in the same shapes real prompts would yield:
@@ -100,7 +102,7 @@ function createTestPrompter(
 ): PromptEngine {
 	let index = 0;
 	return {
-		promptOne(config): Promise<PromptResult> {
+		async promptOne(config): Promise<PromptResult> {
 			if (index >= answers.length) {
 				if (options?.onExhausted === 'cancel') {
 					return Promise.resolve({ answered: false });
@@ -114,6 +116,7 @@ function createTestPrompter(
 			const answer = answers[index];
 			index += 1;
 			if (answer === PROMPT_CANCEL) {
+				if (config.kind === 'password') throw new PromptCancelledError();
 				return Promise.resolve({ answered: false });
 			}
 			// Mirror the terminal prompter's `input` contract: run `config.validate`
@@ -125,10 +128,9 @@ function createTestPrompter(
 			// `input` prompts carry a validator and only string answers are the
 			// shape the terminal prompter would ever validate; non-string answers
 			// stay verbatim so downstream coercion paths remain testable.
-			if (config.kind === 'input' && config.validate !== undefined && typeof answer === 'string') {
-				if (config.validate(answer) !== true) {
-					return Promise.resolve({ answered: false });
-				}
+			if ((config.kind === 'input' || config.kind === 'password') && typeof answer === 'string') {
+				const prepared = await prepareTextAnswer(config, answer);
+				return prepared.ok ? { answered: true, value: prepared.value } : { answered: false };
 			}
 			return Promise.resolve({ answered: true, value: answer });
 		},

@@ -68,6 +68,34 @@ function deployCommand() {
 // --- createTestAdapter
 
 describe('createTestAdapter', () => {
+	it('reads hidden input through Node raw mode and restores it', async () => {
+		const modes: boolean[] = [];
+		const adapter = createNodeAdapter(
+			mockNodeProcess({
+				stdin: mockStdin({
+					isTTY: true,
+					isRaw: false,
+					setRawMode: (mode) => {
+						modes.push(mode);
+					},
+					async *[Symbol.asyncIterator]() {
+						yield new TextEncoder().encode('  pässword  \r');
+					},
+				}),
+			}),
+		);
+		expect(await adapter.readSecret?.()).toBe('  pässword  ');
+		expect(modes).toEqual([true, false]);
+	});
+
+	it('does not expose Node hidden input for pipes or hosts without raw mode', () => {
+		for (const stdin of [
+			mockStdin({ isTTY: true }),
+			mockStdin({ isTTY: false, setRawMode: () => {} }),
+		]) {
+			expect(createNodeAdapter(mockNodeProcess({ stdin })).readSecret).toBeUndefined();
+		}
+	});
 	it('returns a RuntimeAdapter with all required fields', () => {
 		const adapter = createTestAdapter();
 

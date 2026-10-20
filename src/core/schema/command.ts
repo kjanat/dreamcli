@@ -11,6 +11,7 @@
 import type { Colors } from 'ansispeck';
 import { CLIError } from '#internals/core/errors/index.ts';
 import type { Verbosity } from '#internals/core/output/contracts.ts';
+import type { Ask } from '#internals/core/prompt/definitions.ts';
 import type {
 	ProgressHandle,
 	ProgressOptions,
@@ -378,6 +379,8 @@ interface ActionParams<
 	readonly ctx: Readonly<C>;
 	/** Structured output channel for stdout, stderr, JSON, tables, and spinners. */
 	readonly out: Out;
+	/** Ask a typed question after selecting the operation or receiving a server challenge. */
+	readonly ask: Ask;
 	/** Runtime metadata about the CLI program and current command. */
 	readonly meta: CommandMeta;
 }
@@ -413,6 +416,8 @@ type ErasedActionHandler = (params: {
 	readonly sources: ErasedInputSources;
 	readonly ctx: Readonly<Record<string, unknown>>;
 	readonly out: Out;
+	/** Ask a typed question after selecting the operation or receiving a server challenge. */
+	readonly ask: Ask;
 	readonly meta: CommandMeta;
 }) => void | Promise<void>;
 
@@ -465,6 +470,8 @@ type ErasedDeriveHandler = (params: {
 	readonly sources: ErasedInputSources;
 	readonly ctx: Readonly<Record<string, unknown>>;
 	readonly out: Out;
+	/** Ask a typed question after selecting the operation or receiving a server challenge. */
+	readonly ask: Ask;
 	readonly meta: CommandMeta;
 }) =>
 	| undefined

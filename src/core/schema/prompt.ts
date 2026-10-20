@@ -12,13 +12,14 @@
 // --- Prompt kind discriminator
 
 /** All prompt kind discriminators as a runtime array. */
-const PROMPT_KINDS = ['confirm', 'input', 'select', 'multiselect'] as const;
+const PROMPT_KINDS = ['confirm', 'input', 'password', 'select', 'multiselect'] as const;
 
 /**
  * The kind of interactive prompt to present.
  *
  * - `'confirm'`     — yes/no boolean question
  * - `'input'`       — free-text string input
+ * - `'password'`    — hidden text input, preserving whitespace
  * - `'select'`      — single selection from a list
  * - `'multiselect'` — multiple selections from a list
  */
@@ -30,6 +31,8 @@ type PromptKind = (typeof PROMPT_KINDS)[number];
 interface PromptConfigBase {
 	/** The question displayed to the user. */
 	readonly message: string;
+	/** Suppress framework-controlled value hints and diagnostics. */
+	readonly sensitive?: boolean;
 }
 
 /** Yes/no confirmation prompt — maps to `boolean` flags. Part of {@link PromptConfig}. */
@@ -50,6 +53,10 @@ interface InputPromptConfig extends PromptConfigBase {
 	readonly kind: 'input';
 	/** Placeholder text shown before user types (informational only). */
 	readonly placeholder?: string;
+	/** Trim surrounding whitespace. Defaults to `true` for compatibility. */
+	readonly trim?: boolean;
+	/** Empty submission policy. Defaults to `skip` (fall through to input defaults). */
+	readonly empty?: 'skip' | 'accept' | 'retry';
 	/**
 	 * Value used when the user submits an empty line (presses Enter), shown in
 	 * the hint as `(default: <value>)`. When set, an empty submission resolves
@@ -63,7 +70,17 @@ interface InputPromptConfig extends PromptConfigBase {
 	 * Inline validation function. Return `true` if valid, or a string
 	 * error message if invalid. Called before coercion to flag kind.
 	 */
-	readonly validate?: (value: string) => true | string;
+	readonly validate?: (value: string) => true | string | Promise<true | string>;
+}
+
+/** Hidden text entry. Whitespace is preserved and defaults are never displayed or accepted. */
+interface PasswordPromptConfig extends PromptConfigBase {
+	/** Request terminal echo suppression; unsupported hosts must reject before reading. */
+	readonly kind: 'password';
+	/** Empty submission policy. Defaults to `retry`. */
+	readonly empty?: 'accept' | 'retry';
+	/** Validate the unchanged password; invalid answers may be corrected. */
+	readonly validate?: (value: string) => true | string | Promise<true | string>;
 }
 
 /** Single-selection prompt — maps to `enum` flags or any flag with {@link SelectChoice choices}. Part of {@link PromptConfig}. */
@@ -129,6 +146,7 @@ interface SelectChoice {
 type PromptConfig =
 	| ConfirmPromptConfig
 	| InputPromptConfig
+	| PasswordPromptConfig
 	| SelectPromptConfig
 	| MultiselectPromptConfig;
 
@@ -161,6 +179,7 @@ export type {
 	ConfirmPromptConfig,
 	InputPromptConfig,
 	MultiselectPromptConfig,
+	PasswordPromptConfig,
 	PromptConfig,
 	PromptConfigBase,
 	PromptKind,

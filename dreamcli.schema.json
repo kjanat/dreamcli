@@ -700,11 +700,19 @@
             "$ref": "#/$defs/choice"
           }
         },
+        "empty": {
+          "enum": [
+            "skip",
+            "accept",
+            "retry"
+          ]
+        },
         "kind": {
-          "description": "The kind of interactive prompt to present.\n\n- `'confirm'`     — yes/no boolean question\n- `'input'`       — free-text string input\n- `'select'`      — single selection from a list\n- `'multiselect'` — multiple selections from a list",
+          "description": "The kind of interactive prompt to present.\n\n- `'confirm'`     — yes/no boolean question\n- `'input'`       — free-text string input\n- `'password'`    — hidden text input, preserving whitespace\n- `'select'`      — single selection from a list\n- `'multiselect'` — multiple selections from a list",
           "enum": [
             "confirm",
             "input",
+            "password",
             "select",
             "multiselect"
           ]
@@ -724,6 +732,12 @@
         "placeholder": {
           "description": "Placeholder text shown before user types (informational only).",
           "type": "string"
+        },
+        "sensitive": {
+          "const": true
+        },
+        "trim": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false

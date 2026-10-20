@@ -6,6 +6,7 @@
  */
 
 import { ValidationError } from '#internals/core/errors/index.ts';
+import { PromptCancelledError } from '#internals/core/prompt/errors.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import { resolvePromptConfig } from '#internals/core/prompt/index.ts';
 import { dedupe } from '#internals/core/schema/cardinality.ts';
@@ -33,6 +34,8 @@ import { readCliValue, runStages } from './stages.ts';
 
 /** External state and collectors one flag-resolution pass shares. */
 interface FlagResolutionOptions {
+	/** Inputs made sensitive by invocation-specific prompt overrides. */
+	readonly sensitiveInputs?: Set<string>;
 	/** Environment variable snapshot. */
 	readonly env: Readonly<Record<string, string | undefined>>;
 	/** Parsed config file contents. */
@@ -74,6 +77,7 @@ async function resolveFlags(
 	const resolved: Record<string, unknown> = {};
 	const errors: ValidationError[] = [];
 	const hardErrorFlags = new Set<string>();
+	const effectiveSchemas = new Map<string, FlagSchema>();
 	const state: StageState = {
 		env: options.env,
 		config: options.config,
@@ -94,16 +98,18 @@ async function resolveFlags(
 	const interactiveConfigs =
 		options.interactive !== undefined ? options.interactive({ flags: resolved }) : undefined;
 
-	for (const [name, schema] of Object.entries(flagSchemas)) {
+	for (const [name, originalSchema] of Object.entries(flagSchemas)) {
 		if (Object.hasOwn(resolved, name) || hardErrorFlags.has(name)) {
 			continue;
 		}
+		const config = effectivePromptConfig(name, originalSchema, interactiveConfigs);
+		const sensitive =
+			originalSchema.sensitive || config?.kind === 'password' || config?.sensitive === true;
+		const schema = sensitive ? { ...originalSchema, sensitive: true } : originalSchema;
+		if (sensitive) options.sensitiveInputs?.add(name);
+		effectiveSchemas.set(name, schema);
 
-		const bindings = withPromptBinding(
-			schema,
-			sourceBindings(schema),
-			effectivePromptConfig(name, schema, interactiveConfigs),
-		);
+		const bindings = withPromptBinding(schema, sourceBindings(schema), config);
 		const outcome = await runStages(
 			bindingsFromPrompt(bindings),
 			stageInput(name, schema, parsedFlags, bindings, options.prompter),
@@ -146,7 +152,8 @@ async function resolveFlags(
 
 	// Post-resolution pass — rules that apply to the final value regardless
 	// of which source produced it.
-	for (const [name, schema] of Object.entries(flagSchemas)) {
+	for (const [name, originalSchema] of Object.entries(flagSchemas)) {
+		const schema = effectiveSchemas.get(name) ?? originalSchema;
 		// A flag whose resolution threw has no entry here, and a flag named
 		// after an Object.prototype member would otherwise read that inherited
 		// method as its resolved value.
@@ -256,11 +263,11 @@ function effectivePromptConfig(
 /** Maps each flag kind to the prompt kinds that produce compatible values. */
 const COMPATIBLE_PROMPT_KINDS: Record<FlagKind, readonly PromptKind[]> = {
 	boolean: ['confirm'],
-	string: ['input', 'select'],
+	string: ['input', 'password', 'select'],
 	number: ['input'],
 	enum: ['select', 'input'],
 	array: ['multiselect'],
-	custom: ['input', 'select', 'confirm', 'multiselect'],
+	custom: ['input', 'password', 'select', 'confirm', 'multiselect'],
 	count: [],
 	keyValue: [],
 };
@@ -358,7 +365,11 @@ async function resolvePromptValueWithConfig(
 	binding: PromptSourceBinding,
 	prompter: PromptEngine,
 ): Promise<PromptOutcome> {
-	const promptConfig = binding.prompt;
+	const promptConfig = {
+		...binding.prompt,
+		sensitive:
+			schema.sensitive || binding.prompt.sensitive === true || binding.prompt.kind === 'password',
+	};
 	const mismatch = validatePromptFlagCompatibility(flagName, schema.kind, promptConfig.kind);
 	if (mismatch !== undefined) {
 		return { ok: false, error: mismatch };
@@ -371,6 +382,7 @@ async function resolvePromptValueWithConfig(
 	const result = await prompter.promptOne(resolvedConfig);
 
 	if (!result.answered) {
+		if (promptConfig.kind === 'password') throw new PromptCancelledError();
 		return { ok: false, error: undefined };
 	}
 
@@ -382,13 +394,19 @@ async function resolvePromptValueWithConfig(
 	if (
 		promptConfig.kind === 'input' &&
 		promptConfig.default === undefined &&
+		(promptConfig.empty ?? 'skip') === 'skip' &&
 		typeof result.value === 'string' &&
-		result.value.trim() === ''
+		(promptConfig.trim === false ? result.value : result.value.trim()) === ''
 	) {
 		return { ok: false, error: undefined };
 	}
 
-	return coerceValue(flagName, binding, result.value, schema);
+	return coerceValue(
+		flagName,
+		binding,
+		result.value,
+		promptConfig.sensitive ? { ...schema, sensitive: true } : schema,
+	);
 }
 
 /** Build a human-readable suggestion listing all available sources for a required flag. @internal */

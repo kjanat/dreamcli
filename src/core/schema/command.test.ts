@@ -381,6 +381,9 @@ describe('full command composition', () => {
 			sources: { flags: { loud: { stage: 'cli' } }, args: { name: { stage: 'cli' } } },
 			ctx: {},
 			out: mockOut,
+			ask: async () => {
+				throw new Error('No prompts expected');
+			},
 			meta: { name: 'test', bin: 'test', version: undefined, command: 'greet' },
 		};
 

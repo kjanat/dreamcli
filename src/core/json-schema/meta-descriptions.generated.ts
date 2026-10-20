@@ -322,7 +322,7 @@ const definitionMetaSchemaDescriptions = {
 			properties: {
 				kind: {
 					description:
-						"The kind of interactive prompt to present.\n\n- `'confirm'`     — yes/no boolean question\n- `'input'`       — free-text string input\n- `'select'`      — single selection from a list\n- `'multiselect'` — multiple selections from a list",
+						"The kind of interactive prompt to present.\n\n- `'confirm'`     — yes/no boolean question\n- `'input'`       — free-text string input\n- `'password'`    — hidden text input, preserving whitespace\n- `'select'`      — single selection from a list\n- `'multiselect'` — multiple selections from a list",
 				},
 				message: {
 					description: 'The question displayed to the user.',
