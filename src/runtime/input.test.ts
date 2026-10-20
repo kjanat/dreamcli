@@ -21,6 +21,29 @@ function reader(chunks: string[], initialRaw = false) {
 }
 
 describe('runtime hidden input', () => {
+	it.each(['\n', '\r\n'])(
+		'discards cooked input buffered before secret mode (%j)',
+		async (newline) => {
+			const input = reader([`email${newline}EXPOSED${newline}`, `hidden${newline}`]);
+			expect(await input.readLine()).toBe('email');
+			expect(await input.readSecret?.()).toBe('hidden');
+			expect(input.changes).toEqual([true, false]);
+		},
+	);
+
+	it('does not accept a cooked buffered password when fresh input reaches EOF', async () => {
+		const input = reader(['email\nEXPOSED\n']);
+		expect(await input.readLine()).toBe('email');
+		expect(await input.readSecret?.()).toBeNull();
+		expect(input.isRaw()).toBe(false);
+	});
+
+	it('preserves answers buffered while echo was suppressed', async () => {
+		const input = reader(['first\r\nsecond\n']);
+		expect(await input.readSecret?.()).toBe('first');
+		expect(await input.readSecret?.()).toBe('second');
+	});
+
 	it('preserves whitespace, Unicode, backspace, and subsequent ordinary reads', async () => {
 		const input = reader(['  päss😀x\u007f  \r\nnext\n']);
 		expect(await input.readSecret?.()).toBe('  päss😀  ');

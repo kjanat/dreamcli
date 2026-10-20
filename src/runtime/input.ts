@@ -12,19 +12,23 @@ export function createInputReader(
 	enterRaw?: () => () => void,
 ): { readonly readLine: ReadFn; readonly readSecret?: ReadFn } {
 	let buffer = '';
+	let bufferWasSecret = false;
 	let ended = false;
 	let active = false;
 	let skipLF = false;
-	const fill = async (): Promise<boolean> => {
+	const fill = async (secret: boolean): Promise<boolean> => {
 		while (buffer === '' && !ended) {
 			const chunk = await readChunk();
 			if (chunk === null) ended = true;
-			else buffer += chunk;
+			else {
+				buffer = chunk;
+				bufferWasSecret = secret;
+			}
 		}
 		if (skipLF && buffer !== '') {
 			if (buffer.startsWith('\n')) buffer = buffer.slice(1);
 			skipLF = false;
-			if (buffer === '' && !ended) return fill();
+			if (buffer === '' && !ended) return fill(secret);
 		}
 		return buffer !== '';
 	};
@@ -33,10 +37,17 @@ export function createInputReader(
 		active = true;
 		let restore: (() => void) | undefined;
 		try {
-			if (secret) restore = enterRaw?.();
+			if (secret) {
+				restore = enterRaw?.();
+				// Ordinary reads may have captured additional lines with terminal echo on.
+				if (!bufferWasSecret) {
+					buffer = '';
+					skipLF = false;
+				}
+			}
 			let answer = '';
 			for (;;) {
-				if (!(await fill())) return secret || answer === '' ? null : answer;
+				if (!(await fill(secret))) return secret || answer === '' ? null : answer;
 				if (!secret) {
 					const newline = buffer.indexOf('\n');
 					if (newline !== -1) {

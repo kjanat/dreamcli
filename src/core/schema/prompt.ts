@@ -156,7 +156,7 @@ type PromptConfig =
  * The raw result returned by a prompt engine for a single prompt.
  *
  * - `answered: true`  — user provided a value
- * - `answered: false` — user cancelled/aborted (Ctrl+C, ESC, etc.)
+ * - `answered: false` — no answer; cancellation unless `reason: 'invalid'`
  *
  * Coercion to the flag's kind is the resolver's responsibility, not the
  * prompt engine's.
@@ -169,8 +169,10 @@ type PromptResult =
 			readonly value: unknown;
 	  }
 	| {
-			/** User cancelled or aborted (Ctrl+C, ESC, etc.). */
+			/** No answer was provided. */
 			readonly answered: false;
+			/** Retry exhaustion; omitted for cancellation or EOF. */
+			readonly reason?: 'invalid';
 	  };
 
 // --- Exports

@@ -209,13 +209,13 @@ describe('createTerminalPrompter', () => {
 			expect(result).toEqual({ answered: true, value: true });
 		});
 
-		it('cancels after MAX_RETRIES invalid attempts', async () => {
+		it('reports exhaustion after MAX_RETRIES invalid attempts', async () => {
 			const invalidAnswers = Array.from({ length: 11 }, () => 'maybe');
 			const { write, lines } = captureWrite();
 			const prompter = createTerminalPrompter(mockRead(invalidAnswers), write);
 			const result = await prompter.promptOne({ kind: 'confirm', message: 'Continue?' });
 
-			expect(result).toEqual({ answered: false });
+			expect(result).toEqual({ answered: false, reason: 'invalid' });
 			expect(lines.some((line) => line.includes('Too many invalid attempts'))).toBe(true);
 		});
 
@@ -319,7 +319,7 @@ describe('createTerminalPrompter', () => {
 			expect(result).toEqual({ answered: false });
 		});
 
-		it('cancels after MAX_RETRIES invalid attempts', async () => {
+		it('reports exhaustion after MAX_RETRIES invalid attempts', async () => {
 			const validate = () => 'Always invalid' as const;
 			// Create 11 responses — all will fail validation, 10th triggers max retry
 			const responses = Array.from({ length: 11 }, () => 'bad');
@@ -330,7 +330,7 @@ describe('createTerminalPrompter', () => {
 				message: 'q',
 				validate,
 			});
-			expect(result).toEqual({ answered: false });
+			expect(result).toEqual({ answered: false, reason: 'invalid' });
 			expect(lines.some((l) => l.includes('Too many invalid attempts'))).toBe(true);
 		});
 
@@ -498,7 +498,7 @@ describe('createTerminalPrompter', () => {
 			expect(result).toEqual({ answered: false });
 		});
 
-		it('cancels after MAX_RETRIES', async () => {
+		it('reports exhaustion after MAX_RETRIES', async () => {
 			const bad = Array.from({ length: 11 }, () => 'x');
 			const { write, lines } = captureWrite();
 			const prompter = createTerminalPrompter(mockRead(bad), write);
@@ -507,7 +507,7 @@ describe('createTerminalPrompter', () => {
 				message: 'Region',
 				choices,
 			});
-			expect(result).toEqual({ answered: false });
+			expect(result).toEqual({ answered: false, reason: 'invalid' });
 			expect(lines.some((l) => l.includes('Too many invalid attempts'))).toBe(true);
 		});
 

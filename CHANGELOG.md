@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Reusable, typed prompt definitions and sessions** ([#148](https://github.com/kjanat/dreamcli/pull/148)).\
+  Use `prompt.input()`, `prompt.password()`, `prompt.confirm()`, `prompt.select()`, and `prompt.multiselect()` with schema-bound prompts, handler-level `ask`, or standalone `createPromptSession()` calls through `@kjanat/dreamcli/prompt`. Selection answers preserve literal choice types; standalone selections require explicit, non-empty choices. Handler prompts can run after authentication branches or server challenges are known.
+- **Hidden password entry and configurable text validation.**\
+  Node, Bun, and Deno adapters support password prompts that preserve whitespace, restore terminal state, and reject unsupported hidden input. Text prompts support asynchronous validation, explicit trimming and empty-answer policies, and shared scripted answer queues across schema and handler prompts.
+
+### Fixed
+
+- **Consistent prompt failures across terminal, scripted, and custom engines.**\
+  Prompt sessions report exhausted invalid answers as `PROMPT_INVALID` with exit code 2 while cancellation retains exit code 130. Scripted schema passwords retry invalid answers, and `prompt.input()` always produces an input definition when reusing another prompt's options.
+
+### Security
+
+- **Protect password input and sensitive diagnostics.**\
+  Hidden reads discard bytes buffered during ordinary, echo-enabled input rather than accepting a password that was already visible. Password and dynamically sensitive schema prompts redact framework-controlled values in both initial and deferred validation errors without rerunning user parsers.
+
 ### Release checklist
 
 - [ ] Set the intended version in `package.json` and `deno.json`, add the dated changelog section, and update every comparison link.

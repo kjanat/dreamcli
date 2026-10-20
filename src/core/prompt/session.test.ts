@@ -13,6 +13,64 @@ import { createTerminalPrompter } from './terminal.ts';
 import { createTestPrompter, PROMPT_CANCEL } from './test-prompter.ts';
 
 describe('prompt sessions', () => {
+	it('stamps the input kind even when options come from another definition', async () => {
+		const config = prompt.input(prompt.password({ message: 'Secret' }));
+		expect(config.kind).toBe('input');
+		const { ask } = createPromptSession({
+			prompter: createTerminalPrompter(
+				async () => 'value',
+				() => {},
+			),
+		});
+		expect(await ask(config)).toBe('value');
+	});
+
+	const configs = [
+		prompt.confirm({ message: 'Continue' }),
+		prompt.select({ message: 'Choose', choices: [{ value: 'ok' }] }),
+		prompt.multiselect({ message: 'Choose', choices: [{ value: 'ok' }] }),
+		prompt.input({ message: 'Text', validate: () => 'invalid' }),
+		prompt.password({ message: 'Secret', validate: () => 'invalid' }),
+	] as const;
+	for (const mode of ['scripted', 'terminal', 'custom'] as const) {
+		it.each(configs)(`reports exhausted $kind answers as invalid in ${mode}`, async (config) => {
+			const answers = Array.from({ length: 10 }, () => 'bad');
+			const read = async () => answers.shift() ?? null;
+			const prompter =
+				mode === 'scripted'
+					? createTestPrompter(answers)
+					: mode === 'terminal'
+						? createTerminalPrompter(read, () => {}, { readSecret: read })
+						: { promptOne: async () => ({ answered: true as const, value: answers.shift() }) };
+			const { ask } = createPromptSession({ prompter });
+			await expect(ask(config)).rejects.toMatchObject({ code: 'PROMPT_INVALID', exitCode: 2 });
+		});
+		it.each(configs)(`preserves cancellation for $kind in ${mode}`, async (config) => {
+			const prompter =
+				mode === 'scripted'
+					? createTestPrompter([PROMPT_CANCEL])
+					: mode === 'terminal'
+						? createTerminalPrompter(
+								async () => null,
+								() => {},
+								{ readSecret: async () => null },
+							)
+						: { promptOne: async () => ({ answered: false as const }) };
+			const { ask } = createPromptSession({ prompter });
+			await expect(ask(config)).rejects.toMatchObject({ code: 'PROMPT_CANCELLED', exitCode: 130 });
+		});
+	}
+
+	it('accepts an explicit retry-exhaustion result from a custom engine', async () => {
+		const { ask } = createPromptSession({
+			prompter: { promptOne: async () => ({ answered: false, reason: 'invalid' }) },
+		});
+		await expect(ask(prompt.input({ message: 'Text' }))).rejects.toMatchObject({
+			code: 'PROMPT_INVALID',
+			exitCode: 2,
+		});
+	});
+
 	it('requires non-empty choices for standalone selection but permits schema inference', async () => {
 		const select = prompt.select({ message: 'Region' });
 		const multiselect = prompt.multiselect({ message: 'Regions' });

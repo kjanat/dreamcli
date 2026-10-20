@@ -44,7 +44,7 @@ export type Ask = <const C extends StandalonePromptConfig>(config: C) => Promise
 export const prompt = {
 	/** Text input; empty answers retry unless an explicit policy/default is supplied. */
 	input(options: Omit<InputPromptConfig, 'kind'>): InputPromptConfig {
-		return { kind: 'input', empty: 'retry', ...options };
+		return { empty: 'retry', ...options, kind: 'input' };
 	},
 	/** Hidden input, preserving all surrounding whitespace. */
 	password(options: Omit<PasswordPromptConfig, 'kind'>): PasswordPromptConfig {

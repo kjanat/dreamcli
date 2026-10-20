@@ -63,7 +63,14 @@ export function createPromptSession(options: PromptSessionOptions): PromptSessio
 			}
 			for (let attempt = 0; attempt < 10; attempt++) {
 				const result = await options.prompter.promptOne(engineConfig);
-				if (!result.answered) throw new PromptCancelledError();
+				if (!result.answered) {
+					if (result.reason === 'invalid')
+						throw new CLIError('Too many invalid prompt answers', {
+							code: 'PROMPT_INVALID',
+							exitCode: 2,
+						});
+					throw new PromptCancelledError();
+				}
 				let value = result.value;
 				let error: string | undefined;
 				if (config.kind === 'input' || config.kind === 'password') {

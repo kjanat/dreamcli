@@ -108,7 +108,8 @@ interface PromptEngine {
 	 *
 	 * @param config - The resolved prompt configuration (choices guaranteed
 	 *   for select/multiselect).
-	 * @returns The user's answer, or `{ answered: false }` if cancelled.
+	 * @returns The user's answer, `{ answered: false }` if cancelled, or
+	 *   `{ answered: false, reason: 'invalid' }` when invalid attempts are exhausted.
 	 */
 	promptOne(config: ResolvedPromptConfig): Promise<PromptResult>;
 }

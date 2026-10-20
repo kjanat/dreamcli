@@ -121,7 +121,7 @@ function createTerminalPrompter(
 
 // --- Per-kind prompt implementations
 
-/** Maximum retries for invalid input before treating as cancel. */
+/** Maximum attempts before reporting invalid input exhaustion. */
 const MAX_RETRIES = 10;
 
 /**
@@ -167,7 +167,7 @@ async function promptConfirm(
 	}
 
 	write('Too many invalid attempts.\n');
-	return { answered: false };
+	return { answered: false, reason: 'invalid' };
 }
 
 /**
@@ -183,7 +183,7 @@ async function promptConfirm(
  * @param config - {@link InputPromptConfig} with message, optional placeholder, default, and validator
  * @param read - {@link ReadFn} for reading a line of user input
  * @param write - {@link WriteFn} for rendering prompt text and validation errors
- * @returns Resolved {@link PromptResult} — trimmed string value (or default), or cancelled on EOF/exhausted retries
+ * @returns Resolved {@link PromptResult} — trimmed string value (or default), or unanswered on EOF/retry exhaustion
  */
 async function promptInput(
 	config: InputPromptConfig | PasswordPromptConfig,
@@ -212,9 +212,9 @@ async function promptInput(
 
 	if (config.kind === 'password')
 		throw new CLIError('Too many invalid prompt answers', { code: 'PROMPT_INVALID', exitCode: 2 });
-	// Exhausted retries — cancel
+	// Preserve schema-bound fallback while exposing exhaustion to sessions.
 	write('Too many invalid attempts.\n');
-	return { answered: false };
+	return { answered: false, reason: 'invalid' };
 }
 
 /**
@@ -226,7 +226,7 @@ async function promptInput(
  * @param config - {@link ResolvedSelectPromptConfig} with message and guaranteed non-empty choices
  * @param read - {@link ReadFn} for reading a line of user input
  * @param write - {@link WriteFn} for rendering the choice list and validation errors
- * @returns Resolved {@link PromptResult} — selected {@link SelectChoice.value}, or cancelled on EOF/exhausted retries
+ * @returns Resolved {@link PromptResult} — selected {@link SelectChoice.value}, or unanswered on EOF/retry exhaustion
  */
 async function promptSelect(
 	config: ResolvedSelectPromptConfig,
@@ -267,7 +267,7 @@ async function promptSelect(
 	}
 
 	write('Too many invalid attempts.\n');
-	return { answered: false };
+	return { answered: false, reason: 'invalid' };
 }
 
 /**
@@ -281,7 +281,7 @@ async function promptSelect(
  * @param config - {@link ResolvedMultiselectPromptConfig} with message, guaranteed non-empty choices, and optional min/max
  * @param read - {@link ReadFn} for reading a line of user input
  * @param write - {@link WriteFn} for rendering the choice list, hints, and validation errors
- * @returns Resolved {@link PromptResult} — array of selected {@link SelectChoice.value} strings, or cancelled on EOF/exhausted retries
+ * @returns Resolved {@link PromptResult} — array of selected {@link SelectChoice.value} strings, or unanswered on EOF/retry exhaustion
  */
 async function promptMultiselect(
 	config: ResolvedMultiselectPromptConfig,
@@ -362,7 +362,7 @@ async function promptMultiselect(
 	}
 
 	write('Too many invalid attempts.\n');
-	return { answered: false };
+	return { answered: false, reason: 'invalid' };
 }
 
 // --- Exports
