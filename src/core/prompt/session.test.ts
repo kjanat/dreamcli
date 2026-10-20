@@ -5,7 +5,7 @@ import { arg } from '#internals/core/schema/arg.ts';
 import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { runCommand } from '#internals/core/testkit/index.ts';
-import { prompt } from './definitions.ts';
+import { type Ask, prompt } from './definitions.ts';
 import { PromptCancelledError } from './errors.ts';
 import type { PromptEngine } from './index.ts';
 import { createPromptSession } from './session.ts';
@@ -13,6 +13,24 @@ import { createTerminalPrompter } from './terminal.ts';
 import { createTestPrompter, PROMPT_CANCEL } from './test-prompter.ts';
 
 describe('prompt sessions', () => {
+	it('requires non-empty choices for standalone selection but permits schema inference', async () => {
+		const select = prompt.select({ message: 'Region' });
+		const multiselect = prompt.multiselect({ message: 'Regions' });
+		expectTypeOf(select).not.toExtend<Parameters<Ask>[0]>();
+		expectTypeOf(multiselect).not.toExtend<Parameters<Ask>[0]>();
+		expectTypeOf(prompt.select({ message: 'Region', choices: [] })).not.toExtend<
+			Parameters<Ask>[0]
+		>();
+		expectTypeOf(prompt.multiselect({ message: 'Regions', choices: [] })).not.toExtend<
+			Parameters<Ask>[0]
+		>();
+		const cmd = command('choose')
+			.flag('region', flag.enum(['eu', 'us']).prompt(select))
+			.flag('regions', flag.array(flag.enum(['eu', 'us'])).prompt(multiselect))
+			.action(() => {});
+		expect((await runCommand(cmd, [], { answers: ['eu', ['us']] })).exitCode).toBe(0);
+	});
+
 	it('infers literals and uses one queue across several questions', async () => {
 		const { ask } = createPromptSession({
 			prompter: createTestPrompter(['eu', ['a'], true, 'name']),
@@ -148,6 +166,66 @@ describe('prompt sessions', () => {
 });
 
 describe('password and text schema prompts', () => {
+	it.each(['scripted', 'terminal'] as const)(
+		'retries invalid schema passwords in %s mode',
+		async (mode) => {
+			const answers = ['bad', '  valid  '];
+			let supplied: string | undefined;
+			const cmd = command('login')
+				.flag(
+					'password',
+					flag.string().prompt(
+						prompt.password({
+							message: 'Password',
+							validate: async (value) => value === '  valid  ' || 'invalid',
+						}),
+					),
+				)
+				.action(({ flags }) => {
+					supplied = flags.password;
+				});
+			const options =
+				mode === 'scripted'
+					? { answers }
+					: {
+							prompter: createTerminalPrompter(
+								async () => null,
+								() => {},
+								{ readSecret: async () => answers.shift() ?? null },
+							),
+						};
+			const result = await runCommand(cmd, [], options);
+			expect(result.exitCode).toBe(0);
+			expect(supplied).toBe('  valid  ');
+		},
+	);
+
+	it.each(['scripted', 'terminal'] as const)(
+		'reports invalid schema passwords distinctly in %s mode',
+		async (mode) => {
+			const answers = Array.from({ length: 10 }, () => 'bad');
+			const cmd = command('login')
+				.flag(
+					'password',
+					flag.string().prompt(prompt.password({ message: 'Password', validate: () => 'invalid' })),
+				)
+				.action(() => {});
+			const options =
+				mode === 'scripted'
+					? { answers }
+					: {
+							prompter: createTerminalPrompter(
+								async () => null,
+								() => {},
+								{ readSecret: async () => answers.shift() ?? null },
+							),
+						};
+			const result = await runCommand(cmd, [], options);
+			expect(result.error?.code).toBe('PROMPT_INVALID');
+			expect(result.exitCode).toBe(2);
+		},
+	);
+
 	it('rejects unsupported hidden input without reading or displaying a question', async () => {
 		const output: string[] = [];
 		let reads = 0;

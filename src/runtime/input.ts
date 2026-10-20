@@ -61,6 +61,7 @@ export function createInputReader(
 					case '\u001b':
 						throw new PromptCancelledError('escape');
 					case '\u0004':
+					case '\u001a':
 						return null;
 					case '\u007f':
 					case '\b':

@@ -28,8 +28,17 @@ export type InferPrompt<C extends PromptConfig> = C extends ConfirmPromptConfig
 				? string[]
 				: string;
 
-/** Ask one question. Cancellation rejects with `PromptCancelledError`. */
-export type Ask = <const C extends PromptConfig>(config: C) => Promise<InferPrompt<C>>;
+/** Standalone selections cannot inherit choices from a flag or argument schema. */
+type StandalonePromptConfig =
+	| InputPromptConfig
+	| PasswordPromptConfig
+	| ConfirmPromptConfig
+	| ((SelectPromptConfig | MultiselectPromptConfig) & {
+			readonly choices: readonly [SelectChoice, ...SelectChoice[]];
+	  });
+
+/** Ask one question with explicit, non-empty selection choices. Cancellation rejects with `PromptCancelledError`. */
+export type Ask = <const C extends StandalonePromptConfig>(config: C) => Promise<InferPrompt<C>>;
 
 /** Build reusable definitions for schemas, handler-level `ask`, and standalone sessions. */
 export const prompt = {

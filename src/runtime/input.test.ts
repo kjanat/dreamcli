@@ -43,7 +43,7 @@ describe('runtime hidden input', () => {
 		expect(input.changes).toEqual([true, true]);
 	});
 
-	it.each([[], ['\u0004'], ['unterminated secret']])(
+	it.each([[], ['\u0004'], ['\u001a'], ['partial\u001a', 'next\n'], ['unterminated secret']])(
 		'discards incomplete input on EOF',
 		async (...chunks) => {
 			const input = reader(chunks);

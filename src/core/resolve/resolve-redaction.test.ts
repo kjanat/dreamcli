@@ -4,7 +4,7 @@ import { parse } from '#internals/core/parse/index.ts';
 import { arg } from '#internals/core/schema/arg.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
 import { createCommandSchema } from '#internals/core/schema/command.ts';
-import { flag } from '#internals/core/schema/flag.ts';
+import { type FlagSchema, flag } from '#internals/core/schema/flag.ts';
 import type { StandardSchemaV1 } from '#internals/core/schema/standard.ts';
 import type { ResolveOptions } from './index.ts';
 import { resolve } from './index.ts';
@@ -356,6 +356,85 @@ describe('dynamic prompt sensitivity applies to already-resolved flags', () => {
 
 	for (const config of configs) {
 		describe(config.kind, () => {
+			const collectionFailures: ReadonlyArray<
+				readonly [string, FlagSchema, readonly string[], ResolveOptions]
+			> = [
+				['count', flag.count().env('TOKEN').schema, [], { env: { TOKEN: SECRET } }],
+				[
+					'JSON',
+					flag.array(flag.string()).env('TOKEN').split({ env: 'json' }).schema,
+					[],
+					{ env: { TOKEN: SECRET } },
+				],
+				[
+					'shape',
+					flag.array(flag.string()).config('token').schema,
+					[],
+					{ config: { token: { [SECRET]: true } } },
+				],
+				['pair', flag.keyValue().env('TOKEN').schema, [], { env: { TOKEN: SECRET } }],
+				[
+					'duplicate CLI/stdin key',
+					flag.keyValue().stdin().duplicateKeys('error').schema,
+					['--token', `${SECRET}=one`, '--token', '-'],
+					{ stdinData: `${SECRET}=two` },
+				],
+			];
+			test.each(collectionFailures)('redacts a %s failure', async (_, token, argv, options) => {
+				const schema = createCommandSchema({
+					name: 'test',
+					flags: { token },
+					interactive: () => ({ token: config }),
+				});
+				const error = await failure(schema, argv, options);
+				expect(error.message).toContain('<redacted>');
+				expect(JSON.stringify(error.toJSON())).not.toContain(SECRET);
+			});
+
+			for (const [source, argv, options] of cases.filter(([source]) => source !== 'CLI')) {
+				it(`redacts a ${source} coercion failure without rerunning the parser`, async () => {
+					let calls = 0;
+					const token = flag
+						.custom(() => {
+							calls++;
+							throw new Error('rejected');
+						})
+						.stdin()
+						.env('TOKEN')
+						.config('token');
+					const schema = createCommandSchema({
+						name: 'test',
+						flags: { token: token.schema },
+						interactive: () => ({ token: config }),
+					});
+					const error = await failure(schema, argv, options);
+					expect(JSON.stringify(error.toJSON())).not.toContain(SECRET);
+					expect(error.message).toContain('rejected');
+					expect(calls).toBe(1);
+					expect(error.details).toMatchObject({
+						flag: 'token',
+						source: source === 'explicit dash' ? 'stdin' : source,
+					});
+				});
+				it(`redacts a ${source} built-in constraint failure`, async () => {
+					const token = flag
+						.string()
+						.pattern(/^valid$/)
+						.stdin()
+						.env('TOKEN')
+						.config('token');
+					const schema = createCommandSchema({
+						name: 'test',
+						flags: { token: token.schema },
+						interactive: () => ({ token: config }),
+					});
+					const error = await failure(schema, argv, options);
+					expect(error.code).toBe('CONSTRAINT_VIOLATED');
+					expect(JSON.stringify(error.toJSON())).not.toContain(SECRET);
+					expect(error.message).toContain('must match /^valid$/');
+				});
+			}
+
 			test.each(cases)('redacts %s from Standard Schema failures', async (_, argv, options) => {
 				const token = flag.string().stdin().env('TOKEN').config('token').standard(rejects);
 				const schema = createCommandSchema({

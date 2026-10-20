@@ -24,7 +24,7 @@ import {
 	withPromptBinding,
 } from '#internals/core/schema/source.ts';
 import { flagValueSchema, valueEnumValues } from '#internals/core/schema/value.ts';
-import { coerceValue, finishCliFlagValue } from './coerce.ts';
+import { coerceValue, finishCliFlagValue, redactCoercionError } from './coerce.ts';
 import type { DeprecationWarning, ResolutionProvenance } from './contracts.ts';
 import { isNonEmpty, throwAggregatedErrors } from './errors.ts';
 import type { MkdirFn, StatFn } from './path-checks.ts';
@@ -78,6 +78,7 @@ async function resolveFlags(
 	const errors: ValidationError[] = [];
 	const hardErrorFlags = new Set<string>();
 	const effectiveSchemas = new Map<string, FlagSchema>();
+	const firstPassErrors = new Map<string, number>();
 	const state: StageState = {
 		env: options.env,
 		config: options.config,
@@ -92,6 +93,7 @@ async function resolveFlags(
 			stageInput(name, schema, parsedFlags, bindings, options.prompter),
 			state,
 		);
+		if (outcome.kind === 'error') firstPassErrors.set(name, errors.length);
 		record(name, schema, outcome, resolved, errors, hardErrorFlags, options);
 	}
 
@@ -105,6 +107,11 @@ async function resolveFlags(
 		const schema = sensitive ? { ...originalSchema, sensitive: true } : originalSchema;
 		if (sensitive) options.sensitiveInputs?.add(name);
 		effectiveSchemas.set(name, schema);
+		const errorIndex = firstPassErrors.get(name);
+		const firstPassError = errorIndex === undefined ? undefined : errors[errorIndex];
+		if (sensitive && errorIndex !== undefined && firstPassError !== undefined) {
+			errors[errorIndex] = redactCoercionError(firstPassError);
+		}
 
 		if (Object.hasOwn(resolved, name) || hardErrorFlags.has(name)) {
 			continue;

@@ -8,6 +8,7 @@
  * @module dreamcli/core/prompt/test-prompter
  */
 
+import { CLIError } from '#internals/core/errors/index.ts';
 import type { PromptResult } from '#internals/core/schema/prompt.ts';
 import { PromptCancelledError } from './errors.ts';
 import type { PromptEngine } from './index.ts';
@@ -37,8 +38,8 @@ const PROMPT_CANCEL: unique symbol = Symbol.for('dreamcli.prompt.cancel') as typ
  *
  * The test prompter leaves malformed non-string values intact for resolver
  * error tests. Text answers use the same whitespace, empty-answer, default,
- * and validation policy as the terminal prompter; a
- * failing answer is rejected as a cancellation (see {@link createTestPrompter}).
+ * and validation policy as the terminal prompter. Passwords retry invalid
+ * answers; ordinary input retains its cancellation fallback (see {@link createTestPrompter}).
  * The normal resolution pipeline performs any later type coercion, so tests can
  * supply values in the same shapes real prompts would yield:
  *
@@ -81,6 +82,9 @@ interface TestPrompterOptions {
  * is rejected as a cancellation (`{ answered: false }`) — mirroring the terminal
  * prompter exhausting its retries — so prompt validation is integration-testable
  * via {@linkcode runCommand} rather than silently accepted as the resolved value.
+ * Password prompts instead consume further queued answers on validation failure,
+ * and reject with `PROMPT_INVALID` after ten invalid attempts. `PROMPT_CANCEL`
+ * remains a distinct user cancellation.
  *
  * @param answers - Ordered queue of answers. Use `PROMPT_CANCEL` for
  *   cancellation.
@@ -103,36 +107,36 @@ function createTestPrompter(
 	let index = 0;
 	return {
 		async promptOne(config): Promise<PromptResult> {
-			if (index >= answers.length) {
-				if (options?.onExhausted === 'cancel') {
+			for (let attempt = 0; attempt < 10; attempt++) {
+				if (index >= answers.length) {
+					if (options?.onExhausted === 'cancel') {
+						return Promise.resolve({ answered: false });
+					}
+					return Promise.reject(
+						new Error(
+							`Test prompter exhausted: expected at most ${answers.length} prompts, got prompt #${index + 1}`,
+						),
+					);
+				}
+				const answer = answers[index];
+				index += 1;
+				if (answer === PROMPT_CANCEL) {
+					if (config.kind === 'password') throw new PromptCancelledError();
 					return Promise.resolve({ answered: false });
 				}
-				return Promise.reject(
-					new Error(
-						`Test prompter exhausted: expected at most ${answers.length} prompts, got prompt #${index + 1}`,
-					),
-				);
+				// Passwords retry from the shared queue. Ordinary input retains its
+				// cancellation fallback; malformed values remain available to resolver tests.
+				if ((config.kind === 'input' || config.kind === 'password') && typeof answer === 'string') {
+					const prepared = await prepareTextAnswer(config, answer);
+					if (!prepared.ok && config.kind === 'password') continue;
+					return prepared.ok ? { answered: true, value: prepared.value } : { answered: false };
+				}
+				return Promise.resolve({ answered: true, value: answer });
 			}
-			const answer = answers[index];
-			index += 1;
-			if (answer === PROMPT_CANCEL) {
-				if (config.kind === 'password') throw new PromptCancelledError();
-				return Promise.resolve({ answered: false });
-			}
-			// Mirror the terminal prompter's `input` contract: run `config.validate`
-			// against the queued answer so prompt validation is integration-testable
-			// (#36). A failing answer is rejected the way the terminal prompter
-			// rejects after exhausting its retries — as a cancellation — so the
-			// resolution pipeline surfaces it (required-flag error / default
-			// fallback) instead of injecting the invalid value verbatim. Only
-			// `input` prompts carry a validator and only string answers are the
-			// shape the terminal prompter would ever validate; non-string answers
-			// stay verbatim so downstream coercion paths remain testable.
-			if ((config.kind === 'input' || config.kind === 'password') && typeof answer === 'string') {
-				const prepared = await prepareTextAnswer(config, answer);
-				return prepared.ok ? { answered: true, value: prepared.value } : { answered: false };
-			}
-			return Promise.resolve({ answered: true, value: answer });
+			throw new CLIError('Too many invalid prompt answers', {
+				code: 'PROMPT_INVALID',
+				exitCode: 2,
+			});
 		},
 	};
 }
