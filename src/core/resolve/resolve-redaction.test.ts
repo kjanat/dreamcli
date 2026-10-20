@@ -334,6 +334,73 @@ describe('a JSON shape fault words the source the same way on both surfaces', ()
 	});
 });
 
+describe('dynamic prompt sensitivity applies to already-resolved flags', () => {
+	const cases: ReadonlyArray<readonly [string, readonly string[], ResolveOptions]> = [
+		['CLI', ['--token', SECRET], {}],
+		['stdin', [], { stdinData: SECRET }],
+		['explicit dash', ['--token', '-'], { stdinData: SECRET }],
+		['env', [], { env: { TOKEN: SECRET } }],
+		['config', [], { config: { token: SECRET } }],
+	];
+	const configs = [
+		{ kind: 'password', message: 'Token' },
+		{ kind: 'input', message: 'Token', sensitive: true },
+	] as const;
+	const rejects = {
+		'~standard': {
+			version: 1 as const,
+			vendor: 'test',
+			validate: () => ({ issues: [{ message: 'rejected' }] }),
+		},
+	};
+
+	for (const config of configs) {
+		describe(config.kind, () => {
+			test.each(cases)('redacts %s from Standard Schema failures', async (_, argv, options) => {
+				const token = flag.string().stdin().env('TOKEN').config('token').standard(rejects);
+				const schema = createCommandSchema({
+					name: 'test',
+					flags: { token: token.schema },
+					interactive: () => ({ token: config }),
+				});
+				const error = await failure(schema, argv, options);
+
+				expect(error.code).toBe('CONSTRAINT_VIOLATED');
+				expect(error.details).toEqual({ issues: ['rejected'] });
+				expect(JSON.stringify(error.toJSON())).not.toContain(SECRET);
+				expect(token.schema.sensitive).toBe(false);
+			});
+
+			test.each(cases)(
+				'redacts %s from path failures without prompting',
+				async (_, argv, options) => {
+					const token = flag.path({ mustExist: true }).stdin().env('TOKEN').config('token');
+					const schema = createCommandSchema({
+						name: 'test',
+						flags: { token: token.schema },
+						interactive: () => ({ token: config }),
+					});
+					const error = await failure(schema, argv, {
+						...options,
+						stat: async () => null,
+						prompter: {
+							promptOne: async () => {
+								throw new Error('Already-resolved flags must not prompt');
+							},
+						},
+					});
+
+					expect(error.code).toBe('CONSTRAINT_VIOLATED');
+					expect(error.message).toBe("Path '<redacted>' for flag --token does not exist");
+					expect(error.details).toEqual({ flag: 'token', constraint: 'mustExist' });
+					expect(JSON.stringify(error.toJSON())).not.toContain(SECRET);
+					expect(token.schema.sensitive).toBe(false);
+				},
+			);
+		});
+	}
+});
+
 describe('Standard Schema failures follow the same rule', () => {
 	/** A validator that always fails, so only the diagnostic shape is under test. */
 	const rejects = {

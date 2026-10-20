@@ -99,15 +99,16 @@ async function resolveFlags(
 		options.interactive !== undefined ? options.interactive({ flags: resolved }) : undefined;
 
 	for (const [name, originalSchema] of Object.entries(flagSchemas)) {
-		if (Object.hasOwn(resolved, name) || hardErrorFlags.has(name)) {
-			continue;
-		}
 		const config = effectivePromptConfig(name, originalSchema, interactiveConfigs);
 		const sensitive =
 			originalSchema.sensitive || config?.kind === 'password' || config?.sensitive === true;
 		const schema = sensitive ? { ...originalSchema, sensitive: true } : originalSchema;
 		if (sensitive) options.sensitiveInputs?.add(name);
 		effectiveSchemas.set(name, schema);
+
+		if (Object.hasOwn(resolved, name) || hardErrorFlags.has(name)) {
+			continue;
+		}
 
 		const bindings = withPromptBinding(schema, sourceBindings(schema), config);
 		const outcome = await runStages(
