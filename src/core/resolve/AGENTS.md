@@ -25,6 +25,7 @@ a source the projection omits is a source no stage can produce.
 | `args.ts`        |   295 | `resolveArgs()` — single-pass walk over each arg's bindings, then path checks |
 | `coerce.ts`      |  1372 | `coerceValue()` — unified raw value -> flag's declared kind                   |
 | `path-checks.ts` |   330 | `checkResolvedPath()` — shared `flag.path()` / `arg.path()` filesystem pass   |
+| `indexed-env.ts` |   150 | `readIndexedEnv()` — count + member acquisition for an indexed env family     |
 | `config.ts`      |    26 | `resolveConfigPath()` — dotted path lookup in config object                   |
 | `errors.ts`      |   226 | Error aggregation + `throwAggregatedErrors()`                                 |
 | `contracts.ts`   |   182 | `ResolveOptions`, `ResolutionProvenanceRecord`, `resolverContract`            |
@@ -199,6 +200,16 @@ rather than naming a first allowed kind there is none of. This mirrors the compi
   the aggregated `ValidationError`, leaves `flags` or `args` at `{}`, and runs the validation pass
   anyway before rethrowing. A bare read handed a `toString` flag's `flag.custom()` validator the
   inherited method and added a second, invented `CONSTRAINT_VIOLATED` beside the real error.
+
+## INDEXED ENV FAMILIES
+
+`.env({ count, value | fields })` stores an `IndexedEnvBinding` on `envIndexed` (never alongside
+`envVar`). `sourceBindings()` projects it as `{ stage: 'env', indexed }`, which is excluded from
+`DecodedSourceBinding`: `envStage()` calls `readIndexedEnv()` (acquisition only, no coercion), then
+the surface's `coerceIndexed` hook (`coerceIndexedFlagValue` / `coerceIndexedArgValue` in
+`coerce.ts`) words faults and decodes entries. A collection decodes per entry (value members named
+by their concrete variable, record entries by the `env-indexed` diagnostic source); a custom input
+receives the whole list. Provenance is `{ stage: 'env', via: 'indexed', count, envVars }`.
 
 ## SKIPPED PATH CHECKS
 

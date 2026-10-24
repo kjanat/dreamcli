@@ -23,6 +23,8 @@ import {
 	normalizeSplitPolicy,
 	validateDefault,
 } from './cardinality.ts';
+import type { IndexedEnvBinding } from './env-binding.ts';
+import { normalizeIndexedEnvBinding } from './env-binding.ts';
 import type { DefaultValueOptions } from './flag.ts';
 import { assertNumberConstraints, type NumberConstraints } from './number-constraints.ts';
 import type {
@@ -284,6 +286,14 @@ interface ArgSchema<K extends ArgKind = ArgKind> {
 	 */
 	readonly envVar: string | undefined;
 	/**
+	 * Indexed environment family read as the env source, set by `.env()` with an
+	 * {@link IndexedEnvBinding} (`undefined` otherwise). An arg declares at most
+	 * one env source, so this and {@link ArgSchema.envVar} are never both set.
+	 *
+	 * @see {@link ArgBuilder.env} for the builder method.
+	 */
+	readonly envIndexed: IndexedEnvBinding | undefined;
+	/**
 	 * Dotted config path for config resolution (e.g. `'deploy.region'`).
 	 *
 	 * @see {@link ArgBuilder.config} for the builder method.
@@ -455,6 +465,13 @@ interface ArgDefinitionBase {
 	 */
 	readonly envVar?: string | undefined;
 	/**
+	 * Indexed environment family read as the env source, in place of
+	 * {@link ArgDefinitionBase.envVar}. Requires a variadic arg, or a custom arg
+	 * without a string parse function.
+	 * @defaultValue `undefined`
+	 */
+	readonly envIndexed?: IndexedEnvBinding | undefined;
+	/**
 	 * Dotted config path for config resolution (e.g. `'deploy.region'`).
 	 * @defaultValue `undefined`
 	 */
@@ -625,6 +642,7 @@ const NORMALIZED_ARG_SCHEMA_KEYS: readonly (keyof ArgSchema)[] = [
 	'sensitive',
 	'description',
 	'envVar',
+	'envIndexed',
 	'configPath',
 	'prompt',
 	'enumValues',
@@ -682,6 +700,7 @@ function assertValidArgElementSchema(schema: ArgSchema): void {
 		['defaultValue', undefined],
 		['description', undefined],
 		['envVar', undefined],
+		['envIndexed', undefined],
 		['configPath', undefined],
 		['prompt', undefined],
 		['elementSchema', undefined],
@@ -829,6 +848,62 @@ function assertValidArgDefinition(kind: ArgKind, fields: ArgDefinitionFields): v
 			suggest: "Add 'variadic: true' on a list kind, or drop 'unique'",
 		});
 	}
+
+	if (fields.envIndexed !== undefined) {
+		assertIndexedEnvArg(kind, fields);
+	}
+}
+
+/**
+ * Reject an indexed env binding the arg could not read.
+ *
+ * An indexed family yields a list: of strings for a `value` family, of records
+ * for a `fields` family. A variadic arg decodes each entry through its own
+ * value schema; a non-variadic custom arg receives the whole list. A custom
+ * parse function on an arg takes a string, which neither a record nor a list
+ * is, so only a Standard Schema or pass-through custom arg can take one.
+ *
+ * @param kind - Declared kind of the arg.
+ * @param fields - Definition fields, read for the binding, `envVar`, and the cardinality.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` on a malformed or unreadable binding.
+ */
+function assertIndexedEnvArg(kind: ArgKind, fields: ArgDefinitionFields): void {
+	const binding = fields.envIndexed;
+	if (binding === undefined) return;
+	normalizeIndexedEnvBinding(binding);
+
+	if (fields.envVar !== undefined) {
+		throw new CLIError("Arg schema fields 'envVar' and 'envIndexed' are mutually exclusive", {
+			code: 'INVALID_SCHEMA',
+			details: { kind, field: 'envIndexed' },
+			suggest: 'Declare one env source: a variable name or an indexed family',
+		});
+	}
+
+	const structured = kind === 'custom' && fields.parseFn === undefined;
+	const list = fields.variadic === true && kind !== 'keyValue';
+	if (structured) return;
+	if (list && binding.fields === undefined) return;
+
+	if (list) {
+		throw new CLIError(
+			`Indexed env records need a custom arg without a parse function, received kind '${kind}'`,
+			{
+				code: 'INVALID_SCHEMA',
+				details: { kind, field: 'envIndexed' },
+				suggest: 'Use arg.custom(recordSchema).variadic() with a Standard Schema validator',
+			},
+		);
+	}
+	throw new CLIError(
+		`Arg schema field 'envIndexed' requires a variadic arg or a custom arg without a parse function, received ${fields.variadic === true ? 'variadic ' : ''}kind '${kind}'`,
+		{
+			code: 'INVALID_SCHEMA',
+			details: { kind, field: 'envIndexed' },
+			suggest:
+				'Call .variadic() before .env(), use arg.custom(schema) with a Standard Schema validator, or bind a single variable',
+		},
+	);
 }
 
 /**
@@ -904,6 +979,8 @@ function assembleArgSchema<K extends ArgKind>(
 		aggregateStandard: undefined,
 		deprecated: undefined,
 		...rest,
+		envIndexed:
+			rest.envIndexed === undefined ? undefined : normalizeIndexedEnvBinding(rest.envIndexed),
 	} as ArgSchema<K>;
 }
 
@@ -1418,10 +1495,42 @@ class ArgBuilder<C extends ArgConfig> {
 	 *   });
 	 * ```
 	 */
-	env(varName: string): ArgBuilder<WithoutArgElementEligibility<C>> {
-		return new ArgBuilder({
+	env(varName: string): ArgBuilder<WithoutArgElementEligibility<C>>;
+	/**
+	 * Bind to an indexed family of environment variables, read as one env source.
+	 *
+	 * The count variable owns indices `0..count-1`; `{index}` in each template
+	 * expands to the zero-based index. An unset count means the env source
+	 * supplied nothing, so resolution continues to config, the prompt, and the
+	 * default. A set count claims the arg: `0` resolves an empty list, and a
+	 * malformed count or a missing member is an error, never a fallback.
+	 *
+	 * A `value` family reads a list of strings into a variadic arg, each entry
+	 * decoded by the arg's kind; call `.variadic()` first. A `fields` family
+	 * reads a list of records, one variable per field, into a custom arg built
+	 * from a Standard Schema validator, either variadic (one record per element)
+	 * or not (the whole list at once).
+	 *
+	 * @param binding - The count variable plus a `value` template or `fields` templates.
+	 * @returns The builder (for chaining).
+	 * @throws {CLIError} With code `'INVALID_SCHEMA'` on a malformed template or an
+	 *   arg that cannot hold a list.
+	 *
+	 * @example
+	 * ```ts
+	 * arg.string().variadic().env({ count: 'FILE_COUNT', value: 'FILE_{index}' })
+	 * // FILE_COUNT=2 FILE_0=a.txt FILE_1=b.txt → ['a.txt', 'b.txt']
+	 * ```
+	 */
+	env(binding: IndexedEnvBinding): ArgBuilder<WithoutArgElementEligibility<C>>;
+	env(source: string | IndexedEnvBinding): ArgBuilder<WithoutArgElementEligibility<C>> {
+		if (typeof source === 'string') {
+			return new ArgBuilder({ ...this.schema, envVar: source, envIndexed: undefined });
+		}
+		return nextArg({
 			...this.schema,
-			envVar: varName,
+			envVar: undefined,
+			envIndexed: normalizeIndexedEnvBinding(source),
 		});
 	}
 

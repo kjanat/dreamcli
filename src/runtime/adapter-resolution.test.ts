@@ -144,9 +144,11 @@ interface Observed {
 	readonly body: string | undefined;
 	readonly region: string | undefined;
 	readonly target: string | undefined;
+	readonly endpoints: readonly string[];
 	readonly bodySource: ResolutionProvenance | undefined;
 	readonly regionSource: ResolutionProvenance | undefined;
 	readonly targetSource: ResolutionProvenance | undefined;
+	readonly endpointsSource: ResolutionProvenance | undefined;
 }
 
 /** Run one invocation through the adapter a host produced. */
@@ -158,14 +160,20 @@ async function runThrough(
 		.flag('region', flag.string().env('REGION').default('us'))
 		.arg('target', arg.string().optional())
 		.flag('body', flag.string().stdin())
+		.flag(
+			'endpoints',
+			flag.array(flag.string()).env({ count: 'ENDPOINT_COUNT', value: 'ENDPOINT_{index}' }),
+		)
 		.action(({ flags, args, sources }) => {
 			observed = {
 				body: flags.body,
 				region: flags.region,
 				target: args.target,
+				endpoints: flags.endpoints,
 				bodySource: sources.flags.body,
 				regionSource: sources.flags.region,
 				targetSource: sources.args.target,
+				endpointsSource: sources.flags.endpoints,
 			};
 		});
 
@@ -196,7 +204,7 @@ describe('every host adapter drives the same resolution', () => {
 		it(`reads argv, env, and the pipe on ${host}`, async () => {
 			const { observed, exitCode } = await runHost(build, {
 				args: ['send', 'prod'],
-				env: { REGION: 'eu' },
+				env: { REGION: 'eu', ENDPOINT_COUNT: '2', ENDPOINT_0: 'a.example', ENDPOINT_1: '' },
 				stdin: 'piped body\n',
 			});
 
@@ -205,9 +213,16 @@ describe('every host adapter drives the same resolution', () => {
 				body: 'piped body\n',
 				region: 'eu',
 				target: 'prod',
+				endpoints: ['a.example', ''],
 				bodySource: { stage: 'stdin', via: 'stdin', trigger: 'fallback' },
 				regionSource: { stage: 'env', envVar: 'REGION' },
 				targetSource: { stage: 'cli' },
+				endpointsSource: {
+					stage: 'env',
+					via: 'indexed',
+					count: 'ENDPOINT_COUNT',
+					envVars: ['ENDPOINT_0', 'ENDPOINT_1'],
+				},
 			});
 		});
 

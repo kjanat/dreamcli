@@ -17,13 +17,21 @@
  * 'dash' }`; an absent input takes the fallback stage between CLI and env and
  * reports `{ stage: 'stdin', via: 'stdin', trigger: 'fallback' }`.
  *
+ * The `'env'` stage is two records the same way. A variable bound by name
+ * reports `{ stage: 'env', envVar }`, the one concrete variable that supplied
+ * the value. An indexed family bound with an `IndexedEnvBinding` reports
+ * `{ stage: 'env', via: 'indexed', count, envVars }`: the count variable that
+ * claimed the input and every member variable read, in entry order and, within
+ * an entry, in field order. `envVars` is empty when the count is `0`. Test
+ * `'envVar' in source` (or `source.via`) before reading either shape's fields.
+ *
  * @example
  * ```ts
  * command('deploy')
  *   .flag('region', flag.string().env('REGION').default('us'))
  *   .action(({ sources }) => {
  *     const region = sources.flags.region;
- *     if (region?.stage === 'env') console.log(`from ${region.envVar}`);
+ *     if (region?.stage === 'env' && 'envVar' in region) console.log(`from ${region.envVar}`);
  *   });
  * ```
  */
@@ -32,6 +40,12 @@ type ResolutionProvenance =
 	| { readonly stage: 'cli'; readonly via: 'stdin'; readonly trigger: 'dash' }
 	| { readonly stage: 'stdin'; readonly via: 'stdin'; readonly trigger: 'fallback' }
 	| { readonly stage: 'env'; readonly envVar: string }
+	| {
+			readonly stage: 'env';
+			readonly via: 'indexed';
+			readonly count: string;
+			readonly envVars: readonly string[];
+	  }
 	| { readonly stage: 'config'; readonly configPath: string }
 	| { readonly stage: 'prompt' }
 	| { readonly stage: 'default' };

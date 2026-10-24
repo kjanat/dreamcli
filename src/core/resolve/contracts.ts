@@ -26,6 +26,17 @@ type ResolutionDiagnosticSource =
 	| { readonly kind: 'cli' }
 	| { readonly kind: 'stdin' }
 	| { readonly kind: 'env'; readonly envVar: string }
+	| {
+			/**
+			 * Several variables of an indexed env family at once: one record entry
+			 * (`index` set) or the whole family (`index` undefined). A value family's
+			 * single member is named as a plain `'env'` source instead.
+			 */
+			readonly kind: 'env-indexed';
+			readonly count: string;
+			readonly index: number | undefined;
+			readonly envVars: readonly string[];
+	  }
 	| { readonly kind: 'config'; readonly configPath: string }
 	| { readonly kind: 'prompt' };
 

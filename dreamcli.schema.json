@@ -62,6 +62,10 @@
             "type": "string"
           }
         },
+        "envIndexed": {
+          "$ref": "#/$defs/envIndexed",
+          "description": "Indexed environment family read as the env source, set by `.env()` with an\nIndexedEnvBinding (`undefined` otherwise). An arg declares at most\none env source, so this and ArgSchema.envVar are never both set."
+        },
         "envVar": {
           "description": "Environment variable name for env resolution.\n\nWhen set and the CLI value is absent, the resolver reads this env var\nand coerces the string to the arg's declared kind.",
           "type": "string"
@@ -147,7 +151,13 @@
             }
           }
         }
-      ]
+      ],
+      "not": {
+        "required": [
+          "envIndexed",
+          "envVar"
+        ]
+      }
     },
     "argElement": {
       "description": "Element schema when `kind === 'keyValue'`.\n\nDescribes the value of each entry, so `arg.keyValue(arg.number())` decodes\n`A=1` to the number `1`. `undefined` leaves entry values as strings.",
@@ -340,6 +350,68 @@
       },
       "additionalProperties": false
     },
+    "envIndexed": {
+      "description": "A numbered family of environment variables read as one input's env source.\n\nPass it to `.env()` in place of a variable name. The count variable decides\nwhether the env stage supplied a value at all, and how many entries it owns;\na declared entry with a missing member is an error, never a fallback to a\nlater source.",
+      "type": "object",
+      "required": [
+        "count"
+      ],
+      "properties": {
+        "count": {
+          "description": "Variable holding how many entries the family declares, as a canonical\nnon-negative integer. When it is unset the env source supplies nothing;\n`0` supplies an explicit empty list.",
+          "type": "string",
+          "minLength": 1,
+          "not": {
+            "pattern": "[{}=]"
+          }
+        },
+        "fields": {
+          "description": "One variable template per record field, each with `{index}` standing for\nthe zero-based index. Every field is required for every declared entry.",
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "$ref": "#/$defs/envIndexedTemplate"
+          },
+          "propertyNames": {
+            "minLength": 1
+          }
+        },
+        "value": {
+          "$ref": "#/$defs/envIndexedTemplate",
+          "description": "Variable template for one entry, with `{index}` standing for the zero-based index."
+        }
+      },
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "required": [
+            "value"
+          ],
+          "not": {
+            "required": [
+              "fields"
+            ]
+          }
+        },
+        {
+          "required": [
+            "fields"
+          ],
+          "not": {
+            "required": [
+              "value"
+            ]
+          }
+        }
+      ]
+    },
+    "envIndexedTemplate": {
+      "type": "string",
+      "pattern": "\\{index\\}",
+      "not": {
+        "pattern": "="
+      }
+    },
     "example": {
       "description": "A single usage example shown in help text.",
       "type": "object",
@@ -432,6 +504,10 @@
             "type": "string"
           }
         },
+        "envIndexed": {
+          "$ref": "#/$defs/envIndexed",
+          "description": "Indexed environment family read as the env source, set by `.env()` with an\nIndexedEnvBinding (`undefined` otherwise). A flag declares at most\none env source, so this and FlagSchema.envVar are never both set."
+        },
         "envVar": {
           "description": "Environment variable name for v0.2+ resolution.",
           "type": "string"
@@ -500,7 +576,13 @@
           "type": "string"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "not": {
+        "required": [
+          "envIndexed",
+          "envVar"
+        ]
+      }
     },
     "flagElement": {
       "description": "Element schema when `kind === 'array'` or `kind === 'keyValue'`.",
@@ -564,6 +646,10 @@
           "items": {
             "type": "string"
           }
+        },
+        "envIndexed": {
+          "$ref": "#/$defs/envIndexed",
+          "description": "Indexed environment family read as the env source, set by `.env()` with an\nIndexedEnvBinding (`undefined` otherwise). A flag declares at most\none env source, so this and FlagSchema.envVar are never both set."
         },
         "envVar": {
           "description": "Environment variable name for v0.2+ resolution.",

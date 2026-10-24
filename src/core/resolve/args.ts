@@ -14,7 +14,7 @@ import type { ArgSchema, CommandArgEntry, PromptKind } from '#internals/core/sch
 import type { PromptSourceBinding, SourceBinding } from '#internals/core/schema/source.ts';
 import { argCollectedNothing, sourceBindings } from '#internals/core/schema/source.ts';
 import { argValueSchema, valueEnumValues } from '#internals/core/schema/value.ts';
-import { coerceArgValue, finishCliArgValue } from './coerce.ts';
+import { coerceArgValue, coerceIndexedArgValue, finishCliArgValue } from './coerce.ts';
 import type { DeprecationWarning, ResolutionProvenance, SkippedPathCheck } from './contracts.ts';
 import { isNonEmpty, throwAggregatedErrors } from './errors.ts';
 import { COMPATIBLE_PROMPT_KINDS, promptCompatibilityError } from './flags.ts';
@@ -167,6 +167,7 @@ function stageInput(
 			? { kind: 'absent' }
 			: readCliValue(present, parsedValue, bindings),
 		coerce: (binding, raw) => coerceArgValue(name, binding, raw, schema),
+		coerceIndexed: (binding, read) => coerceIndexedArgValue(name, binding, read, schema),
 		finishCli: (value, stdinData, stdin) =>
 			finishCliArgValue(name, schema, value, stdinData, stdin),
 		runPrompt: async (binding) =>
@@ -284,6 +285,8 @@ function buildRequiredArgSuggest(name: string, schema: ArgSchema, variadic?: boo
 
 	if (schema.envVar !== undefined) {
 		sources.push(`set ${schema.envVar}`);
+	} else if (schema.envIndexed !== undefined) {
+		sources.push(`set ${schema.envIndexed.count} and its entries`);
 	}
 
 	if (schema.configPath !== undefined) {

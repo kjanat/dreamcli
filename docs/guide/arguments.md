@@ -453,6 +453,20 @@ command('auth')
 
 If `API_TOKEN=secret` and no CLI value is provided, `args.token === 'secret'`.
 
+A variadic argument can read an [indexed environment family](/guide/flags#indexed-env)
+instead of one variable. Call `.variadic()` first, since the family yields a list:
+
+```ts twoslash
+import { arg } from '@kjanat/dreamcli';
+
+arg.string().variadic().env({ count: 'FILE_COUNT', value: 'FILE_{index}' });
+// FILE_COUNT=2 FILE_0=a.txt FILE_1=b.txt → ['a.txt', 'b.txt']
+```
+
+A record family (`fields`) needs `arg.custom()` built from a Standard Schema
+validator, variadic or not, because an argument's parse function only ever
+receives a string.
+
 ### Config-Backed Arguments
 
 `.config()` binds an argument to a dotted key in the loaded config object:

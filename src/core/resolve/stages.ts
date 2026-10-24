@@ -14,6 +14,7 @@
 import type { ValidationError } from '#internals/core/errors/index.ts';
 import type {
 	DecodedSourceBinding,
+	IndexedEnvSourceBinding,
 	PromptSourceBinding,
 	SourceBinding,
 	StdinSourceBinding,
@@ -23,6 +24,8 @@ import { stdinReadsOnDash, stdinReadsWhenMissing } from '#internals/core/schema/
 import type { CliFinish, CoerceResult } from './coerce.ts';
 import { resolveConfigPath } from './config.ts';
 import type { ResolutionProvenance } from './contracts.ts';
+import type { IndexedEnvRead } from './indexed-env.ts';
+import { readIndexedEnv } from './indexed-env.ts';
 
 /** What the parser produced for one input in this invocation. */
 type CliValue =
@@ -47,6 +50,14 @@ interface StageInput {
 	readonly cli: CliValue;
 	/** Decode a raw value from a non-CLI source into the input's declared type. */
 	readonly coerce: (binding: DecodedSourceBinding, raw: unknown) => CoerceResult;
+	/**
+	 * Decode an indexed env family that claimed the input, or word the fault
+	 * that stopped reading it.
+	 */
+	readonly coerceIndexed: (
+		binding: IndexedEnvSourceBinding,
+		read: Exclude<IndexedEnvRead, { readonly kind: 'absent' }>,
+	) => CoerceResult;
 	/**
 	 * Aggregate what the parser produced, splicing the stdin buffer into the
 	 * position each `-` occurrence holds.
@@ -199,12 +210,36 @@ function stdinStage(
 	});
 }
 
-/** The environment stage. */
+/**
+ * The environment stage.
+ *
+ * A variable bound by name supplies one raw value. An indexed family supplies
+ * nothing until its count variable is set; once it is, the family has claimed
+ * the input, so a fault reading it is an error rather than a fall-through.
+ */
 function envStage(
 	binding: Extract<SourceBinding, { stage: 'env' }>,
 	input: StageInput,
 	state: StageState,
 ): StageOutcome {
+	if ('indexed' in binding) {
+		const read = readIndexedEnv(binding.indexed, state.env);
+		if (read.kind === 'absent') return ABSENT;
+		const result = input.coerceIndexed(binding, read);
+		if (!result.ok) return { kind: 'error', error: result.error };
+		// A successful decode implies the read produced entries.
+		const entries = read.kind === 'entries' ? read.entries : [];
+		return {
+			kind: 'value',
+			value: result.value,
+			provenance: {
+				stage: 'env',
+				via: 'indexed',
+				count: binding.indexed.count,
+				envVars: entries.flatMap((entry) => entry.envVars),
+			},
+		};
+	}
 	const envVar = binding.envVar;
 	// An env var named after an Object.prototype member would otherwise read
 	// that inherited method as a supplied value.

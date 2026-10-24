@@ -97,7 +97,9 @@ Resolution also records which stage produced each value, keyed by input name.
 The record distinguishes the two ways stdin delivers bytes
 (`{ stage: 'cli', via: 'stdin', trigger: 'dash' }` versus
 `{ stage: 'stdin', via: 'stdin', trigger: 'fallback' }`) and names the binding
-that fired (`{ stage: 'env', envVar }`, `{ stage: 'config', configPath }`).
+that fired (`{ stage: 'env', envVar }`, `{ stage: 'config', configPath }`). An
+indexed env family reports every variable it read instead of one:
+`{ stage: 'env', via: 'indexed', count, envVars }`.
 
 One input's winning-stage record is public as `ResolutionProvenance`.
 `ResolutionProvenanceRecord` is the pair of flag and argument maps returned on

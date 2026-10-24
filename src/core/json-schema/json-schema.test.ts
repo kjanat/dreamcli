@@ -1231,6 +1231,13 @@ describe('generateSchema — definition metadata', () => {
 				kind: 'keyValue',
 				duplicateKeys: 'error',
 			}),
+			gitConfig: flagDef({
+				kind: 'custom',
+				envIndexed: {
+					count: 'GIT_CONFIG_COUNT',
+					fields: { key: 'GIT_CONFIG_KEY_{index}', value: 'GIT_CONFIG_VALUE_{index}' },
+				},
+			}),
 			force: flagDef({
 				kind: 'boolean',
 				negation: { alias: 'no-force', hidden: true },
@@ -1289,6 +1296,11 @@ describe('generateSchema — definition metadata', () => {
 			consume: 'broadcast',
 			trim: false,
 		});
+		expect(expectRecord(flags.gitConfig)).toHaveProperty('envIndexed', {
+			count: 'GIT_CONFIG_COUNT',
+			fields: { key: 'GIT_CONFIG_KEY_{index}', value: 'GIT_CONFIG_VALUE_{index}' },
+		});
+		expect(expectRecord(flags.gitConfig)).not.toHaveProperty('envVar');
 	});
 
 	it('serializes arg constraints, path checks, and value hints', () => {
@@ -1386,6 +1398,7 @@ describe('generateSchema — definition metadata', () => {
 				separator: ',',
 				split: { env: { format: 'json' }, stdin: { format: 'lines' } },
 				unique: true,
+				envIndexed: { count: 'EXTRA_COUNT', value: 'EXTRA_{index}' },
 			}),
 		];
 		const cli = minimalCLI({ commands: [commandDef({ args: allFieldsArgs })] });
