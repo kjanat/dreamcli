@@ -41,6 +41,7 @@ describe('CLIBuilder.plugin() — hook observation', () => {
 			args: { target: 'production' },
 			flags: { region: 'eu' },
 			deprecations: [],
+			skippedPathChecks: [],
 			command: expect.objectContaining({ name: 'deploy' }),
 		});
 	});
