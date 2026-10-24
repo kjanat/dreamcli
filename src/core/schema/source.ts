@@ -16,6 +16,7 @@ import type { ArgSchema } from './arg.ts';
 import type { SplitPolicy } from './cardinality.ts';
 import { splitBindingOf } from './cardinality.ts';
 import type { IndexedEnvBinding } from './env-binding.ts';
+import { effectiveEnvName, effectiveIndexedEnvBinding } from './env-binding.ts';
 import type { FlagSchema } from './flag.ts';
 import type { PromptConfig } from './prompt.ts';
 import type { StdinBinding, StdinConsume, StdinWhen } from './stdin.ts';
@@ -76,6 +77,9 @@ interface IndexedEnvSourceBinding {
 	readonly indexed: IndexedEnvBinding;
 }
 
+/** The env source of an input, by name or as an indexed family. */
+type EnvSourceBinding = Extract<SourceBinding, { readonly stage: 'env' }>;
+
 /** The stdin source of an input, once {@link sourceBindings} has projected it. */
 type StdinSourceBinding = Extract<SourceBinding, { readonly stage: 'stdin' }>;
 
@@ -106,10 +110,18 @@ type DecodedSourceBinding = Exclude<
  * string decodes under the environment policy, which is the delimited form a
  * user would have typed. A prompt answer reads the same way.
  *
+ * The env binding carries concrete names: the CLI namespace is applied here,
+ * once, so every stage, diagnostic, and provenance record downstream names the
+ * variable actually read.
+ *
  * @param schema - The flag or arg schema to read.
+ * @param envPrefix - The CLI env namespace, or `undefined` when none applies.
  * @returns The declared sources, ordered by precedence.
  */
-function sourceBindings(schema: FlagSchema | ArgSchema): readonly SourceBinding[] {
+function sourceBindings(
+	schema: FlagSchema | ArgSchema,
+	envPrefix?: string,
+): readonly SourceBinding[] {
 	const splitting = splitBindingOf(schema.separator, schema.split);
 	const bindings: SourceBinding[] = [{ stage: 'cli', split: splitting.cli }];
 
@@ -124,9 +136,16 @@ function sourceBindings(schema: FlagSchema | ArgSchema): readonly SourceBinding[
 		});
 	}
 	if (schema.envVar !== undefined) {
-		bindings.push({ stage: 'env', envVar: schema.envVar, split: splitting.env });
+		bindings.push({
+			stage: 'env',
+			envVar: effectiveEnvName(schema.envVar, envPrefix, schema.envAbsolute),
+			split: splitting.env,
+		});
 	} else if (schema.envIndexed !== undefined) {
-		bindings.push({ stage: 'env', indexed: schema.envIndexed });
+		bindings.push({
+			stage: 'env',
+			indexed: effectiveIndexedEnvBinding(schema.envIndexed, envPrefix, schema.envAbsolute),
+		});
 	}
 	if (schema.configPath !== undefined) {
 		bindings.push({ stage: 'config', configPath: schema.configPath, split: splitting.env });
@@ -150,6 +169,19 @@ function sourceBindings(schema: FlagSchema | ArgSchema): readonly SourceBinding[
 function stdinBindingOf(bindings: readonly SourceBinding[]): StdinSourceBinding | undefined {
 	for (const binding of bindings) {
 		if (binding.stage === 'stdin') return binding;
+	}
+	return undefined;
+}
+
+/**
+ * The env source of an input, or `undefined` when it declares none.
+ *
+ * @param bindings - One input's source list.
+ * @returns The env binding, with concrete names, when the list carries one.
+ */
+function envBindingOf(bindings: readonly SourceBinding[]): EnvSourceBinding | undefined {
+	for (const binding of bindings) {
+		if (binding.stage === 'env') return binding;
 	}
 	return undefined;
 }
@@ -318,6 +350,7 @@ function inputSelectsStdin(
 
 export type {
 	DecodedSourceBinding,
+	EnvSourceBinding,
 	IndexedEnvSourceBinding,
 	ParsedInputs,
 	PromptSourceBinding,
@@ -330,6 +363,7 @@ export {
 	argCollectedNothing,
 	bindingsBeforePrompt,
 	bindingsFromPrompt,
+	envBindingOf,
 	invocationSelectsStdin,
 	RESOLUTION_ORDER,
 	STDIN_SENTINEL,

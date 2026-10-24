@@ -37,6 +37,7 @@ import type {
 	Out,
 } from '#internals/core/schema/command.ts';
 import { command, createCommandSchema } from '#internals/core/schema/command.ts';
+import { deriveEnvPrefix, normalizeEnvPrefix } from '#internals/core/schema/env-binding.ts';
 import type { FlagBuilder, FlagConfig } from '#internals/core/schema/flag.ts';
 import { getFlagAliasNames, getFlagNegatedName } from '#internals/core/schema/flag.ts';
 import type { InternalRunOptions, RunOptions, RunResult } from '#internals/core/schema/run.ts';
@@ -240,6 +241,16 @@ interface CLISchema {
 	 * releases its tokens to the commands.
 	 */
 	readonly builtins: Builtins;
+	/**
+	 * CLI-wide environment namespace prepended to every relative env binding
+	 * (`undefined` when none is set). `.env('TOKEN')` reads `<envPrefix>TOKEN`;
+	 * a binding declared with `{ absolute: true }` is read as written.
+	 *
+	 * Set via the {@linkcode CLIBuilder.envPrefix | .envPrefix()} builder method
+	 * or the `envPrefix` field of {@link CLIDefinition}. Fixed when declared, so
+	 * neither manifest name inference nor an inherited invocation name changes it.
+	 */
+	readonly envPrefix: string | undefined;
 }
 
 /**
@@ -570,6 +581,12 @@ interface CLIDefinition {
 	 */
 	readonly builtins?: BuiltinsConfig | undefined;
 	/**
+	 * CLI-wide environment namespace for relative env bindings, used verbatim
+	 * (`'ACME_'` turns `TOKEN` into `ACME_TOKEN`).
+	 * @defaultValue `undefined` (no namespace)
+	 */
+	readonly envPrefix?: string | undefined;
+	/**
 	 * Registered command definitions or built schemas, in registration order.
 	 * @defaultValue `[]`
 	 */
@@ -647,6 +664,8 @@ function buildCLISchema(definition: CLIDefinition): CLISchema {
 		helpConfig: definition.helpConfig,
 		flagSettings: definition.flagSettings,
 		builtins: normalizeBuiltins(definition.builtins),
+		envPrefix:
+			definition.envPrefix === undefined ? undefined : normalizeEnvPrefix(definition.envPrefix),
 	});
 }
 
@@ -967,6 +986,7 @@ function buildCommandRunOptions(
 		...(options?.stat !== undefined ? { stat: options.stat } : {}),
 		...(options?.mkdir !== undefined ? { mkdir: options.mkdir } : {}),
 		...(options?.pathChecks !== undefined ? { pathChecks: options.pathChecks } : {}),
+		...(options?.envPrefix !== undefined ? { envPrefix: options.envPrefix } : {}),
 		...(options?.verbosity !== undefined ? { verbosity: options.verbosity } : {}),
 		...(options?.jsonMode !== undefined ? { jsonMode: options.jsonMode } : {}),
 		...(options?.isTTY !== undefined ? { isTTY: options.isTTY } : {}),
@@ -1072,6 +1092,45 @@ class CLIBuilder {
 			this.schema.builtins,
 		);
 		return rebuild(this, { ...this.schema, version: v });
+	}
+
+	/**
+	 * Namespace every relative env binding under one CLI-wide prefix.
+	 *
+	 * With no argument the prefix is derived from the name passed to `cli()`:
+	 * uppercased, each run of characters outside `[A-Z0-9]` collapsed to `_`,
+	 * leading and trailing separators dropped, and `_` appended (`foo-bar` →
+	 * `FOO_BAR_`). An explicit prefix is used verbatim. Either way it is fixed
+	 * here, so a manifest-inferred name or an inherited invocation name (a
+	 * symlink, an alias, `npx`) never changes the environment API.
+	 *
+	 * Every `.env()` binding on every command then reads the prefixed name, an
+	 * indexed family's count and templates included, unless declared with
+	 * `{ absolute: true }`. Precedence, coercion, and validation are unchanged;
+	 * help, diagnostics, and `sources` name the concrete variable.
+	 *
+	 * @param prefix - The namespace to use verbatim, or omit it to derive one.
+	 * @returns The builder (for chaining).
+	 * @throws {CLIError} With code `'INVALID_SCHEMA'` when the prefix is empty or
+	 *   carries `=`, a brace, or NUL, or when no prefix can be derived from the name.
+	 *
+	 * @example
+	 * ```ts
+	 * cli('foo')
+	 *   .envPrefix()
+	 *   .command(
+	 *     command('deploy')
+	 *       .flag('token', flag.string().env('TOKEN'))              // FOO_TOKEN
+	 *       .flag('home', flag.path().env('HOME', { absolute: true })), // HOME
+	 *   );
+	 * ```
+	 */
+	envPrefix(prefix?: string): CLIBuilder {
+		return rebuild(this, {
+			...this.schema,
+			envPrefix:
+				prefix === undefined ? deriveEnvPrefix(this.schema.name) : normalizeEnvPrefix(prefix),
+		});
 	}
 
 	/**
@@ -1812,9 +1871,11 @@ async function executeCLI(
 	// NO_HYPERLINKS, FORCE_HYPERLINKS, and TTY), and colors to the output
 	// channel's gated palette (escapes never leak into piped output).
 	const resolvedVersion = options?.help?.version ?? builder.schema.version;
+	const envPrefix = options?.envPrefix ?? builder.schema.envPrefix;
 	const helpOptions: HelpOptions = {
 		...builder.schema.helpConfig,
 		...options?.help,
+		...(envPrefix !== undefined ? { envPrefix } : {}),
 		binName: options?.help?.binName ?? builder.schema.name,
 		hyperlinks: out.isHyperlinkSupported,
 		colors: options?.help?.colors ?? out.color,
@@ -1826,6 +1887,7 @@ async function executeCLI(
 	const flagSettings = options?.flags ?? builder.schema.flagSettings;
 	const effectiveOptions: InternalCLIExecuteOptions = {
 		...options,
+		...(envPrefix !== undefined ? { envPrefix } : {}),
 		plugins: compiled.plugins,
 		builtins: builder.schema.builtins,
 		...(jsonMode ? { jsonMode } : {}),

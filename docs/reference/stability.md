@@ -163,6 +163,8 @@ Per-call output options: `SpinnerOptions`, `ProgressOptions`, `TableOptions`, an
 
 Value options accepted by the flag and arg factories: `StringConstraints`,
 `NumberConstraints`, `PathFlagOptions`, `UrlFlagOptions`, and `DateFlagOptions`.
+`EnvOptions`, the second argument of `.env()` on both surfaces, is a consumer
+input option as well.
 All five describe the value rather than flag syntax, so `flag.path()` and
 `arg.path()` take one `PathFlagOptions`, `flag.url()` and `arg.url()` take one
 `UrlFlagOptions`, and `flag.date()` and `arg.date()` take one `DateFlagOptions`.
@@ -547,6 +549,14 @@ field at `schemaVersion: 1`: a document without an indexed binding is
 byte-identical to before, and a version 1 reader that ignores the field reads
 every other env binding unchanged. The meta-schema hoists it as
 `$defs.envIndexed`.
+
+The CLI-wide env namespace arrived the same way. A document carries the
+namespace once, as the optional root `envPrefix`, and each flag or arg fragment
+keeps its logical `envVar` or `envIndexed` plus an optional `envAbsolute: true`
+when it opts out. A reader resolves the concrete name as `envPrefix` + the
+logical name unless the fragment is absolute. A document from a CLI without a
+namespace is byte-identical to before, so a version 1 reader that ignores both
+fields still reads every name a CLI without a namespace would read.
 
 `StdinBindingFragmentV1` carries `when`, `consume`, and `trim`, all three
 required and all three always written, so a reader never has to know the

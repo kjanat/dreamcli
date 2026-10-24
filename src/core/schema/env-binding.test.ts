@@ -10,6 +10,8 @@ import { CLIError } from '#internals/core/errors/index.ts';
 import { arg, createArgSchema } from './arg.ts';
 import type { IndexedEnvBinding } from './env-binding.ts';
 import {
+	effectiveEnvName,
+	effectiveIndexedEnvBinding,
 	expandEnvTemplate,
 	formatIndexedEnvBinding,
 	MAX_INDEXED_ENV_COUNT,
@@ -137,6 +139,34 @@ describe('indexed env templates', () => {
 		expect(
 			formatIndexedEnvBinding({ count: 'N', fields: { key: 'K_{index}', value: 'V_{index}' } }),
 		).toBe('K_{index} + V_{index}, count: N');
+	});
+
+	it('name the same variables whether the namespace applies before or after expansion', () => {
+		const binding: IndexedEnvBinding = {
+			count: 'CONFIG_COUNT',
+			fields: { key: 'CONFIG_KEY_{index}', value: 'CONFIG_VALUE_{index}' },
+		};
+		const prefixed = effectiveIndexedEnvBinding(binding, 'FOO_', false);
+
+		expect(prefixed).toEqual({
+			count: 'FOO_CONFIG_COUNT',
+			fields: { key: 'FOO_CONFIG_KEY_{index}', value: 'FOO_CONFIG_VALUE_{index}' },
+		});
+		for (const field of ['key', 'value'] as const) {
+			for (const index of [0, 1, 12]) {
+				expect(expandEnvTemplate(prefixed.fields?.[field] ?? '', index)).toBe(
+					effectiveEnvName(expandEnvTemplate(binding.fields?.[field] ?? '', index), 'FOO_', false),
+				);
+			}
+		}
+	});
+
+	it('leave names untouched without a namespace or under absolute', () => {
+		const binding: IndexedEnvBinding = { count: 'N', value: 'V_{index}' };
+		expect(effectiveIndexedEnvBinding(binding, undefined, false)).toBe(binding);
+		expect(effectiveIndexedEnvBinding(binding, 'FOO_', true)).toBe(binding);
+		expect(effectiveEnvName('HOME', 'FOO_', true)).toBe('HOME');
+		expect(effectiveEnvName('TOKEN', undefined, false)).toBe('TOKEN');
 	});
 
 	it('cap a count at a documented limit', () => {

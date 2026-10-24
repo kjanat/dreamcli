@@ -24,10 +24,11 @@ interface Budget {
 // or include a reviewed budget increase alongside the change that needs it.
 // 4.2.0 shipped at 197.0 kB packed and 750.0 kB unpacked, exactly at the old
 // unpacked ceiling. Indexed env families (#139) add about 6 kB packed and
-// 24 kB unpacked; the ceilings below also leave room for #146.
+// 24 kB unpacked, with room left for #146; CLI-wide env namespaces (#138) add
+// about 3.5 kB packed and 13 kB unpacked on top.
 const BUDGET: Budget = {
-	tarballBytes: 207_000,
-	unpackedBytes: 785_000,
+	tarballBytes: 212_000,
+	unpackedBytes: 800_000,
 	files: 60,
 	runtimeJsBytes: 350_000,
 	declarationBytes: 400_000,
