@@ -195,6 +195,7 @@ export type {
 	DuplicatePolicy,
 	EnumArgDefinition,
 	EnumFlagDefinition,
+	EnvOptions,
 	ExampleCommand,
 	ExampleMeta,
 	Fallback,

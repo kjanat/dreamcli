@@ -1237,6 +1237,7 @@ describe('generateSchema — definition metadata', () => {
 					count: 'GIT_CONFIG_COUNT',
 					fields: { key: 'GIT_CONFIG_KEY_{index}', value: 'GIT_CONFIG_VALUE_{index}' },
 				},
+				envAbsolute: true,
 			}),
 			force: flagDef({
 				kind: 'boolean',
@@ -1399,6 +1400,7 @@ describe('generateSchema — definition metadata', () => {
 				split: { env: { format: 'json' }, stdin: { format: 'lines' } },
 				unique: true,
 				envIndexed: { count: 'EXTRA_COUNT', value: 'EXTRA_{index}' },
+				envAbsolute: true,
 			}),
 		];
 		const cli = minimalCLI({ commands: [commandDef({ args: allFieldsArgs })] });

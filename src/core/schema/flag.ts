@@ -23,7 +23,7 @@ import {
 	normalizeSplitPolicy,
 	validateDefault,
 } from './cardinality.ts';
-import type { IndexedEnvBinding } from './env-binding.ts';
+import type { EnvOptions, IndexedEnvBinding } from './env-binding.ts';
 import { normalizeIndexedEnvBinding } from './env-binding.ts';
 import { assertNumberConstraints, type NumberConstraints } from './number-constraints.ts';
 import type {
@@ -324,6 +324,15 @@ interface FlagSchema<K extends FlagKind = FlagKind> {
 	 * one env source, so this and {@link FlagSchema.envVar} are never both set.
 	 */
 	readonly envIndexed: IndexedEnvBinding | undefined;
+	/**
+	 * Whether the env source is read exactly as written, outside the CLI-wide
+	 * namespace set by `CLIBuilder.envPrefix()` (set by `.env(…, { absolute:
+	 * true })`). Applies to {@link FlagSchema.envVar} and
+	 * {@link FlagSchema.envIndexed} alike.
+	 *
+	 * @defaultValue `false`
+	 */
+	readonly envAbsolute: boolean;
 	/** Dotted config path for v0.2+ resolution (e.g. `'deploy.region'`). */
 	readonly configPath: string | undefined;
 	/** Human-readable description for help text. */
@@ -511,6 +520,12 @@ interface FlagDefinitionBase {
 	 * @defaultValue `undefined`
 	 */
 	readonly envIndexed?: IndexedEnvBinding | undefined;
+	/**
+	 * Read the env source exactly as written, outside the CLI-wide namespace.
+	 * Requires `envVar` or `envIndexed`.
+	 * @defaultValue `false`
+	 */
+	readonly envAbsolute?: boolean | undefined;
 	/**
 	 * Dotted config path for config resolution (e.g. `'deploy.region'`).
 	 * @defaultValue `undefined`
@@ -786,6 +801,7 @@ const NORMALIZED_FLAG_SCHEMA_KEYS: readonly (keyof FlagSchema)[] = [
 	'stdin',
 	'envVar',
 	'envIndexed',
+	'envAbsolute',
 	'configPath',
 	'description',
 	'enumValues',
@@ -836,6 +852,7 @@ function assertEligibleFlagElementBuilder(schema: FlagSchema): void {
 		['stdin', undefined],
 		['envVar', undefined],
 		['envIndexed', undefined],
+		['envAbsolute', false],
 		['configPath', undefined],
 		['description', undefined],
 		['elementSchema', undefined],
@@ -1046,6 +1063,18 @@ function assertValidFlagDefinition(kind: FlagKind, fields: FlagDefinitionFields)
 	if (fields.envIndexed !== undefined) {
 		assertIndexedEnvFlag(kind, fields);
 	}
+
+	if (
+		fields.envAbsolute === true &&
+		fields.envVar === undefined &&
+		fields.envIndexed === undefined
+	) {
+		throw new CLIError("Flag schema field 'envAbsolute' requires 'envVar' or 'envIndexed'", {
+			code: 'INVALID_SCHEMA',
+			details: { kind, field: 'envAbsolute' },
+			suggest: "Bind an env source, or drop 'envAbsolute'",
+		});
+	}
 }
 
 /**
@@ -1195,6 +1224,7 @@ function assembleFlagSchema<K extends FlagKind>(
 		presence,
 		stdin,
 		unique,
+		envAbsolute,
 		sensitive,
 		propagate,
 		duplicates,
@@ -1221,6 +1251,7 @@ function assembleFlagSchema<K extends FlagKind>(
 		split: undefined,
 		duplicateKeys: duplicateKeys ?? 'last',
 		unique: unique ?? false,
+		envAbsolute: envAbsolute ?? false,
 		pathChecks: undefined,
 		valueHint: undefined,
 		prompt: undefined,
@@ -1486,7 +1517,12 @@ class FlagBuilder<C extends FlagConfig> {
 	 * The env value is read after CLI and stdin, and before config, the prompt,
 	 * and the default: CLI → stdin → **env** → config → prompt → default.
 	 *
+	 * Under a CLI-wide namespace (`CLIBuilder.envPrefix()`) the name is relative:
+	 * `.env('TOKEN')` in `cli('foo').envPrefix()` reads `FOO_TOKEN`. Pass
+	 * `{ absolute: true }` to read the name exactly as written.
+	 *
 	 * @param varName - Environment variable name (e.g. `'PORT'`).
+	 * @param options - Whether the name ignores the CLI namespace.
 	 * @returns The builder (for chaining).
 	 *
 	 * @example
@@ -1495,9 +1531,11 @@ class FlagBuilder<C extends FlagConfig> {
 	 *
 	 * // $ API_KEY=sk-123 mycli request   → apiKey = 'sk-123'
 	 * // $ mycli request --api-key sk-456 → apiKey = 'sk-456' (CLI wins)
+	 *
+	 * flag.path().env('HOME', { absolute: true }) // never namespaced
 	 * ```
 	 */
-	env(varName: string): FlagBuilder<WithoutElementEligibility<C>>;
+	env(varName: string, options?: EnvOptions): FlagBuilder<WithoutElementEligibility<C>>;
 	/**
 	 * Bind to an indexed family of environment variables, read as one env source.
 	 *
@@ -1512,7 +1550,11 @@ class FlagBuilder<C extends FlagConfig> {
 	 * A `fields` family reads a list of records, one variable per field, so it
 	 * suits `flag.array(flag.custom(...))` and `flag.custom()`.
 	 *
+	 * Under a CLI-wide namespace the count and every template are relative, the
+	 * same as a single name; `{ absolute: true }` reads them as written.
+	 *
 	 * @param binding - The count variable plus a `value` template or `fields` templates.
+	 * @param options - Whether the names ignore the CLI namespace.
 	 * @returns The builder (for chaining).
 	 * @throws {CLIError} With code `'INVALID_SCHEMA'` on a malformed template or a
 	 *   flag kind that cannot hold a list.
@@ -1530,15 +1572,25 @@ class FlagBuilder<C extends FlagConfig> {
 	 * //   → gitConfigEntries receives [{ key: 'user.name', value: 'Kaj' }]
 	 * ```
 	 */
-	env(binding: IndexedEnvBinding): FlagBuilder<WithoutElementEligibility<C>>;
-	env(source: string | IndexedEnvBinding): FlagBuilder<WithoutElementEligibility<C>> {
+	env(binding: IndexedEnvBinding, options?: EnvOptions): FlagBuilder<WithoutElementEligibility<C>>;
+	env(
+		source: string | IndexedEnvBinding,
+		options?: EnvOptions,
+	): FlagBuilder<WithoutElementEligibility<C>> {
+		const envAbsolute = options?.absolute === true;
 		if (typeof source === 'string') {
-			return new FlagBuilder({ ...this.schema, envVar: source, envIndexed: undefined });
+			return new FlagBuilder({
+				...this.schema,
+				envVar: source,
+				envIndexed: undefined,
+				envAbsolute,
+			});
 		}
 		return nextFlag({
 			...this.schema,
 			envVar: undefined,
 			envIndexed: normalizeIndexedEnvBinding(source),
+			envAbsolute,
 		});
 	}
 

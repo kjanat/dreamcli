@@ -62,6 +62,10 @@
             "type": "string"
           }
         },
+        "envAbsolute": {
+          "description": "Whether the env source is read exactly as written, outside the CLI-wide\nnamespace set by `CLIBuilder.envPrefix()` (set by `.env(…, { absolute:\ntrue })`). Applies to ArgSchema.envVar and\nArgSchema.envIndexed alike.\n\nDefault: `false`",
+          "const": true
+        },
         "envIndexed": {
           "$ref": "#/$defs/envIndexed",
           "description": "Indexed environment family read as the env source, set by `.env()` with an\nIndexedEnvBinding (`undefined` otherwise). An arg declares at most\none env source, so this and ArgSchema.envVar are never both set."
@@ -133,6 +137,11 @@
         }
       },
       "additionalProperties": false,
+      "dependentSchemas": {
+        "envAbsolute": {
+          "$ref": "#/$defs/envBound"
+        }
+      },
       "anyOf": [
         {
           "not": {
@@ -350,6 +359,20 @@
       },
       "additionalProperties": false
     },
+    "envBound": {
+      "anyOf": [
+        {
+          "required": [
+            "envVar"
+          ]
+        },
+        {
+          "required": [
+            "envIndexed"
+          ]
+        }
+      ]
+    },
     "envIndexed": {
       "description": "A numbered family of environment variables read as one input's env source.\n\nPass it to `.env()` in place of a variable name. The count variable decides\nwhether the env stage supplied a value at all, and how many entries it owns;\na declared entry with a missing member is an error, never a fallback to a\nlater source.",
       "type": "object",
@@ -504,6 +527,10 @@
             "type": "string"
           }
         },
+        "envAbsolute": {
+          "description": "Whether the env source is read exactly as written, outside the CLI-wide\nnamespace set by `CLIBuilder.envPrefix()` (set by `.env(…, { absolute:\ntrue })`). Applies to FlagSchema.envVar and\nFlagSchema.envIndexed alike.\n\nDefault: `false`",
+          "const": true
+        },
         "envIndexed": {
           "$ref": "#/$defs/envIndexed",
           "description": "Indexed environment family read as the env source, set by `.env()` with an\nIndexedEnvBinding (`undefined` otherwise). A flag declares at most\none env source, so this and FlagSchema.envVar are never both set."
@@ -577,6 +604,11 @@
         }
       },
       "additionalProperties": false,
+      "dependentSchemas": {
+        "envAbsolute": {
+          "$ref": "#/$defs/envBound"
+        }
+      },
       "not": {
         "required": [
           "envIndexed",
@@ -646,6 +678,10 @@
           "items": {
             "type": "string"
           }
+        },
+        "envAbsolute": {
+          "description": "Whether the env source is read exactly as written, outside the CLI-wide\nnamespace set by `CLIBuilder.envPrefix()` (set by `.env(…, { absolute:\ntrue })`). Applies to FlagSchema.envVar and\nFlagSchema.envIndexed alike.\n\nDefault: `false`",
+          "const": true
         },
         "envIndexed": {
           "$ref": "#/$defs/envIndexed",
@@ -981,6 +1017,14 @@
     "description": {
       "description": "Program description (shown in root help).",
       "type": "string"
+    },
+    "envPrefix": {
+      "description": "CLI-wide environment namespace prepended to every relative env binding\n(`undefined` when none is set). `.env('TOKEN')` reads `<envPrefix>TOKEN`;\na binding declared with `{ absolute: true }` is read as written.\n\nSet via the .envPrefix() builder method\nor the `envPrefix` field of CLIDefinition. Fixed when declared, so\nneither manifest name inference nor an inherited invocation name changes it.",
+      "type": "string",
+      "minLength": 1,
+      "not": {
+        "pattern": "[={}]"
+      }
     },
     "name": {
       "description": "Program name (used in help text, usage lines, and completion scripts).",

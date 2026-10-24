@@ -11,7 +11,11 @@
 import type { Colors } from 'ansispeck';
 import { formatDisplayValue } from '#internals/core/output/display-value.ts';
 import { resolveExampleCommand } from '#internals/core/schema/command.ts';
-import { formatIndexedEnvBinding } from '#internals/core/schema/env-binding.ts';
+import {
+	effectiveEnvName,
+	effectiveIndexedEnvBinding,
+	formatIndexedEnvBinding,
+} from '#internals/core/schema/env-binding.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type {
 	ArgSchema,
@@ -89,6 +93,14 @@ interface HelpOptions {
 	/** @internal Whether this usage line is being rendered as merged root/default help. */
 	readonly isDefaultHelp?: boolean;
 	/**
+	 * Environment namespace applied to relative env bindings in `[env: …]`
+	 * annotations, so help names the variables resolution actually reads.
+	 * `CLIBuilder.execute()`/`.run()` thread the CLI's `.envPrefix()` here.
+	 *
+	 * @defaultValue `undefined` (names render as declared)
+	 */
+	readonly envPrefix?: string;
+	/**
 	 * Gated ANSI palette used to style help output. Identity formatters mean
 	 * plain text. `CLIBuilder.execute()`/`.run()` thread the output channel's
 	 * `out.color` here automatically, so styling follows the same policy as
@@ -122,6 +134,7 @@ interface ResolvedHelpOptions {
 	readonly flagOrder: 'alphabetical' | 'declaration';
 	readonly sortFlags: ((a: string, b: string) => number) | undefined;
 	readonly isDefaultHelp: boolean;
+	readonly envPrefix: string | undefined;
 	readonly theme: HelpTheme;
 	readonly descriptionTheme: HelpTheme;
 }
@@ -143,6 +156,7 @@ function resolveOptions(options?: HelpOptions): ResolvedHelpOptions {
 		flagOrder: options?.flagOrder ?? 'alphabetical',
 		sortFlags: options?.sortFlags,
 		isDefaultHelp: options?.isDefaultHelp ?? false,
+		envPrefix: options?.envPrefix,
 		theme,
 		descriptionTheme: extendHelpTheme(theme, options?.colors, options?.descriptionTheme),
 	};
@@ -291,18 +305,42 @@ function formatStdinAnnotation(stdin: StdinBinding): string {
 }
 
 /**
+ * The `[env: …]` annotation for an input's env source, naming the concrete
+ * variables resolution reads under the CLI namespace.
+ *
+ * @param schema - The flag or arg schema to describe.
+ * @param envPrefix - The CLI namespace, or `undefined` when none applies.
+ * @returns The annotation, or `undefined` when the input declares no env source.
+ */
+function formatEnvAnnotation(
+	schema: FlagSchema | ArgSchema,
+	envPrefix: string | undefined,
+): string | undefined {
+	if (schema.envVar !== undefined) {
+		return `[env: ${effectiveEnvName(schema.envVar, envPrefix, schema.envAbsolute)}]`;
+	}
+	if (schema.envIndexed !== undefined) {
+		const binding = effectiveIndexedEnvBinding(schema.envIndexed, envPrefix, schema.envAbsolute);
+		return `[env: ${formatIndexedEnvBinding(binding)}]`;
+	}
+	return undefined;
+}
+
+/**
  * Build description with stdin/env/config/prompt/default/required/deprecated
  * annotations.
  *
  * @param schema - The {@link FlagSchema} to describe.
  * @param theme - Theme applied to the metadata annotations.
  * @param descriptionTheme - Theme passed to a function-form description.
+ * @param envPrefix - CLI env namespace applied to relative env bindings.
  * @returns Concatenated description string with metadata annotations.
  */
 function formatFlagDescription(
 	schema: FlagSchema,
 	theme: HelpTheme,
 	descriptionTheme: HelpTheme,
+	envPrefix: string | undefined,
 ): string {
 	const parts: string[] = [];
 
@@ -319,11 +357,9 @@ function formatFlagDescription(
 	if (schema.stdin !== undefined) {
 		parts.push(theme.annotation(formatStdinAnnotation(schema.stdin)));
 	}
-	if (schema.envVar !== undefined) {
-		parts.push(theme.annotation(`[env: ${schema.envVar}]`));
-	}
-	if (schema.envIndexed !== undefined) {
-		parts.push(theme.annotation(`[env: ${formatIndexedEnvBinding(schema.envIndexed)}]`));
+	const env = formatEnvAnnotation(schema, envPrefix);
+	if (env !== undefined) {
+		parts.push(theme.annotation(env));
 	}
 	if (schema.configPath !== undefined) {
 		parts.push(theme.annotation(`[config: ${schema.configPath}]`));
@@ -401,7 +437,7 @@ function buildFlagEntries(
 		if (schema === undefined) continue;
 		entries.push({
 			left: formatFlagLeft(name, schema, opts.theme),
-			description: formatFlagDescription(schema, opts.theme, opts.descriptionTheme),
+			description: formatFlagDescription(schema, opts.theme, opts.descriptionTheme, opts.envPrefix),
 		});
 	}
 	return entries;
@@ -437,12 +473,14 @@ function formatArgUsage(entry: CommandArgEntry, maxWidth = Infinity): string {
  * @param schema - The {@link ArgSchema} to describe.
  * @param theme - Theme applied to the metadata annotations.
  * @param descriptionTheme - Theme passed to a function-form description.
+ * @param envPrefix - CLI env namespace applied to relative env bindings.
  * @returns Concatenated description string with metadata annotations.
  */
 function formatArgDescription(
 	schema: ArgSchema,
 	theme: HelpTheme,
 	descriptionTheme: HelpTheme,
+	envPrefix: string | undefined,
 ): string {
 	const parts: string[] = [];
 
@@ -457,11 +495,9 @@ function formatArgDescription(
 	if (schema.stdin !== undefined) {
 		parts.push(theme.annotation(formatStdinAnnotation(schema.stdin)));
 	}
-	if (schema.envVar !== undefined) {
-		parts.push(theme.annotation(`[env: ${schema.envVar}]`));
-	}
-	if (schema.envIndexed !== undefined) {
-		parts.push(theme.annotation(`[env: ${formatIndexedEnvBinding(schema.envIndexed)}]`));
+	const env = formatEnvAnnotation(schema, envPrefix);
+	if (env !== undefined) {
+		parts.push(theme.annotation(env));
 	}
 	if (schema.configPath !== undefined) {
 		parts.push(theme.annotation(`[config: ${schema.configPath}]`));
@@ -614,7 +650,7 @@ function formatArgsSection(args: readonly CommandArgEntry[], opts: ResolvedHelpO
 	for (const entry of args) {
 		const token = formatArgUsage(entry, Math.floor(opts.width / 2) - 4);
 		const left = `  ${theme.arg(token)}`;
-		const desc = formatArgDescription(entry.schema, theme, opts.descriptionTheme);
+		const desc = formatArgDescription(entry.schema, theme, opts.descriptionTheme, opts.envPrefix);
 		entries.push({
 			left,
 			desc,

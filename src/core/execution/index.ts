@@ -120,11 +120,15 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 			}
 			// Standalone `cmd.run()` / testkit paths reach here without the CLI
 			// builder's help merge — default the palette from the output channel.
+			// Help names the variables resolution reads, so a run-level namespace
+			// reaches the annotations unless the help options already carry one.
+			const help =
+				options?.envPrefix !== undefined && options.help?.envPrefix === undefined
+					? { ...options.help, envPrefix: options.envPrefix }
+					: options?.help;
 			const helpText = formatHelp(
 				schema,
-				options?.help?.colors !== undefined
-					? options.help
-					: { ...options?.help, colors: out.color },
+				help?.colors !== undefined ? help : { ...help, colors: out.color },
 			);
 			out.log(helpText);
 			return { exitCode: 0, error: undefined };
@@ -162,6 +166,7 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 			...(options?.stat !== undefined ? { stat: options.stat } : {}),
 			...(options?.mkdir !== undefined ? { mkdir: options.mkdir } : {}),
 			...(options?.pathChecks !== undefined ? { pathChecks: options.pathChecks } : {}),
+			...(options?.envPrefix !== undefined ? { envPrefix: options.envPrefix } : {}),
 		};
 		const resolved = await resolve(schema, parsed, resolveOptions);
 		skippedPathChecks = resolved.skippedPathChecks;

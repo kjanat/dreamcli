@@ -23,7 +23,7 @@ import {
 	normalizeSplitPolicy,
 	validateDefault,
 } from './cardinality.ts';
-import type { IndexedEnvBinding } from './env-binding.ts';
+import type { EnvOptions, IndexedEnvBinding } from './env-binding.ts';
 import { normalizeIndexedEnvBinding } from './env-binding.ts';
 import type { DefaultValueOptions } from './flag.ts';
 import { assertNumberConstraints, type NumberConstraints } from './number-constraints.ts';
@@ -294,6 +294,15 @@ interface ArgSchema<K extends ArgKind = ArgKind> {
 	 */
 	readonly envIndexed: IndexedEnvBinding | undefined;
 	/**
+	 * Whether the env source is read exactly as written, outside the CLI-wide
+	 * namespace set by `CLIBuilder.envPrefix()` (set by `.env(…, { absolute:
+	 * true })`). Applies to {@link ArgSchema.envVar} and
+	 * {@link ArgSchema.envIndexed} alike.
+	 *
+	 * @defaultValue `false`
+	 */
+	readonly envAbsolute: boolean;
+	/**
 	 * Dotted config path for config resolution (e.g. `'deploy.region'`).
 	 *
 	 * @see {@link ArgBuilder.config} for the builder method.
@@ -472,6 +481,12 @@ interface ArgDefinitionBase {
 	 */
 	readonly envIndexed?: IndexedEnvBinding | undefined;
 	/**
+	 * Read the env source exactly as written, outside the CLI-wide namespace.
+	 * Requires `envVar` or `envIndexed`.
+	 * @defaultValue `false`
+	 */
+	readonly envAbsolute?: boolean | undefined;
+	/**
 	 * Dotted config path for config resolution (e.g. `'deploy.region'`).
 	 * @defaultValue `undefined`
 	 */
@@ -643,6 +658,7 @@ const NORMALIZED_ARG_SCHEMA_KEYS: readonly (keyof ArgSchema)[] = [
 	'description',
 	'envVar',
 	'envIndexed',
+	'envAbsolute',
 	'configPath',
 	'prompt',
 	'enumValues',
@@ -701,6 +717,7 @@ function assertValidArgElementSchema(schema: ArgSchema): void {
 		['description', undefined],
 		['envVar', undefined],
 		['envIndexed', undefined],
+		['envAbsolute', false],
 		['configPath', undefined],
 		['prompt', undefined],
 		['elementSchema', undefined],
@@ -852,6 +869,18 @@ function assertValidArgDefinition(kind: ArgKind, fields: ArgDefinitionFields): v
 	if (fields.envIndexed !== undefined) {
 		assertIndexedEnvArg(kind, fields);
 	}
+
+	if (
+		fields.envAbsolute === true &&
+		fields.envVar === undefined &&
+		fields.envIndexed === undefined
+	) {
+		throw new CLIError("Arg schema field 'envAbsolute' requires 'envVar' or 'envIndexed'", {
+			code: 'INVALID_SCHEMA',
+			details: { kind, field: 'envAbsolute' },
+			suggest: "Bind an env source, or drop 'envAbsolute'",
+		});
+	}
 }
 
 /**
@@ -950,7 +979,8 @@ function assembleArgSchema<K extends ArgKind>(
 	kind: K,
 	overrides?: ArgSchemaFieldOverrides,
 ): ArgSchema<K> {
-	const { presence, variadic, stdin, unique, sensitive, duplicateKeys, ...rest } = overrides ?? {};
+	const { presence, variadic, stdin, unique, sensitive, duplicateKeys, envAbsolute, ...rest } =
+		overrides ?? {};
 	return {
 		kind,
 		presence: presence ?? 'required',
@@ -975,6 +1005,7 @@ function assembleArgSchema<K extends ArgKind>(
 		split: undefined,
 		duplicateKeys: duplicateKeys ?? 'last',
 		unique: unique ?? false,
+		envAbsolute: envAbsolute ?? false,
 		standard: undefined,
 		aggregateStandard: undefined,
 		deprecated: undefined,
@@ -1481,7 +1512,12 @@ class ArgBuilder<C extends ArgConfig> {
 	 *
 	 * Help output shows `[env: VAR]` next to the arg description.
 	 *
+	 * Under a CLI-wide namespace (`CLIBuilder.envPrefix()`) the name is relative:
+	 * `.env('TARGET')` in `cli('foo').envPrefix()` reads `FOO_TARGET`. Pass
+	 * `{ absolute: true }` to read the name exactly as written.
+	 *
 	 * @param varName - Environment variable name (e.g. `'DEPLOY_TARGET'`).
+	 * @param options - Whether the name ignores the CLI namespace.
 	 * @returns The builder (for chaining).
 	 *
 	 * @example
@@ -1495,7 +1531,7 @@ class ArgBuilder<C extends ArgConfig> {
 	 *   });
 	 * ```
 	 */
-	env(varName: string): ArgBuilder<WithoutArgElementEligibility<C>>;
+	env(varName: string, options?: EnvOptions): ArgBuilder<WithoutArgElementEligibility<C>>;
 	/**
 	 * Bind to an indexed family of environment variables, read as one env source.
 	 *
@@ -1511,7 +1547,11 @@ class ArgBuilder<C extends ArgConfig> {
 	 * from a Standard Schema validator, either variadic (one record per element)
 	 * or not (the whole list at once).
 	 *
+	 * Under a CLI-wide namespace the count and every template are relative, the
+	 * same as a single name; `{ absolute: true }` reads them as written.
+	 *
 	 * @param binding - The count variable plus a `value` template or `fields` templates.
+	 * @param options - Whether the names ignore the CLI namespace.
 	 * @returns The builder (for chaining).
 	 * @throws {CLIError} With code `'INVALID_SCHEMA'` on a malformed template or an
 	 *   arg that cannot hold a list.
@@ -1522,15 +1562,23 @@ class ArgBuilder<C extends ArgConfig> {
 	 * // FILE_COUNT=2 FILE_0=a.txt FILE_1=b.txt → ['a.txt', 'b.txt']
 	 * ```
 	 */
-	env(binding: IndexedEnvBinding): ArgBuilder<WithoutArgElementEligibility<C>>;
-	env(source: string | IndexedEnvBinding): ArgBuilder<WithoutArgElementEligibility<C>> {
+	env(
+		binding: IndexedEnvBinding,
+		options?: EnvOptions,
+	): ArgBuilder<WithoutArgElementEligibility<C>>;
+	env(
+		source: string | IndexedEnvBinding,
+		options?: EnvOptions,
+	): ArgBuilder<WithoutArgElementEligibility<C>> {
+		const envAbsolute = options?.absolute === true;
 		if (typeof source === 'string') {
-			return new ArgBuilder({ ...this.schema, envVar: source, envIndexed: undefined });
+			return new ArgBuilder({ ...this.schema, envVar: source, envIndexed: undefined, envAbsolute });
 		}
 		return nextArg({
 			...this.schema,
 			envVar: undefined,
 			envIndexed: normalizeIndexedEnvBinding(source),
+			envAbsolute,
 		});
 	}
 
