@@ -20,11 +20,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - **Indexed environment families as one env source** ([#139](https://github.com/kjanat/dreamcli/issues/139)).\
   `.env({ count, value })` reads a numbered family such as `SERVER_COUNT` plus `SERVER_0`, `SERVER_1`, … into one list, and `.env({ count, fields })` correlates several variables per index into records, which covers Git's `GIT_CONFIG_COUNT` / `GIT_CONFIG_KEY_n` / `GIT_CONFIG_VALUE_n` protocol. The count variable owns indices `0..count-1`: unset means the env stage supplied nothing, `0` resolves an explicit empty list that wins over config and defaults, and a non-canonical count, a count above 10000, or a missing member is an error naming the concrete variable rather than a fall-through. Entries reach the input's own coercion and Standard Schema validation unchanged, with per-entry diagnostics and sensitive values redacted. Flags take a family on `flag.array()` and `flag.custom()`; arguments on a variadic arg or a Standard Schema `arg.custom()`; other kinds and malformed `{index}` templates fail when the schema is built. Help renders the templates and the count, and definition documents carry the binding as an additive `envIndexed` field at `schemaVersion: 1`.
+- **Skipped filesystem checks are observable, and optionally fatal** ([#146](https://github.com/kjanat/dreamcli/issues/146)).\
+  `runCommand()`, `.execute()`, and `resolve()` results carry `skippedPathChecks`: one entry per `flag.path()` / `arg.path()` input whose declared `mustExist`, `type`, or `create` check could not run because no `stat` probe (or no `mkdir` for `create`) was supplied. The new `pathChecks: 'strict'` run option fails such a run with `PATH_CHECK_SKIPPED` (exit code `1`) naming each input, for tests that must exercise every declared check; the default `'lenient'` keeps isolated parser and action tests off the host filesystem. `afterResolve` plugins receive the same list. The testing guide gains a filesystem-checks section with probe, strict-mode, input/output, and directory-creation recipes.
 
 ### Changed
 
 - **Breaking: `ResolutionProvenance` gains an indexed env record** ([#139](https://github.com/kjanat/dreamcli/issues/139)).\
   A value read from an indexed family reports `{ stage: 'env', via: 'indexed', count, envVars }`, listing every variable it read, because no single `envVar` describes it truthfully. Variables bound by name still report `{ stage: 'env', envVar }`. Code that narrows `stage === 'env'` and then reads `envVar` must also test `'envVar' in source`. `ResolutionProvenance` is a closed union, so this ships in the next major release.
+
+### Fixed
+
+- **Nested command help names the full command path** ([#151](https://github.com/kjanat/dreamcli/issues/151)).\
+  `demo parent child --help` now renders `Usage: demo parent child` instead of the unrunnable `demo child`, through every depth of nesting, via aliases, via the bare `help` token, and in `--json` help. Function-form examples receive the same path as `meta.name`, and a runtime `help.binName` override is honoured for nested groups as well as leaves.
 
 ## [4.2.0] - 2026-10-21
 

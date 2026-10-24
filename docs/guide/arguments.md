@@ -931,7 +931,10 @@ level) and still rejects an existing non-directory path.
 
 In process-free execution (`.execute()` / `runCommand()`), pass a `stat`
 function via run options to enable the checks (plus `mkdir` for `create`);
-without them the checks are skipped and nothing is created.
+without them the checks are skipped and nothing is created. A skip is not
+silent: the result lists each unexercised input in `skippedPathChecks`, and
+`pathChecks: 'strict'` fails the run instead. See
+[Filesystem Checks](/guide/testing#filesystem-checks) in the testing guide.
 
 Failures carry `CONSTRAINT_VIOLATED` and name the argument:
 

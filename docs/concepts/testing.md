@@ -199,7 +199,8 @@ Good CLI tests don't touch real state:
 
 - **No `process.argv` mutation** — pass argv as a parameter
 - **No real env vars** — inject env as an object
-- **No real filesystem** — inject config as an object
+- **No real filesystem** — inject config as an object and a `stat` probe for path checks; a check
+  that could not run shows up in `result.skippedPathChecks` instead of passing silently
 - **No real TTY** — capture output to arrays
 - **No real prompts** — provide answers programmatically
 

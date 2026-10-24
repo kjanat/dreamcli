@@ -267,6 +267,35 @@ function buildCommandExecutionPlan(
 	};
 }
 
+/**
+ * Scope root help options to a command nested below the root.
+ *
+ * Per-command help renders `Usage: <binName> <command>`, so a nested leaf or
+ * group must carry its ancestor groups in `binName` for the usage line to show
+ * a runnable path (`demo parent child`, not `demo child` — #151). The ancestor
+ * names are the canonical command names, not the aliases argv used, so the
+ * displayed path matches the `Commands:` tables that lead to it.
+ *
+ * @param options - Planner options carrying the root help configuration.
+ * @param commandPath - Root → target (inclusive) schema path from dispatch.
+ * @returns Root help options when the target sits at the root, otherwise a
+ *   copy whose `binName` is the bin followed by the ancestor command names.
+ */
+function scopeHelpToCommandPath(
+	options: PlanInvocationOptions,
+	commandPath: readonly CommandSchema[],
+): HelpOptions {
+	const ancestorNames = commandPath.slice(0, -1).map((schema) => schema.name);
+	if (ancestorNames.length === 0) {
+		return options.help;
+	}
+
+	return {
+		...options.help,
+		binName: [options.help.binName ?? options.schema.name, ...ancestorNames].join(' '),
+	};
+}
+
 function buildPlannerMatchOutcome(
 	options: PlanInvocationOptions,
 	command: CompiledCommand,
@@ -282,7 +311,7 @@ function buildPlannerMatchOutcome(
 			meta: buildMeta(options.schema, options.help, command.schema.name),
 			plugins: options.compiled.plugins,
 			output: options.output,
-			help: options.help,
+			help: scopeHelpToCommandPath(options, commandPath),
 		}),
 	};
 }
@@ -655,18 +684,13 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 			};
 		}
 
-		case 'needs-subcommand': {
-			const ancestorNames = result.commandPath.slice(0, -1).map((schema) => schema.name);
+		case 'needs-subcommand':
 			return {
 				kind: 'needs-subcommand',
 				command: result.command,
 				commandPath: result.commandPath,
-				help: {
-					...options.help,
-					binName: [options.schema.name, ...ancestorNames].join(' '),
-				},
+				help: scopeHelpToCommandPath(options, result.commandPath),
 			};
-		}
 
 		case 'match':
 			return buildPlannerMatchOutcome(

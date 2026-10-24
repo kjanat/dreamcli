@@ -367,6 +367,42 @@ describe('planInvocation() — dispatch outcomes', () => {
 		}
 	});
 
+	it('scopes help binName to the ancestor path for a nested group', () => {
+		const db = compileCommand(command('db').command(command('migrate').command(leafBuilder('up'))));
+
+		const result = planFor([db], ['db', 'migrate']);
+
+		expect(result.kind).toBe('needs-subcommand');
+		if (result.kind === 'needs-subcommand') {
+			expect(result.help).toEqual({ ...help, binName: 'dream db' });
+		}
+	});
+
+	it('keeps root help options for a root-level command match', () => {
+		const deploy = leaf('deploy');
+
+		const result = planFor([deploy], ['deploy', '--help']);
+
+		expect(result.kind).toBe('match');
+		if (result.kind === 'match') {
+			expect(result.plan.help).toBe(help);
+		}
+	});
+
+	it('scopes help binName to the ancestor path for a nested command match (#151)', () => {
+		const db = compileCommand(command('db').command(command('migrate').command(leafBuilder('up'))));
+
+		const result = planFor([db], ['db', 'migrate', 'up', '--help']);
+
+		expect(result.kind).toBe('match');
+		if (result.kind === 'match') {
+			expect(result.plan.help).toEqual({ ...help, binName: 'dream db migrate' });
+			// `meta.bin` stays the bare program binary — it is not a usage path.
+			expect(result.plan.meta.bin).toBe('dream');
+			expect(result.plan.meta.command).toBe('up');
+		}
+	});
+
 	it('returns nested unknown-command errors with a scoped help suggestion', () => {
 		const db = compileCommand(command('db').command(leafBuilder('migrate')));
 

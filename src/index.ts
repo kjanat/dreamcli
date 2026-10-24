@@ -156,6 +156,7 @@ export type {
 	ResolutionProvenanceRecord,
 	ResolveOptions,
 	ResolveResult,
+	SkippedPathCheck,
 } from './core/resolve/index.ts';
 export { resolve } from './core/resolve/index.ts';
 export type {

@@ -24,7 +24,7 @@ a source the projection omits is a source no stage can produce.
 | `flags.ts`       |   429 | `resolveFlags()` — two-pass walk over each flag's source bindings             |
 | `args.ts`        |   295 | `resolveArgs()` — single-pass walk over each arg's bindings, then path checks |
 | `coerce.ts`      |  1372 | `coerceValue()` — unified raw value -> flag's declared kind                   |
-| `path-checks.ts` |   167 | `validatePathChecks()` — shared `flag.path()` / `arg.path()` filesystem pass  |
+| `path-checks.ts` |   330 | `checkResolvedPath()` — shared `flag.path()` / `arg.path()` filesystem pass   |
 | `indexed-env.ts` |   150 | `readIndexedEnv()` — count + member acquisition for an indexed env family     |
 | `config.ts`      |    26 | `resolveConfigPath()` — dotted path lookup in config object                   |
 | `errors.ts`      |   226 | Error aggregation + `throwAggregatedErrors()`                                 |
@@ -33,20 +33,21 @@ a source the projection omits is a source no stage can produce.
 
 ## KEY FUNCTIONS
 
-| Function                            | File             | Role                                                                |
-| ----------------------------------- | ---------------- | ------------------------------------------------------------------- |
-| `resolve()`                         | `index.ts`       | Main entry — orchestrates full resolution for a command             |
-| `runStages()`                       | `stages.ts`      | Walks one input's source bindings, first outcome wins               |
-| `resolveFlags()`                    | `flags.ts`       | All flags: the shared stage walk, in two passes                     |
-| `resolveArgs()`                     | `args.ts`        | All args: the shared stage walk, then path checks                   |
-| `coerceValue()`                     | `coerce.ts`      | Unified raw value -> flag's declared kind (stdin/env/config/prompt) |
-| `coerceValueSchema()`               | `coerce.ts`      | Runs `decodeValue()` and names the flag on failure                  |
-| `argValueCoercionError()`           | `coerce.ts`      | Words the same `ValueFailure` for the positional surface            |
-| `resolveConfigPath()`               | `config.ts`      | Dotted path lookup in config object                                 |
-| `validatePromptFlagCompatibility()` | `flags.ts`       | Prompt kind ↔ flag kind gate (before prompter invocation)           |
-| `argPromptCompatibility()`          | `args.ts`        | The same gate read through the arg's value and cardinality axes     |
-| `promptCompatibilityError()`        | `flags.ts`       | Words that gate's failure for whichever surface declared the prompt |
-| `validatePathChecks()`              | `path-checks.ts` | Post-resolution filesystem pass, flags and args alike               |
+| Function                            | File             | Role                                                                 |
+| ----------------------------------- | ---------------- | -------------------------------------------------------------------- |
+| `resolve()`                         | `index.ts`       | Main entry — orchestrates full resolution for a command              |
+| `runStages()`                       | `stages.ts`      | Walks one input's source bindings, first outcome wins                |
+| `resolveFlags()`                    | `flags.ts`       | All flags: the shared stage walk, in two passes                      |
+| `resolveArgs()`                     | `args.ts`        | All args: the shared stage walk, then path checks                    |
+| `coerceValue()`                     | `coerce.ts`      | Unified raw value -> flag's declared kind (stdin/env/config/prompt)  |
+| `coerceValueSchema()`               | `coerce.ts`      | Runs `decodeValue()` and names the flag on failure                   |
+| `argValueCoercionError()`           | `coerce.ts`      | Words the same `ValueFailure` for the positional surface             |
+| `resolveConfigPath()`               | `config.ts`      | Dotted path lookup in config object                                  |
+| `validatePromptFlagCompatibility()` | `flags.ts`       | Prompt kind ↔ flag kind gate (before prompter invocation)            |
+| `argPromptCompatibility()`          | `args.ts`        | The same gate read through the arg's value and cardinality axes      |
+| `promptCompatibilityError()`        | `flags.ts`       | Words that gate's failure for whichever surface declared the prompt  |
+| `checkResolvedPath()`               | `path-checks.ts` | Post-resolution filesystem pass, flags and args alike; records skips |
+| `pathChecksSkippedError()`          | `path-checks.ts` | `PATH_CHECK_SKIPPED` raised by `pathChecks: 'strict'`                |
 
 ## TWO-PASS ARCHITECTURE
 
@@ -184,8 +185,9 @@ rather than naming a first allowed kind there is none of. This mirrors the compi
   override record; `resolveArgs()` guards `parsedArgs` and `env`; `resolveConfigPath()` guards every
   path segment.
 - `resolveArgs()` is async because `arg.path()` checks reach the adapter, same as flags. Both call
-  `validatePathChecks()` in `path-checks.ts`, which takes the subject (`{ kind: 'flag' | 'arg', name }`)
-  and produces messages that differ only there. Path checks belong to the element, so `pathValuesOf()`
+  `checkResolvedPath()` in `path-checks.ts`, which takes the subject (`{ kind: 'flag' | 'arg', name }`)
+  and produces messages that differ only there; it records a skip when `stat` is absent and runs
+  `validatePathChecks()` per value otherwise. Path checks belong to the element, so `pathValuesOf()`
   in `path-checks.ts` walks an array's string elements and a record's string values; both surfaces
   use it.
 - Value-axis fields are read through the value layer, never off the schema. `flags.ts` gets its
@@ -208,3 +210,12 @@ the surface's `coerceIndexed` hook (`coerceIndexedFlagValue` / `coerceIndexedArg
 `coerce.ts`) words faults and decodes entries. A collection decodes per entry (value members named
 by their concrete variable, record entries by the `env-indexed` diagnostic source); a custom input
 receives the whole list. Provenance is `{ stage: 'env', via: 'indexed', count, envVars }`.
+
+## SKIPPED PATH CHECKS
+
+`stat`/`mkdir` are injected; `src/core` never touches the host filesystem. A declared check with no
+probe is **recorded**, not dropped: `ResolveResult.skippedPathChecks` (and `RunResult`) carry one
+`SkippedPathCheck` per input whose resolved value could not be checked (`missing: 'stat'`), or whose
+`create` found no `mkdir` for a missing path (`missing: 'mkdir'`). `ResolveOptions.pathChecks:
+'strict'` throws a `CLIError` (`PATH_CHECK_SKIPPED`, exit 1) ahead of the aggregated validation
+errors. The code is deliberately outside the closed `ValidationErrorCode` union.

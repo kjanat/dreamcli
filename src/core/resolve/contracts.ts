@@ -10,7 +10,7 @@
 
 import type { ParseResult } from '#internals/core/parse/index.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
-import type { CommandSchema } from '#internals/core/schema/index.ts';
+import type { CommandSchema, PathChecks } from '#internals/core/schema/index.ts';
 import type { ResolutionProvenance } from '#internals/core/schema/provenance.ts';
 import type { ResolutionStage } from '#internals/core/schema/source.ts';
 import { RESOLUTION_ORDER } from '#internals/core/schema/source.ts';
@@ -81,6 +81,48 @@ interface ResolveOptions {
 	 * apply as-is.
 	 */
 	readonly mkdir?: (path: string) => Promise<void>;
+	/**
+	 * What happens to a declared filesystem check that cannot run because
+	 * {@link ResolveOptions.stat} (or {@link ResolveOptions.mkdir} for `create`)
+	 * is absent.
+	 *
+	 * - `'lenient'` — the check is skipped and recorded in
+	 *   {@link ResolveResult.skippedPathChecks}, so a result can still report
+	 *   that it was never exercised.
+	 * - `'strict'` — resolution fails with a `CLIError` of code
+	 *   `'PATH_CHECK_SKIPPED'` (exit code `1`) naming every skipped input, for
+	 *   tests that must exercise each declared check.
+	 *
+	 * Only inputs that resolved a path value are affected: an unset optional
+	 * path has nothing to check in production either.
+	 *
+	 * @defaultValue `'lenient'`
+	 */
+	readonly pathChecks?: 'lenient' | 'strict';
+}
+
+/**
+ * A declared `flag.path()` / `arg.path()` check that resolution had no means
+ * to run.
+ *
+ * Recorded instead of raised when {@link ResolveOptions.pathChecks} is
+ * `'lenient'` (the default): the value resolved and the handler ran, but the
+ * filesystem was never consulted, so a passing result does not prove the real
+ * CLI would accept the same path.
+ */
+interface SkippedPathCheck {
+	/** Whether the path belongs to a flag or a positional arg. */
+	readonly kind: 'flag' | 'arg';
+	/** Name of the flag or arg. */
+	readonly name: string;
+	/** The checks the schema declared (`mustExist`, `type`, `create`). */
+	readonly checks: PathChecks;
+	/**
+	 * The capability resolution lacked: `'stat'` when no probe was supplied so
+	 * no check ran, or `'mkdir'` when the path was missing, `create` was
+	 * declared, and nothing could create it.
+	 */
+	readonly missing: 'stat' | 'mkdir';
 }
 
 /** Structured deprecation notice emitted for explicitly sourced values. */
@@ -114,6 +156,12 @@ interface ResolveResult {
 	readonly args: Readonly<Record<string, unknown>>;
 	/** Deprecation notices collected during resolution (may be empty). */
 	readonly deprecations: readonly DeprecationWarning[];
+	/**
+	 * Declared filesystem checks that did not run because no `stat` probe (or
+	 * no `mkdir` for `create`) was supplied. Empty when every declared check
+	 * ran, or when no resolved value had a check to run.
+	 */
+	readonly skippedPathChecks: readonly SkippedPathCheck[];
 	/**
 	 * Which stage produced each value. Present only for inputs that resolved a
 	 * value, so an unset optional input has no entry.
@@ -189,5 +237,6 @@ export type {
 	ResolveResult,
 	ResolverContract,
 	ResolverInvocation,
+	SkippedPathCheck,
 };
 export { RESOLUTION_ORDER, resolverContract };

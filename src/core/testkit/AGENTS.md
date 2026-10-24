@@ -14,16 +14,22 @@ injected execution options, and return captured output.
 
 **`RunOptions`** — the injectable testing seam:
 
-| Option      | Purpose                                           |
-| ----------- | ------------------------------------------------- |
-| `env`       | `Record<string, string>` — replaces `process.env` |
-| `config`    | JSON config object                                |
-| `answers`   | `Record<string, TestAnswer>` — prompt responses   |
-| `prompter`  | Full `PromptEngine` override                      |
-| `verbosity` | `'normal' \| 'quiet'`                             |
-| `jsonMode`  | boolean — enable JSON output                      |
-| `isTTY`     | boolean — simulate TTY                            |
-| `help`      | `HelpOptions` — help formatting (width, binName)  |
+| Option       | Purpose                                                |
+| ------------ | ------------------------------------------------------ |
+| `env`        | `Record<string, string>` — replaces `process.env`      |
+| `config`     | JSON config object                                     |
+| `answers`    | `Record<string, TestAnswer>` — prompt responses        |
+| `prompter`   | Full `PromptEngine` override                           |
+| `verbosity`  | `'normal' \| 'quiet'`                                  |
+| `jsonMode`   | boolean — enable JSON output                           |
+| `isTTY`      | boolean — simulate TTY                                 |
+| `help`       | `HelpOptions` — help formatting (width, binName)       |
+| `stat`       | Filesystem probe for `flag.path()` / `arg.path()`      |
+| `mkdir`      | Directory creation for `create` checks                 |
+| `pathChecks` | `'lenient' \| 'strict'` — fail when a check cannot run |
+
+`RunResult.skippedPathChecks` lists declared path checks that did not run (no `stat`, or no
+`mkdir` for `create`). Empty under `cli().run()`, which always supplies the adapter's filesystem.
 
 ## TEST FILES (11)
 

@@ -15,11 +15,11 @@ import type { PromptSourceBinding, SourceBinding } from '#internals/core/schema/
 import { argCollectedNothing, sourceBindings } from '#internals/core/schema/source.ts';
 import { argValueSchema, valueEnumValues } from '#internals/core/schema/value.ts';
 import { coerceArgValue, coerceIndexedArgValue, finishCliArgValue } from './coerce.ts';
-import type { DeprecationWarning, ResolutionProvenance } from './contracts.ts';
+import type { DeprecationWarning, ResolutionProvenance, SkippedPathCheck } from './contracts.ts';
 import { isNonEmpty, throwAggregatedErrors } from './errors.ts';
 import { COMPATIBLE_PROMPT_KINDS, promptCompatibilityError } from './flags.ts';
 import type { MkdirFn, StatFn } from './path-checks.ts';
-import { pathValuesOf, validatePathChecks } from './path-checks.ts';
+import { checkResolvedPath } from './path-checks.ts';
 import type { PromptOutcome, StageInput, StageState } from './stages.ts';
 import { readCliValue, runStages } from './stages.ts';
 
@@ -39,6 +39,8 @@ interface ArgResolutionOptions {
 	readonly stat: StatFn | undefined;
 	/** Directory creation for `arg.path()` `create` checks. */
 	readonly mkdir: MkdirFn | undefined;
+	/** Collector for `arg.path()` checks that could not run. */
+	readonly skippedPathChecks: SkippedPathCheck[];
 	/** Receiver for the stage that produced each resolved arg. */
 	readonly provenance: Record<string, ResolutionProvenance>;
 }
@@ -126,27 +128,18 @@ async function resolveArgs(
 		if (Array.isArray(value)) resolved[name] = [...dedupe(value)];
 	}
 
-	if (options.stat !== undefined) {
-		for (const { name, schema } of argEntries) {
-			const checks = argValueSchema(schema).pathChecks;
-			if (checks === undefined) continue;
+	for (const { name, schema } of argEntries) {
+		const checks = argValueSchema(schema).pathChecks;
+		if (checks === undefined) continue;
 
-			for (const value of pathValuesOf(
-				Object.hasOwn(resolved, name) ? resolved[name] : undefined,
-			)) {
-				const violation = await validatePathChecks(
-					{ kind: 'arg', name },
-					value,
-					checks,
-					options.stat,
-					options.mkdir,
-					schema.sensitive,
-				);
-				if (violation !== undefined) {
-					errors.push(violation);
-				}
-			}
-		}
+		await checkResolvedPath(
+			{ kind: 'arg', name },
+			Object.hasOwn(resolved, name) ? resolved[name] : undefined,
+			checks,
+			schema.sensitive,
+			{ stat: options.stat, mkdir: options.mkdir },
+			{ errors, skipped: options.skippedPathChecks },
+		);
 	}
 
 	if (isNonEmpty(errors)) {

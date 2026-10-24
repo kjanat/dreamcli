@@ -3,7 +3,8 @@
  * Testing examples using @kjanat/dreamcli/testkit.
  *
  * Demonstrates: `runCommand()`, prompt answers, env/config injection, output
- * assertions, middleware context, and activity assertions.
+ * assertions, middleware context, activity assertions, and filesystem checks
+ * through an injected `stat` probe.
  *
  * This file is structured as a Vitest test suite — run with
  * `bun test examples/testing.ts`.
@@ -27,6 +28,7 @@ const deploy = command('deploy')
 			.enum(['us', 'eu', 'ap'])
 			.env('DEPLOY_REGION')
 			.config('deploy.region')
+			.required()
 			.prompt({ kind: 'select', message: 'Which region?' })
 			.describe('Target region'),
 	)
@@ -143,5 +145,62 @@ describe('activity events', () => {
 		expect(result.activity).toContainEqual(
 			expect.objectContaining({ type: 'spinner:succeed', text: 'Done' }),
 		);
+	});
+});
+
+// --- Filesystem checks (arg.path / flag.path) ---
+
+const convert = command('convert')
+	.description('Convert a module')
+	.arg('input', arg.path({ type: 'file' })) // existing input
+	.arg('output', arg.path({ type: 'file', mustExist: false })) // new output is allowed
+	.action(({ args, out }) => {
+		out.log(`${args.input} -> ${args.output}`);
+	});
+
+describe('filesystem checks', () => {
+	// A probe is a plain function: no temp files, no mocks.
+	const files = new Set(['in.wasm']);
+	const stat = async (path: string) => (files.has(path) ? 'file' : null);
+
+	it('reports checks that never ran when no probe is injected', async () => {
+		const result = await runCommand(convert, ['in.wasm', 'out.wasm']);
+
+		expect(result.exitCode).toBe(0); // the action ran…
+		expect(result.skippedPathChecks).toEqual([
+			// …but neither path was checked, so this proves nothing about the real CLI
+			expect.objectContaining({ kind: 'arg', name: 'input', missing: 'stat' }),
+			expect.objectContaining({ kind: 'arg', name: 'output', missing: 'stat' }),
+		]);
+	});
+
+	it('exercises every declared check under strict mode', async () => {
+		const result = await runCommand(convert, ['in.wasm', 'out.wasm'], {
+			stat,
+			pathChecks: 'strict',
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toEqual(['in.wasm -> out.wasm\n']);
+		expect(result.skippedPathChecks).toEqual([]);
+	});
+
+	it('rejects a missing input the way the real CLI would', async () => {
+		const result = await runCommand(convert, ['nope.wasm', 'out.wasm'], {
+			stat,
+			pathChecks: 'strict',
+		});
+
+		expect(result.exitCode).toBe(2);
+		expect(result.error?.code).toBe('CONSTRAINT_VIOLATED');
+	});
+
+	it('fails instead of passing silently when the probe is forgotten', async () => {
+		const result = await runCommand(convert, ['in.wasm', 'out.wasm'], {
+			pathChecks: 'strict',
+		});
+
+		expect(result.exitCode).toBe(1);
+		expect(result.error?.code).toBe('PATH_CHECK_SKIPPED');
 	});
 });

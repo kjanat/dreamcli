@@ -27,6 +27,7 @@ import type {
 	DeprecationWarning,
 	ResolveOptions,
 	ResolveResult,
+	SkippedPathCheck,
 } from '#internals/core/resolve/index.ts';
 import { resolve } from '#internals/core/resolve/index.ts';
 import type {
@@ -81,6 +82,11 @@ interface CommandExecutionResult {
 	readonly exitCode: number;
 	/** The structured error if the command failed, `undefined` on success. */
 	readonly error: CLIError | undefined;
+	/**
+	 * Path checks resolution could not run. Absent when execution never reached
+	 * resolution, which {@link buildRunResult} reports as an empty list.
+	 */
+	readonly skippedPathChecks?: readonly SkippedPathCheck[];
 }
 
 /**
@@ -93,6 +99,9 @@ interface CommandExecutionResult {
 async function executeCommand(request: CommandExecutionRequest): Promise<CommandExecutionResult> {
 	const { argv, command, meta, options, out, schema } = request;
 	clearRequestedExitCode(out);
+	// Filled once resolution completes, so a handler failure after a skipped
+	// check still reports the skip alongside the error.
+	let skippedPathChecks: readonly SkippedPathCheck[] = [];
 
 	try {
 		if (builtinEnabled(options?.builtins, 'help') && requestsHelp(argv)) {
@@ -152,12 +161,15 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 			...(effectivePrompter !== undefined ? { prompter: effectivePrompter } : {}),
 			...(options?.stat !== undefined ? { stat: options.stat } : {}),
 			...(options?.mkdir !== undefined ? { mkdir: options.mkdir } : {}),
+			...(options?.pathChecks !== undefined ? { pathChecks: options.pathChecks } : {}),
 		};
 		const resolved = await resolve(schema, parsed, resolveOptions);
+		skippedPathChecks = resolved.skippedPathChecks;
 		const resolvedParams: ResolvedCommandParams = {
 			args: resolved.args,
 			flags: resolved.flags,
 			deprecations: resolved.deprecations,
+			skippedPathChecks,
 			command: schema,
 			meta,
 			out,
@@ -184,7 +196,7 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 		await executeWithExecutionSteps(command, handler, resolved, out, meta, ask);
 		await runResolvedHooks(options?.plugins, 'afterAction', resolvedParams);
 
-		return { exitCode: getRequestedExitCode(out) ?? 0, error: undefined };
+		return { exitCode: getRequestedExitCode(out) ?? 0, error: undefined, skippedPathChecks };
 	} catch (error: unknown) {
 		if (error instanceof CLIError) {
 			if (options?.jsonMode === true) {
@@ -195,7 +207,7 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 					out.error(`Suggestion: ${error.suggest}`);
 				}
 			}
-			return { exitCode: error.exitCode, error };
+			return { exitCode: error.exitCode, error, skippedPathChecks };
 		}
 
 		const message = error instanceof Error ? error.message : String(error);
@@ -208,7 +220,7 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 		} else {
 			out.error(wrapped.message);
 		}
-		return { exitCode: 1, error: wrapped };
+		return { exitCode: 1, error: wrapped, skippedPathChecks };
 	} finally {
 		out.stopActive();
 		clearRequestedExitCode(out);
@@ -321,6 +333,7 @@ function buildRunResult(result: CommandExecutionResult, captured: CapturedOutput
 		stderr: captured.stderr,
 		activity: captured.activity,
 		error: result.error,
+		skippedPathChecks: result.skippedPathChecks ?? [],
 	};
 }
 
