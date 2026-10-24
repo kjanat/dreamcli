@@ -1,0 +1,66 @@
+{
+	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
+	"extends": ["config:recommended", ":semanticCommits"],
+	"timezone": "Europe/Amsterdam",
+	"automerge": false,
+	"prConcurrentLimit": 5,
+	"prHourlyLimit": 2,
+	"rangeStrategy": "bump",
+	"ignorePaths": [
+		".opencode/**",
+		"**/node_modules/**",
+		"**/dist/**",
+		"**/coverage/**",
+		"**/.vitepress/cache/**"
+	],
+	"github-actions": { "enabled": false },
+	"lockFileMaintenance": {
+		"enabled": true,
+		"schedule": ["before 6am on monday"]
+	},
+	"customManagers": [
+		{
+			"description": "Extract root Bun catalog versions, including npm aliases, until the Bun manager supports catalogs.",
+			"customType": "jsonata",
+			"fileFormat": "json",
+			"managerFilePatterns": ["/^package\\.json$/"],
+			"matchStrings": [
+				"$each(catalog, function($value, $name) { ($alias := $match($value, /^npm:(.+)@([^@]+)$/); { 'depName': $name, 'packageName': $exists($alias) ? $alias.groups[0] : $name, 'currentValue': $exists($alias) ? $alias.groups[1] : $value }) })"
+			],
+			"datasourceTemplate": "npm",
+			"depTypeTemplate": "bun.catalog"
+		}
+	],
+	"packageRules": [
+		{
+			"description": "Keep minimum supported runtimes under manual control.",
+			"matchDepTypes": ["engines", "devEngines.runtime", "devEngines.packageManager"],
+			"enabled": false
+		},
+		{
+			"description": "Update this repository's published package references during releases.",
+			"matchPackageNames": ["@kjanat/dreamcli"],
+			"enabled": false
+		},
+		{
+			"description": "Require dashboard approval before opening major upgrade PRs.",
+			"matchUpdateTypes": ["major"],
+			"dependencyDashboardApproval": true
+		},
+		{
+			"description": "Keep Vitest and its coverage provider compatible across workspaces.",
+			"matchPackageNames": ["vitest", "@vitest/*"],
+			"groupName": "vitest"
+		},
+		{
+			"description": "Update Shiki and the VitePress Twoslash integration together.",
+			"matchPackageNames": ["shiki", "@shikijs/*"],
+			"groupName": "shiki"
+		},
+		{
+			"description": "Keep the npm and JSR Ansispeck dependencies in one upgrade PR.",
+			"matchPackageNames": ["ansispeck", "@kjanat/ansispeck"],
+			"groupName": "ansispeck"
+		}
+	]
+}
