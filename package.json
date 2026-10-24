@@ -151,7 +151,7 @@
 		"knip": "^6.42.1",
 		"publint": "^0.3.25",
 		"runner-run": "0.28.0",
-		"tsdown": "0.23.1",
+		"tsdown": "0.23.2",
 		"typescript": "catalog:",
 		"vitest": "catalog:",
 		"yaml": "^2.9.1"
