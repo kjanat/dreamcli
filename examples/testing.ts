@@ -28,6 +28,7 @@ const deploy = command('deploy')
 			.enum(['us', 'eu', 'ap'])
 			.env('DEPLOY_REGION')
 			.config('deploy.region')
+			.required()
 			.prompt({ kind: 'select', message: 'Which region?' })
 			.describe('Target region'),
 	)
