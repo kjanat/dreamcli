@@ -8,6 +8,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
 	activityCmd,
+	buildCmd,
+	convertCmd,
 	deploy,
 	greet,
 	jsonListCmd,
@@ -63,6 +65,50 @@ describe('docs contracts', () => {
 		expect(missingArg.error?.code).toBe('REQUIRED_ARG');
 	});
 
+	it('executes the filesystem-check recipes in the testing guide', async () => {
+		const skipped = await runCommand(convertCmd, ['in.wasm', 'out.wasm']);
+		expect(skipped.exitCode).toBe(0);
+		expect(skipped.skippedPathChecks).toEqual([
+			expect.objectContaining({ kind: 'arg', name: 'input', missing: 'stat' }),
+			expect.objectContaining({ kind: 'arg', name: 'output', missing: 'stat' }),
+		]);
+
+		const files = new Set(['in.wasm']);
+		const stat = async (path: string) => (files.has(path) ? 'file' : null);
+
+		const ok = await runCommand(convertCmd, ['in.wasm', 'out.wasm'], {
+			stat,
+			pathChecks: 'strict',
+		});
+		expect(ok.exitCode).toBe(0);
+		expect(ok.stdout).toEqual(['in.wasm -> out.wasm\n']);
+		expect(ok.skippedPathChecks).toEqual([]);
+
+		const missing = await runCommand(convertCmd, ['nope.wasm', 'out.wasm'], {
+			stat,
+			pathChecks: 'strict',
+		});
+		expect(missing.exitCode).toBe(2);
+		expect(missing.error?.code).toBe('CONSTRAINT_VIOLATED');
+
+		const unchecked = await runCommand(convertCmd, ['in.wasm', 'out.wasm'], {
+			pathChecks: 'strict',
+		});
+		expect(unchecked.exitCode).toBe(1);
+		expect(unchecked.error?.code).toBe('PATH_CHECK_SKIPPED');
+
+		const created: string[] = [];
+		const built = await runCommand(buildCmd, ['--out', 'dist'], {
+			stat: async () => null,
+			mkdir: async (path) => {
+				created.push(path);
+			},
+			pathChecks: 'strict',
+		});
+		expect(built.exitCode).toBe(0);
+		expect(created).toEqual(['dist']);
+	});
+
 	it('locks high-signal docs claims that previously drifted', async () => {
 		const [
 			migration,
@@ -90,6 +136,8 @@ describe('docs contracts', () => {
 		expect(readme).not.toMatch(/RunOptions` accepts:[\s\S]{0,160}`adapter`/);
 		expect(testingGuide).toContain('promptCmd');
 		expect(testingGuide).toContain('activityCmd');
+		expect(testingGuide).toContain('skippedPathChecks');
+		expect(testingGuide).toContain("pathChecks: 'strict'");
 		expect(testkitReference).toContain('promptCmd');
 		expect(mainReference).toContain('.manifest({ from: import.meta.url })');
 		expect(mainReference).toContain('.manifest({ from: import.meta })');

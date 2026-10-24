@@ -30,10 +30,10 @@ import {
 } from '#internals/core/schema/source.ts';
 import { flagValueSchema, valueEnumValues } from '#internals/core/schema/value.ts';
 import { coerceValue, finishCliFlagValue, redactCoercionError } from './coerce.ts';
-import type { DeprecationWarning, ResolutionProvenance } from './contracts.ts';
+import type { DeprecationWarning, ResolutionProvenance, SkippedPathCheck } from './contracts.ts';
 import { isNonEmpty, throwAggregatedErrors } from './errors.ts';
 import type { MkdirFn, StatFn } from './path-checks.ts';
-import { pathValuesOf, validatePathChecks } from './path-checks.ts';
+import { checkResolvedPath } from './path-checks.ts';
 import type { PromptOutcome, StageInput, StageOutcome, StageState } from './stages.ts';
 import { readCliValue, runEarlyStages, runStages } from './stages.ts';
 
@@ -57,6 +57,8 @@ interface FlagResolutionOptions {
 	readonly stat: StatFn | undefined;
 	/** Directory creation for `flag.path()` `create` checks. */
 	readonly mkdir: MkdirFn | undefined;
+	/** Collector for `flag.path()` checks that could not run. */
+	readonly skippedPathChecks: SkippedPathCheck[];
 	/** Receiver for the stage that produced each resolved flag. */
 	readonly provenance: Record<string, ResolutionProvenance>;
 }
@@ -248,21 +250,16 @@ async function resolveFlags(
 			resolved[name] = [...dedupe(value)];
 		}
 
-		if (checks === undefined || options.stat === undefined) continue;
+		if (checks === undefined) continue;
 
-		for (const path of pathValuesOf(Object.hasOwn(resolved, name) ? resolved[name] : undefined)) {
-			const violation = await validatePathChecks(
-				{ kind: 'flag', name },
-				path,
-				checks,
-				options.stat,
-				options.mkdir,
-				schema.sensitive,
-			);
-			if (violation !== undefined) {
-				errors.push(violation);
-			}
-		}
+		await checkResolvedPath(
+			{ kind: 'flag', name },
+			Object.hasOwn(resolved, name) ? resolved[name] : undefined,
+			checks,
+			schema.sensitive,
+			{ stat: options.stat, mkdir: options.mkdir },
+			{ errors, skipped: options.skippedPathChecks },
+		);
 	}
 
 	if (isNonEmpty(errors)) {

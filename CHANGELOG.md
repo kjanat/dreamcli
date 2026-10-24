@@ -16,6 +16,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - [ ] Commit and push the release preparation, then verify the target commit is signed, `master` matches the remote, and every required check is green.
 - [ ] Confirm the exact `v<version>` tag does not already exist and npm and JSR do not already contain that version before publishing the GitHub release.
 
+### Added
+
+- **Skipped filesystem checks are observable, and optionally fatal** ([#146](https://github.com/kjanat/dreamcli/issues/146)).\
+  `runCommand()`, `.execute()`, and `resolve()` results carry `skippedPathChecks`: one entry per `flag.path()` / `arg.path()` input whose declared `mustExist`, `type`, or `create` check could not run because no `stat` probe (or no `mkdir` for `create`) was supplied. The new `pathChecks: 'strict'` run option fails such a run with `PATH_CHECK_SKIPPED` (exit code `1`) naming each input, for tests that must exercise every declared check; the default `'lenient'` keeps isolated parser and action tests off the host filesystem. `afterResolve` plugins receive the same list. The testing guide gains a filesystem-checks section with probe, strict-mode, input/output, and directory-creation recipes.
+
 ## [4.2.0] - 2026-10-21
 
 ### Added

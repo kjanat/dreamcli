@@ -22,9 +22,11 @@ interface Budget {
 
 // Deliberately tight ceilings: future API or JSDoc growth must fit these limits
 // or include a reviewed budget increase alongside the change that needs it.
+// 4.2.0 shipped at 750.0 kB unpacked; #146 (skipped path checks) raised the
+// unpacked ceiling to make room for its result field and run option.
 const BUDGET: Budget = {
 	tarballBytes: 200_000,
-	unpackedBytes: 750_000,
+	unpackedBytes: 775_000,
 	files: 60,
 	runtimeJsBytes: 350_000,
 	declarationBytes: 400_000,

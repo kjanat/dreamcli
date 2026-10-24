@@ -18,6 +18,7 @@ import type { CapturedOutput, Verbosity } from '#internals/core/output/index.ts'
 import type { ParseOptions } from '#internals/core/parse/index.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import type { TestAnswer } from '#internals/core/prompt/test-prompter.ts';
+import type { SkippedPathCheck } from '#internals/core/resolve/contracts.ts';
 import type { ActivityEvent } from './activity.ts';
 import type { CommandMeta, CommandSchema, Out } from './command.ts';
 
@@ -85,7 +86,9 @@ export interface RunOptions {
 	 *
 	 * `CLIBuilder.run()` supplies the runtime adapter's probe automatically.
 	 * When absent (process-free `.execute()` / `runCommand()` without an
-	 * override), path checks are skipped.
+	 * override), path checks are skipped and each skipped input is listed in
+	 * {@linkcode RunResult.skippedPathChecks}; set
+	 * {@linkcode RunOptions.pathChecks} to `'strict'` to fail instead.
 	 */
 	readonly stat?: (path: string) => Promise<'file' | 'directory' | null>;
 
@@ -94,9 +97,31 @@ export interface RunOptions {
 	 * checks.
 	 *
 	 * `CLIBuilder.run()` supplies the runtime adapter's implementation
-	 * automatically. When absent, missing paths are not created.
+	 * automatically. When absent, missing paths are not created: the existence
+	 * rules decide instead, and the input is listed in
+	 * {@linkcode RunResult.skippedPathChecks} with `missing: 'mkdir'`.
 	 */
 	readonly mkdir?: (path: string) => Promise<void>;
+
+	/**
+	 * What happens to a declared filesystem check that cannot run because
+	 * `stat` (or `mkdir` for `create`) was not supplied.
+	 *
+	 * - `'lenient'` — skip the check and record it in
+	 *   {@linkcode RunResult.skippedPathChecks}; the command still runs, which
+	 *   keeps parser and action tests off the host filesystem.
+	 * - `'strict'` — fail with a `CLIError` of code `'PATH_CHECK_SKIPPED'`
+	 *   (exit code `1`) naming every input whose check did not run, so a
+	 *   passing test proves each declared `mustExist`, `type`, and `create`
+	 *   check was exercised.
+	 *
+	 * Only inputs that resolved a path value count. `CLIBuilder.run()` always
+	 * supplies the adapter's filesystem, so this matters to `.execute()` and
+	 * `runCommand()`.
+	 *
+	 * @defaultValue `'lenient'`
+	 */
+	readonly pathChecks?: 'lenient' | 'strict';
 
 	/**
 	 * Verbosity level for the output channel.
@@ -241,4 +266,16 @@ export interface RunResult {
 	 * unknown errors are wrapped.
 	 */
 	readonly error: CLIError | undefined;
+
+	/**
+	 * Declared `flag.path()` / `arg.path()` checks that did not run because no
+	 * `stat` probe (or no `mkdir` for `create`) was supplied.
+	 *
+	 * Empty when every declared check ran, when no resolved value had a check
+	 * to run, or when execution ended before resolution. A successful result
+	 * with entries here never consulted the filesystem, so it does not prove
+	 * the real CLI accepts the same path — pass `stat` / `mkdir`, or set
+	 * {@linkcode RunOptions.pathChecks} to `'strict'` to make the test fail.
+	 */
+	readonly skippedPathChecks: readonly SkippedPathCheck[];
 }

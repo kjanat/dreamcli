@@ -644,6 +644,15 @@ describe('runCommand — flag.path() end to end', () => {
 		expect(result.exitCode).toBe(0);
 		expect(result.error).toBeUndefined();
 		expect(result.stdout.join('\n')).toContain('file=/definitely/missing');
+		// The skip is not silent: the result says which check never ran (#146).
+		expect(result.skippedPathChecks).toEqual([
+			{
+				kind: 'flag',
+				name: 'file',
+				checks: { mustExist: true, type: 'file', create: false },
+				missing: 'stat',
+			},
+		]);
 	});
 
 	// --- env source
