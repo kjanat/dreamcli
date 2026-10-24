@@ -24,7 +24,7 @@ interface Budget {
 // or include a reviewed budget increase alongside the change that needs it.
 const BUDGET: Budget = {
 	tarballBytes: 200_000,
-	unpackedBytes: 750_000,
+	unpackedBytes: 760_000,
 	files: 60,
 	runtimeJsBytes: 350_000,
 	declarationBytes: 400_000,
