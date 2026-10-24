@@ -49,7 +49,14 @@ function describeIssueSource(
 			return { kind: 'prompt', label: 'prompt' };
 		case 'env': {
 			const envVar = readStringProperty(details, 'envVar');
-			return envVar === undefined ? undefined : { kind: 'env', label: `env ${envVar}` };
+			if (envVar !== undefined) return { kind: 'env', label: `env ${envVar}` };
+			const countVar = readStringProperty(details, 'countVar');
+			if (countVar === undefined) return undefined;
+			const index = Reflect.get(details, 'index');
+			return {
+				kind: 'env',
+				label: typeof index === 'number' ? `env ${countVar}[${index}]` : `env ${countVar}`,
+			};
 		}
 		case 'config': {
 			const configPath = readStringProperty(details, 'configPath');

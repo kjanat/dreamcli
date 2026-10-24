@@ -526,6 +526,83 @@ Resolution order:
 5. Interactive select prompt (TTY only)
 6. Default value `"us"`
 
+### Indexed environment families {#indexed-env}
+
+Some tools spread one value across a numbered family of variables. Git's config
+environment is the canonical case:
+
+```text
+GIT_CONFIG_COUNT=2
+GIT_CONFIG_KEY_0=user.name    GIT_CONFIG_VALUE_0=Kaj
+GIT_CONFIG_KEY_1=user.email   GIT_CONFIG_VALUE_1=kaj@example.com
+```
+
+Pass `.env()` an indexed binding instead of a name to read such a family as one
+env source. `count` names the variable holding the number of entries, and
+`{index}` in each template expands to the zero-based index. A `value` family
+reads one variable per entry:
+
+```ts twoslash
+import { flag } from '@kjanat/dreamcli';
+
+flag.array(flag.string()).env({ count: 'SERVER_COUNT', value: 'SERVER_{index}' });
+// SERVER_COUNT=2 SERVER_0=a.example SERVER_1=b.example → ['a.example', 'b.example']
+```
+
+A `fields` family reads one variable per record field, so fields with the same
+index stay together:
+
+```ts twoslash
+import { flag } from '@kjanat/dreamcli';
+
+interface ConfigEntry {
+  readonly key: string;
+  readonly value: string;
+}
+
+flag
+  .custom((raw: unknown) => raw as readonly ConfigEntry[])
+  .env({
+    count: 'GIT_CONFIG_COUNT',
+    fields: { key: 'GIT_CONFIG_KEY_{index}', value: 'GIT_CONFIG_VALUE_{index}' },
+  });
+// → [{ key: 'user.name', value: 'Kaj' }, { key: 'user.email', value: 'kaj@example.com' }]
+```
+
+The family is still one stage in the chain, and the count variable decides it:
+
+- An unset count means the env stage supplied nothing, so config, the prompt,
+  and the default stay reachable.
+- A set count claims the flag. `COUNT=0` resolves an explicit empty list, which
+  wins over a non-empty config value or default.
+- The count must be a canonical non-negative integer: no sign, no leading zero,
+  no blanks, at most 10000. Anything else is a `TYPE_MISMATCH` or
+  `CONSTRAINT_VIOLATED` error, never a fall-through.
+- Every declared entry needs every member. A missing one is an error naming the
+  concrete variable, such as `GIT_CONFIG_VALUE_1`. An empty string counts as
+  set and reaches the flag's own validation.
+
+The env stage only reads strings and string records. The flag's schema decides
+what they mean, so each kind takes the family its shape can hold:
+
+| Flag                            | `value` family                  | `fields` family                 |
+| ------------------------------- | ------------------------------- | ------------------------------- |
+| `flag.array(element)`           | each entry decoded by `element` | needs a custom `element`        |
+| `flag.custom(parseFnOrSchema)`  | receives the whole string list  | receives the whole record list  |
+| any other kind                  | rejected when the flag is built | rejected when the flag is built |
+
+A failure inside one entry names it: a value entry by its variable, a record
+entry by its index and every variable it read. Help shows the templates rather
+than pretending one variable exists:
+
+```text
+--config <value>  [env: GIT_CONFIG_KEY_{index} + GIT_CONFIG_VALUE_{index}, count: GIT_CONFIG_COUNT]
+```
+
+The family is not a delimited string. `TAGS=a,b,c` is one variable that
+`.split()` decodes; an indexed family states its own cardinality, so each
+member keeps its exact text, including commas and empty strings.
+
 ### Required vs Optional
 
 Presence is the last question the sources axis answers: what happens when the
@@ -786,7 +863,8 @@ command('build')
   .flag('out', flag.string().env('OUT_DIR').default('dist'))
   .action(({ flags, sources, out }) => {
     if (wasExplicit(sources.flags.out)) out.info(`overriding with ${flags.out}`);
-    if (sources.flags.out?.stage === 'env') out.info(`from ${sources.flags.out.envVar}`);
+    const source = sources.flags.out;
+    if (source?.stage === 'env' && 'envVar' in source) out.info(`from ${source.envVar}`);
   });
 ```
 

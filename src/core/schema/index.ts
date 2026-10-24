@@ -72,6 +72,11 @@ export {
 	resolveExampleCommand,
 } from './command.ts';
 export type {
+	IndexedEnvBinding,
+	IndexedRecordEnvBinding,
+	IndexedValueEnvBinding,
+} from './env-binding.ts';
+export type {
 	ArrayFlagDefinition,
 	BooleanFlagDefinition,
 	ConfirmPromptConfig,

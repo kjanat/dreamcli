@@ -117,6 +117,10 @@ const definitionMetaSchemaDescriptions = {
 				envVar: {
 					description: 'Environment variable name for v0.2+ resolution.',
 				},
+				envIndexed: {
+					description:
+						'Indexed environment family read as the env source, set by `.env()` with an\nIndexedEnvBinding (`undefined` otherwise). A flag declares at most\none env source, so this and FlagSchema.envVar are never both set.',
+				},
 				configPath: {
 					description: "Dotted config path for v0.2+ resolution (e.g. `'deploy.region'`).",
 				},
@@ -181,6 +185,10 @@ const definitionMetaSchemaDescriptions = {
 				envVar: {
 					description: 'Environment variable name for v0.2+ resolution.',
 				},
+				envIndexed: {
+					description:
+						'Indexed environment family read as the env source, set by `.env()` with an\nIndexedEnvBinding (`undefined` otherwise). A flag declares at most\none env source, so this and FlagSchema.envVar are never both set.',
+				},
 				configPath: {
 					description: "Dotted config path for v0.2+ resolution (e.g. `'deploy.region'`).",
 				},
@@ -225,6 +233,24 @@ const definitionMetaSchemaDescriptions = {
 				},
 				trim: {
 					description: 'Whether one trailing line terminator is dropped from a single value.',
+				},
+			},
+		},
+		envIndexed: {
+			description:
+				"A numbered family of environment variables read as one input's env source.\n\nPass it to `.env()` in place of a variable name. The count variable decides\nwhether the env stage supplied a value at all, and how many entries it owns;\na declared entry with a missing member is an error, never a fallback to a\nlater source.",
+			properties: {
+				count: {
+					description:
+						'Variable holding how many entries the family declares, as a canonical\nnon-negative integer. When it is unset the env source supplies nothing;\n`0` supplies an explicit empty list.',
+				},
+				value: {
+					description:
+						'Variable template for one entry, with `{index}` standing for the zero-based index.',
+				},
+				fields: {
+					description:
+						'One variable template per record field, each with `{index}` standing for\nthe zero-based index. Every field is required for every declared entry.',
 				},
 			},
 		},
@@ -280,6 +306,10 @@ const definitionMetaSchemaDescriptions = {
 				envVar: {
 					description:
 						"Environment variable name for env resolution.\n\nWhen set and the CLI value is absent, the resolver reads this env var\nand coerces the string to the arg's declared kind.",
+				},
+				envIndexed: {
+					description:
+						'Indexed environment family read as the env source, set by `.env()` with an\nIndexedEnvBinding (`undefined` otherwise). An arg declares at most\none env source, so this and ArgSchema.envVar are never both set.',
 				},
 				configPath: {
 					description: "Dotted config path for config resolution (e.g. `'deploy.region'`).",

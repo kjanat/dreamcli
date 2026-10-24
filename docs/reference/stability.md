@@ -222,16 +222,17 @@ kind-indexed maps
 `FlagDefinitionOverrides` and `ArgDefinitionOverrides`; the entry type
 `CommandArgEntryDefinition`; the values a definition embeds, `PathChecks`,
 `FlagNegation`, `StdinOptions`, `SplitOptions`, `SplitSetting`,
-`SourceSplitBinding`, `SplitBinding`, `CommandExample`, and its `ExampleCommand`
-field type; and the consumer input data types `PackageJsonData` and
-`PackageRepository`.
+`SourceSplitBinding`, `SplitBinding`, `IndexedEnvBinding` with its members
+`IndexedValueEnvBinding` and `IndexedRecordEnvBinding`, `CommandExample`, and
+its `ExampleCommand` field type; and the consumer input data types
+`PackageJsonData` and `PackageRepository`.
 
 These have no brand, and structural construction is the point. They take the
 same additive contract as consumer input options. Optional fields may arrive in
 a minor release, required fields only in a major.
 
-`PathChecks`, `FlagNegation`, and `CommandExample` are stored verbatim on the
-built schema, so the same type serves as consumer input and as a member of a
+`PathChecks`, `FlagNegation`, `IndexedEnvBinding`, and `CommandExample` are
+stored verbatim on the built schema, so the same type serves as consumer input and as a member of a
 sealed value. The input contract is the one that governs them. `StdinOptions`
 splits the two roles instead: a caller writes the partial form and the schema
 stores the fully populated `StdinBinding`, which takes the same input contract.
@@ -383,7 +384,18 @@ code instead of `REQUIRED_FLAG` or `REQUIRED_ARG`. It also reaches the open
 [`ErrorCode`](#open-unions) union, so a consumer with a fallback branch needed no
 change.
 
-`ResolutionProvenance` narrows on `stage`, and the `'cli'` arm is two records:
+`ResolutionProvenance` narrows on `stage`. The `'env'` arm is two records: one
+for a variable bound by name (`envVar`) and one for an indexed family (`via:
+'indexed'`, `count`, `envVars`). Both stay at `stage: 'env'` because both hold
+env precedence, so a reader asking only about precedence tests `stage`, and a
+reader that wants the variable tests `'envVar' in source` first. The indexed
+record arrived as a new member of this closed union, which makes it a breaking
+change: code that narrowed `stage === 'env'` and then read `envVar` no longer
+compiles. It ships in a major release for that reason. A single `envVar` string
+could not describe a value assembled from many variables without naming one
+of them falsely.
+
+The `'cli'` arm is two records as well:
 one for a typed token and one for an explicit `-`, which carries `via` and
 `trigger`. Both stay at `stage: 'cli'` because both keep CLI precedence, so a
 reader that only asks about precedence tests `stage` and a reader that cares
@@ -509,7 +521,7 @@ helper needs part of it, which keeps the helper honest about what it depends on.
 `CommandDefinitionDocumentV1` and its alias `CommandDefinitionDocument`; the
 fragment types `CommandDefinitionFragmentV1`, `FlagDefinitionFragmentV1`,
 `ArgDefinitionFragmentV1`, `ExampleDefinitionFragmentV1`,
-`FlagNegationFragmentV1`, `FlagPathChecksFragmentV1`,
+`FlagNegationFragmentV1`, `FlagPathChecksFragmentV1`, `EnvIndexedFragmentV1`,
 `FlagStringConstraintsFragmentV1`, `PromptChoiceFragmentV1`,
 `PromptDefinitionFragmentV1`, `SourceSplitFragmentV1`, `SplitPolicyFragmentV1`,
 `StdinBindingFragmentV1`, and `ArgElementFragmentV1`; and the error envelope
@@ -527,6 +539,14 @@ fragments of both `FlagDefinitionFragmentV1` and `ArgDefinitionFragmentV1`. Thei
 names are frozen with the version 1 format and carry no claim about which of the
 two embeds them; the meta-schema hoists one definition per fragment and both
 parents `$ref` it.
+
+`EnvIndexedFragmentV1` is the optional `envIndexed` field of a flag or arg
+fragment. It carries `count` plus either `value` or `fields`, and a fragment
+carries at most one of `envVar` and `envIndexed`. It arrived as an additive
+field at `schemaVersion: 1`: a document without an indexed binding is
+byte-identical to before, and a version 1 reader that ignores the field reads
+every other env binding unchanged. The meta-schema hoists it as
+`$defs.envIndexed`.
 
 `StdinBindingFragmentV1` carries `when`, `consume`, and `trim`, all three
 required and all three always written, so a reader never has to know the

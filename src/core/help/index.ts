@@ -11,6 +11,7 @@
 import type { Colors } from 'ansispeck';
 import { formatDisplayValue } from '#internals/core/output/display-value.ts';
 import { resolveExampleCommand } from '#internals/core/schema/command.ts';
+import { formatIndexedEnvBinding } from '#internals/core/schema/env-binding.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type {
 	ArgSchema,
@@ -321,6 +322,9 @@ function formatFlagDescription(
 	if (schema.envVar !== undefined) {
 		parts.push(theme.annotation(`[env: ${schema.envVar}]`));
 	}
+	if (schema.envIndexed !== undefined) {
+		parts.push(theme.annotation(`[env: ${formatIndexedEnvBinding(schema.envIndexed)}]`));
+	}
 	if (schema.configPath !== undefined) {
 		parts.push(theme.annotation(`[config: ${schema.configPath}]`));
 	}
@@ -455,6 +459,9 @@ function formatArgDescription(
 	}
 	if (schema.envVar !== undefined) {
 		parts.push(theme.annotation(`[env: ${schema.envVar}]`));
+	}
+	if (schema.envIndexed !== undefined) {
+		parts.push(theme.annotation(`[env: ${formatIndexedEnvBinding(schema.envIndexed)}]`));
 	}
 	if (schema.configPath !== undefined) {
 		parts.push(theme.annotation(`[config: ${schema.configPath}]`));

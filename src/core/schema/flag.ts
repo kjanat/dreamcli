@@ -23,6 +23,8 @@ import {
 	normalizeSplitPolicy,
 	validateDefault,
 } from './cardinality.ts';
+import type { IndexedEnvBinding } from './env-binding.ts';
+import { normalizeIndexedEnvBinding } from './env-binding.ts';
 import { assertNumberConstraints, type NumberConstraints } from './number-constraints.ts';
 import type {
 	ConfirmPromptConfig,
@@ -316,6 +318,12 @@ interface FlagSchema<K extends FlagKind = FlagKind> {
 	readonly stdin: StdinBinding | undefined;
 	/** Environment variable name for v0.2+ resolution. */
 	readonly envVar: string | undefined;
+	/**
+	 * Indexed environment family read as the env source, set by `.env()` with an
+	 * {@link IndexedEnvBinding} (`undefined` otherwise). A flag declares at most
+	 * one env source, so this and {@link FlagSchema.envVar} are never both set.
+	 */
+	readonly envIndexed: IndexedEnvBinding | undefined;
 	/** Dotted config path for v0.2+ resolution (e.g. `'deploy.region'`). */
 	readonly configPath: string | undefined;
 	/** Human-readable description for help text. */
@@ -497,6 +505,12 @@ interface FlagDefinitionBase {
 	 * @defaultValue `undefined`
 	 */
 	readonly envVar?: string | undefined;
+	/**
+	 * Indexed environment family read as the env source, in place of
+	 * {@link FlagDefinitionBase.envVar}. Requires kind `'array'` or `'custom'`.
+	 * @defaultValue `undefined`
+	 */
+	readonly envIndexed?: IndexedEnvBinding | undefined;
 	/**
 	 * Dotted config path for config resolution (e.g. `'deploy.region'`).
 	 * @defaultValue `undefined`
@@ -771,6 +785,7 @@ const NORMALIZED_FLAG_SCHEMA_KEYS: readonly (keyof FlagSchema)[] = [
 	'aliases',
 	'stdin',
 	'envVar',
+	'envIndexed',
 	'configPath',
 	'description',
 	'enumValues',
@@ -820,6 +835,7 @@ function assertEligibleFlagElementBuilder(schema: FlagSchema): void {
 		['defaultValue', schema.kind === 'boolean' ? false : undefined],
 		['stdin', undefined],
 		['envVar', undefined],
+		['envIndexed', undefined],
 		['configPath', undefined],
 		['description', undefined],
 		['elementSchema', undefined],
@@ -1026,6 +1042,62 @@ function assertValidFlagDefinition(kind: FlagKind, fields: FlagDefinitionFields)
 	if (fields.stdin !== undefined) {
 		assertStdinCapableKind(kind);
 	}
+
+	if (fields.envIndexed !== undefined) {
+		assertIndexedEnvFlag(kind, fields);
+	}
+}
+
+/**
+ * Reject an indexed env binding the flag could not read.
+ *
+ * An indexed family yields a list: of strings for a `value` family, of records
+ * for a `fields` family. A collection decodes each entry through its element,
+ * so a record family needs a custom element (or none, which passes values
+ * through); a custom flag receives the whole list. Every other kind holds one
+ * scalar, which no list can become.
+ *
+ * @param kind - Declared kind of the flag.
+ * @param fields - Definition fields, read for the binding, `envVar`, and the element.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` on a malformed or unreadable binding.
+ */
+function assertIndexedEnvFlag(kind: FlagKind, fields: FlagDefinitionFields): void {
+	const binding = fields.envIndexed;
+	if (binding === undefined) return;
+	normalizeIndexedEnvBinding(binding);
+
+	if (fields.envVar !== undefined) {
+		throw new CLIError("Flag schema fields 'envVar' and 'envIndexed' are mutually exclusive", {
+			code: 'INVALID_SCHEMA',
+			details: { kind, field: 'envIndexed' },
+			suggest: 'Declare one env source: a variable name or an indexed family',
+		});
+	}
+
+	if (kind === 'custom') return;
+	if (kind !== 'array') {
+		throw new CLIError(
+			`Flag schema field 'envIndexed' requires kind 'array' or 'custom', received kind '${kind}'`,
+			{
+				code: 'INVALID_SCHEMA',
+				details: { kind, field: 'envIndexed', requiredKinds: ['array', 'custom'] },
+				suggest:
+					'Read an indexed family into flag.array(...) or flag.custom(...), or bind a single variable',
+			},
+		);
+	}
+
+	const element = fields.elementSchema;
+	if (binding.fields !== undefined && element !== undefined && element.kind !== 'custom') {
+		throw new CLIError(
+			`Indexed env records need a custom element, received element kind '${element.kind}'`,
+			{
+				code: 'INVALID_SCHEMA',
+				details: { kind, field: 'envIndexed', elementKind: element.kind },
+				suggest: 'Use flag.array(flag.custom(recordSchema)) to decode each record',
+			},
+		);
+	}
 }
 
 /**
@@ -1160,6 +1232,8 @@ function assembleFlagSchema<K extends FlagKind>(
 		negation: undefined,
 		duplicates: duplicates ?? 'last',
 		...rest,
+		envIndexed:
+			rest.envIndexed === undefined ? undefined : normalizeIndexedEnvBinding(rest.envIndexed),
 		aliases,
 	} as FlagSchema<K>;
 }
@@ -1423,10 +1497,48 @@ class FlagBuilder<C extends FlagConfig> {
 	 * // $ mycli request --api-key sk-456 → apiKey = 'sk-456' (CLI wins)
 	 * ```
 	 */
-	env(varName: string): FlagBuilder<WithoutElementEligibility<C>> {
-		return new FlagBuilder({
+	env(varName: string): FlagBuilder<WithoutElementEligibility<C>>;
+	/**
+	 * Bind to an indexed family of environment variables, read as one env source.
+	 *
+	 * The count variable owns indices `0..count-1`; `{index}` in each template
+	 * expands to the zero-based index. An unset count means the env source
+	 * supplied nothing, so resolution continues to config, the prompt, and the
+	 * default. A set count claims the flag: `0` resolves an empty list, and a
+	 * malformed count or a missing member is an error, never a fallback.
+	 *
+	 * A `value` family reads a list of strings, so it suits `flag.array()` (each
+	 * entry decoded by the element) and `flag.custom()` (handed the whole list).
+	 * A `fields` family reads a list of records, one variable per field, so it
+	 * suits `flag.array(flag.custom(...))` and `flag.custom()`.
+	 *
+	 * @param binding - The count variable plus a `value` template or `fields` templates.
+	 * @returns The builder (for chaining).
+	 * @throws {CLIError} With code `'INVALID_SCHEMA'` on a malformed template or a
+	 *   flag kind that cannot hold a list.
+	 *
+	 * @example
+	 * ```ts
+	 * flag.array(flag.string()).env({ count: 'SERVER_COUNT', value: 'SERVER_{index}' })
+	 * // SERVER_COUNT=2 SERVER_0=a SERVER_1=b → ['a', 'b']
+	 *
+	 * flag.custom(gitConfigEntries).env({
+	 *   count: 'GIT_CONFIG_COUNT',
+	 *   fields: { key: 'GIT_CONFIG_KEY_{index}', value: 'GIT_CONFIG_VALUE_{index}' },
+	 * })
+	 * // GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=user.name GIT_CONFIG_VALUE_0=Kaj
+	 * //   → gitConfigEntries receives [{ key: 'user.name', value: 'Kaj' }]
+	 * ```
+	 */
+	env(binding: IndexedEnvBinding): FlagBuilder<WithoutElementEligibility<C>>;
+	env(source: string | IndexedEnvBinding): FlagBuilder<WithoutElementEligibility<C>> {
+		if (typeof source === 'string') {
+			return new FlagBuilder({ ...this.schema, envVar: source, envIndexed: undefined });
+		}
+		return nextFlag({
 			...this.schema,
-			envVar: varName,
+			envVar: undefined,
+			envIndexed: normalizeIndexedEnvBinding(source),
 		});
 	}
 

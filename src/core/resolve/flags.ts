@@ -29,7 +29,12 @@ import {
 	withPromptBinding,
 } from '#internals/core/schema/source.ts';
 import { flagValueSchema, valueEnumValues } from '#internals/core/schema/value.ts';
-import { coerceValue, finishCliFlagValue, redactCoercionError } from './coerce.ts';
+import {
+	coerceIndexedFlagValue,
+	coerceValue,
+	finishCliFlagValue,
+	redactCoercionError,
+} from './coerce.ts';
 import type { DeprecationWarning, ResolutionProvenance } from './contracts.ts';
 import { isNonEmpty, throwAggregatedErrors } from './errors.ts';
 import type { MkdirFn, StatFn } from './path-checks.ts';
@@ -220,6 +225,7 @@ async function resolveFlags(
 		if (schema.presence === 'required') {
 			const details: Record<string, unknown> = { flag: name, kind: schema.kind };
 			if (schema.envVar !== undefined) details.envVar = schema.envVar;
+			if (schema.envIndexed !== undefined) details.envIndexed = schema.envIndexed;
 			if (schema.configPath !== undefined) details.configPath = schema.configPath;
 			errors.push(
 				new ValidationError(`Missing required flag --${name}`, {
@@ -286,6 +292,7 @@ function stageInput(
 	return {
 		cli: readCliValue(present, present ? parsedFlags[name] : undefined, bindings),
 		coerce: (binding, raw) => coerceValue(name, binding, raw, schema),
+		coerceIndexed: (binding, read) => coerceIndexedFlagValue(name, binding, read, schema),
 		finishCli: (value, stdinData, stdin) =>
 			finishCliFlagValue(name, schema, value, stdinData, stdin),
 		runPrompt: async (binding) =>
@@ -517,6 +524,8 @@ function buildRequiredFlagSuggest(name: string, schema: FlagSchema): string {
 
 	if (schema.envVar !== undefined) {
 		sources.push(`set ${schema.envVar}`);
+	} else if (schema.envIndexed !== undefined) {
+		sources.push(`set ${schema.envIndexed.count} and its entries`);
 	}
 
 	if (schema.configPath !== undefined) {

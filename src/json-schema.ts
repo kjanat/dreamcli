@@ -15,6 +15,7 @@ export type {
 	CommandDefinitionFragmentV1,
 	DefinitionDocument,
 	DefinitionDocumentV1,
+	EnvIndexedFragmentV1,
 	ExampleDefinitionFragmentV1,
 	FlagDefinitionFragmentV1,
 	FlagElementFragmentV1,

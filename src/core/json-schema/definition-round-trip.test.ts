@@ -277,6 +277,14 @@ function maximalDefinition(): CLIDefinition {
 						duplicateKeys: 'error',
 					},
 					verbose: { kind: 'count', presence: 'optional', aliases: ['v'] },
+					gitConfig: {
+						kind: 'custom',
+						presence: 'optional',
+						envIndexed: {
+							count: 'GIT_CONFIG_COUNT',
+							fields: { key: 'GIT_CONFIG_KEY_{index}', value: 'GIT_CONFIG_VALUE_{index}' },
+						},
+					},
 					confirmed: {
 						kind: 'boolean',
 						presence: 'optional',
@@ -321,6 +329,7 @@ function maximalDefinition(): CLIDefinition {
 							valueHint: 'path',
 							unique: true,
 							stdin: { when: 'missing', consume: 'broadcast', trim: false },
+							envIndexed: { count: 'FILE_COUNT', value: 'FILE_{index}' },
 						},
 					},
 				],
@@ -361,6 +370,7 @@ describe('a maximal definition document', () => {
 			'confirmed',
 			'define',
 			'force',
+			'gitConfig',
 			'name',
 			'out',
 			'region',
@@ -400,8 +410,16 @@ describe('a maximal definition document', () => {
 				'pathChecks',
 				'valueHint',
 				'unique',
+				'envIndexed',
 			]),
 		);
+		expect(new Set(Object.keys(flags.gitConfig ?? {}))).toEqual(
+			new Set(['kind', 'presence', 'envIndexed']),
+		);
+		expect(flags.gitConfig?.envIndexed).toEqual({
+			count: 'GIT_CONFIG_COUNT',
+			fields: { key: 'GIT_CONFIG_KEY_{index}', value: 'GIT_CONFIG_VALUE_{index}' },
+		});
 	});
 });
 

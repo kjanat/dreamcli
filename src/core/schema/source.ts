@@ -15,6 +15,7 @@
 import type { ArgSchema } from './arg.ts';
 import type { SplitPolicy } from './cardinality.ts';
 import { splitBindingOf } from './cardinality.ts';
+import type { IndexedEnvBinding } from './env-binding.ts';
 import type { FlagSchema } from './flag.ts';
 import type { PromptConfig } from './prompt.ts';
 import type { StdinBinding, StdinConsume, StdinWhen } from './stdin.ts';
@@ -57,9 +58,23 @@ type SourceBinding =
 			readonly split: SplitPolicy;
 	  }
 	| { readonly stage: 'env'; readonly envVar: string; readonly split: SplitPolicy }
+	| IndexedEnvSourceBinding
 	| { readonly stage: 'config'; readonly configPath: string; readonly split: SplitPolicy }
 	| { readonly stage: 'prompt'; readonly prompt: PromptConfig; readonly split: SplitPolicy }
 	| { readonly stage: 'default'; readonly defaultValue: unknown };
+
+/**
+ * The env source of an input bound to an indexed family.
+ *
+ * The family's own protocol states how many values it carries, so there is no
+ * text to split: each member variable is one entry, or one field of one entry.
+ */
+interface IndexedEnvSourceBinding {
+	/** Discriminant shared with the variable-name env binding. */
+	readonly stage: 'env';
+	/** The family to read. */
+	readonly indexed: IndexedEnvBinding;
+}
 
 /** The stdin source of an input, once {@link sourceBindings} has projected it. */
 type StdinSourceBinding = Extract<SourceBinding, { readonly stage: 'stdin' }>;
@@ -68,14 +83,15 @@ type StdinSourceBinding = Extract<SourceBinding, { readonly stage: 'stdin' }>;
 type PromptSourceBinding = Extract<SourceBinding, { readonly stage: 'prompt' }>;
 
 /**
- * The sources whose raw values a stage decodes.
+ * The sources whose raw text a stage decodes.
  *
  * A CLI token is decoded at the parse boundary, and a default never decodes at
- * all, so neither reaches the resolver's coercion pass.
+ * all, so neither reaches the resolver's coercion pass. An indexed env family
+ * decodes entry by entry through its own path rather than as one raw value.
  */
 type DecodedSourceBinding = Exclude<
 	SourceBinding,
-	{ readonly stage: 'cli' } | { readonly stage: 'default' }
+	{ readonly stage: 'cli' } | { readonly stage: 'default' } | IndexedEnvSourceBinding
 >;
 
 /**
@@ -109,6 +125,8 @@ function sourceBindings(schema: FlagSchema | ArgSchema): readonly SourceBinding[
 	}
 	if (schema.envVar !== undefined) {
 		bindings.push({ stage: 'env', envVar: schema.envVar, split: splitting.env });
+	} else if (schema.envIndexed !== undefined) {
+		bindings.push({ stage: 'env', indexed: schema.envIndexed });
 	}
 	if (schema.configPath !== undefined) {
 		bindings.push({ stage: 'config', configPath: schema.configPath, split: splitting.env });
@@ -300,6 +318,7 @@ function inputSelectsStdin(
 
 export type {
 	DecodedSourceBinding,
+	IndexedEnvSourceBinding,
 	ParsedInputs,
 	PromptSourceBinding,
 	ResolutionStage,

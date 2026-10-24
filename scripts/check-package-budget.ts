@@ -22,9 +22,12 @@ interface Budget {
 
 // Deliberately tight ceilings: future API or JSDoc growth must fit these limits
 // or include a reviewed budget increase alongside the change that needs it.
+// 4.2.0 shipped at 197.0 kB packed and 750.0 kB unpacked, exactly at the old
+// unpacked ceiling. Indexed env families (#139) add about 6 kB packed and
+// 24 kB unpacked; the ceilings below also leave room for #146.
 const BUDGET: Budget = {
-	tarballBytes: 200_000,
-	unpackedBytes: 750_000,
+	tarballBytes: 207_000,
+	unpackedBytes: 785_000,
 	files: 60,
 	runtimeJsBytes: 350_000,
 	declarationBytes: 400_000,

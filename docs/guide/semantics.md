@@ -332,15 +332,16 @@ command('build')
   .flag('out', flag.string().env('OUT_DIR').default('dist'))
   .action(({ flags, sources, out }) => {
     if (wasExplicit(sources.flags.out)) out.info(`overriding with ${flags.out}`);
-    if (sources.flags.out?.stage === 'env') out.info(`from ${sources.flags.out.envVar}`);
+    const source = sources.flags.out;
+    if (source?.stage === 'env' && 'envVar' in source) out.info(`from ${source.envVar}`);
   });
 ```
 
 ### The records
 
-Seven records exist, one per stage plus the two ways stdin delivers bytes. An
-input that resolved no value has no record at all, so a name is present in
-`flags` and absent in `sources.flags`:
+Eight records exist: one per stage, plus the two ways stdin delivers bytes and
+the two ways the environment does. An input that resolved no value has no
+record at all, so a name is present in `flags` and absent in `sources.flags`:
 
 | Record                                                  | What happened                             | Trigger                             |
 | ------------------------------------------------------- | ----------------------------------------- | ----------------------------------- |
@@ -348,6 +349,7 @@ input that resolved no value has no record at all, so a name is present in
 | `{ stage: 'cli', via: 'stdin', trigger: 'dash' }`       | an explicit `-` read the stream           | `--body -`, or a positional `-`     |
 | `{ stage: 'stdin', via: 'stdin', trigger: 'fallback' }` | an omitted input read the stream          | the input was not typed at all      |
 | `{ stage: 'env', envVar }`                              | the named environment variable            | `.env('BODY')`                      |
+| `{ stage: 'env', via: 'indexed', count, envVars }`      | an indexed env family                     | `.env({ count, value })`            |
 | `{ stage: 'config', configPath }`                       | the named config path                     | `.config('send.body')`              |
 | `{ stage: 'prompt' }`                                   | an answered prompt                        | `.prompt({ … })`                    |
 | `{ stage: 'default' }`                                  | the declared default                      | `.default('dist')`                  |
@@ -358,6 +360,13 @@ they differ on precedence. A typed `-` is CLI-ranked and outranks env, config,
 prompt, and the default. An omitted input takes the `stdin` stage, which sits
 between `cli` and `env`. Ask about `stage` for precedence and about `via` for
 whether the bytes came from a pipe.
+
+Both env records carry `stage: 'env'` because they share precedence. A name
+binding reports the one variable that supplied the value. An
+[indexed family](/guide/flags#indexed-env) reports the count variable that
+claimed the input and every member it read, in entry order and field order
+within an entry; `envVars` is empty when the count is `0`. Test
+`'envVar' in source` before reading `envVar`.
 
 The records are the same on both surfaces. `sources.args.target` narrows
 exactly as `sources.flags.body` does.
@@ -424,7 +433,9 @@ function describe(source: ResolutionProvenance | undefined): string {
     case 'stdin':
       return 'piped stdin';
     case 'env':
-      return `the environment variable ${source.envVar}`;
+      return 'envVar' in source
+        ? `the environment variable ${source.envVar}`
+        : `${source.envVars.length} variables counted by ${source.count}`;
     case 'config':
       return `the config key ${source.configPath}`;
     case 'prompt':

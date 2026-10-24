@@ -18,6 +18,7 @@ import { resolvePlainHelpDescription } from '#internals/core/help/theme.ts';
 import type { schemaBrand } from '#internals/core/schema/brand.ts';
 import { DUPLICATE_KEYS } from '#internals/core/schema/cardinality.ts';
 import { resolveExampleCommand } from '#internals/core/schema/command.ts';
+import type { IndexedEnvBinding } from '#internals/core/schema/env-binding.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type {
 	ArgKind,
@@ -218,6 +219,18 @@ type FlagStringConstraintsFragmentV1 = {
 	};
 };
 
+/**
+ * Indexed environment family of a flag or arg fragment, in place of `envVar`.
+ *
+ * `count` names the variable holding the number of entries. A `value` family
+ * reads one variable per entry; a `fields` family reads one variable per record
+ * field, in the order written. Every template carries `{index}`, which expands
+ * to the zero-based entry index.
+ */
+type EnvIndexedFragmentV1 =
+	| { readonly count: string; readonly value: string }
+	| { readonly count: string; readonly fields: Readonly<Record<string, string>> };
+
 /** Filesystem expectations of a flag or arg fragment. */
 type FlagPathChecksFragmentV1 = {
 	readonly mustExist: boolean;
@@ -233,6 +246,7 @@ type FlagElementFragmentV1 = {
 	readonly aliases?: readonly string[];
 	readonly stdin?: StdinBindingFragmentV1;
 	readonly envVar?: string;
+	readonly envIndexed?: EnvIndexedFragmentV1;
 	readonly configPath?: string;
 	readonly description?: string;
 	readonly enumValues?: readonly string[];
@@ -297,6 +311,7 @@ type ArgDefinitionFragmentV1 = {
 	readonly sensitive?: true;
 	readonly description?: string;
 	readonly envVar?: string;
+	readonly envIndexed?: EnvIndexedFragmentV1;
 	readonly configPath?: string;
 	readonly enumValues?: readonly string[];
 	readonly elementSchema?: ArgElementFragmentV1;
@@ -555,6 +570,9 @@ function serializeFlag(
 		...(visibleAliases.length > 0 ? { aliases: [...visibleAliases] } : {}),
 		...(schema.stdin !== undefined ? { stdin: serializeStdin(schema.stdin) } : {}),
 		...(schema.envVar !== undefined ? { envVar: schema.envVar } : {}),
+		...(schema.envIndexed !== undefined
+			? { envIndexed: serializeEnvIndexed(schema.envIndexed) }
+			: {}),
 		...(schema.configPath !== undefined ? { configPath: schema.configPath } : {}),
 		...(schema.description !== undefined
 			? { description: resolvePlainHelpDescription(schema.description) }
@@ -608,6 +626,22 @@ function serializeStringConstraints(
 		...(constraints.maxLength !== undefined ? { maxLength: constraints.maxLength } : {}),
 		...(pattern !== undefined ? { pattern: { source: pattern.source, flags: pattern.flags } } : {}),
 	};
+}
+
+/**
+ * Serialize an {@link IndexedEnvBinding} into a plain object.
+ *
+ * Record fields keep their declaration order, which is the order a reader
+ * reads them in, so two schemas with the same binding emit the same bytes.
+ *
+ * @param binding - The normalized indexed binding to serialize.
+ * @returns JSON-serializable copy of the binding.
+ * @internal
+ */
+function serializeEnvIndexed(binding: IndexedEnvBinding): EnvIndexedFragmentV1 {
+	return binding.fields === undefined
+		? { count: binding.count, value: binding.value }
+		: { count: binding.count, fields: { ...binding.fields } };
 }
 
 /**
@@ -665,6 +699,9 @@ function serializeArgValue(schema: ArgSchema, opts: ResolvedOptions): ArgValueFr
 			? { description: resolvePlainHelpDescription(schema.description) }
 			: {}),
 		...(schema.envVar !== undefined ? { envVar: schema.envVar } : {}),
+		...(schema.envIndexed !== undefined
+			? { envIndexed: serializeEnvIndexed(schema.envIndexed) }
+			: {}),
 		...(schema.configPath !== undefined ? { configPath: schema.configPath } : {}),
 		...(schema.enumValues !== undefined ? { enumValues: [...schema.enumValues] } : {}),
 		...(schema.elementSchema !== undefined
@@ -1318,6 +1355,7 @@ const argValueFragmentProperties = {
 	sensitive: { const: true },
 	description: { type: 'string' },
 	envVar: { type: 'string' },
+	envIndexed: { $ref: '#/$defs/envIndexed' },
 	configPath: { type: 'string' },
 	enumValues: { type: 'array', items: { type: 'string' } },
 	elementSchema: { $ref: '#/$defs/argElement' },
@@ -1355,6 +1393,7 @@ const flagElementFragmentProperties = {
 	aliases: { type: 'array', items: { type: 'string' } },
 	stdin: { $ref: '#/$defs/stdin' },
 	envVar: { type: 'string' },
+	envIndexed: { $ref: '#/$defs/envIndexed' },
 	configPath: { type: 'string' },
 	description: { type: 'string' },
 	enumValues: { type: 'array', items: { type: 'string' } },
@@ -1439,12 +1478,37 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 				additionalProperties: false,
 				properties: flagFragmentProperties,
 				required: ['kind', 'presence'],
+				not: { required: ['envVar', 'envIndexed'] },
 			},
 			flagElement: {
 				type: 'object',
 				additionalProperties: false,
 				properties: flagElementFragmentProperties,
 				required: ['kind', 'presence'],
+			},
+			envIndexed: {
+				type: 'object',
+				additionalProperties: false,
+				properties: {
+					count: { type: 'string', minLength: 1, not: { pattern: '[{}=]' } },
+					value: { $ref: '#/$defs/envIndexedTemplate' },
+					fields: {
+						type: 'object',
+						minProperties: 1,
+						propertyNames: { minLength: 1 },
+						additionalProperties: { $ref: '#/$defs/envIndexedTemplate' },
+					},
+				} satisfies FragmentProperties<EnvIndexedFragmentV1>,
+				required: ['count'],
+				oneOf: [
+					{ required: ['value'], not: { required: ['fields'] } },
+					{ required: ['fields'], not: { required: ['value'] } },
+				],
+			},
+			envIndexedTemplate: {
+				type: 'string',
+				pattern: '\\{index\\}',
+				not: { pattern: '=' },
 			},
 			stdin: {
 				type: 'object',
@@ -1548,6 +1612,7 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 					{ not: { required: ['elementSchema'] } },
 					{ properties: { kind: { const: 'keyValue' } }, required: ['kind'] },
 				],
+				not: { required: ['envVar', 'envIndexed'] },
 			},
 			prompt: {
 				type: 'object',
@@ -1599,6 +1664,7 @@ export type {
 	CommandDefinitionFragmentV1,
 	DefinitionDocument,
 	DefinitionDocumentV1,
+	EnvIndexedFragmentV1,
 	ExampleDefinitionFragmentV1,
 	FlagDefinitionFragmentV1,
 	FlagElementFragmentV1,

@@ -25,9 +25,14 @@ import {
 	splitEntriesText,
 	splitManyText,
 } from '#internals/core/schema/cardinality.ts';
+import type { IndexedEnvBinding } from '#internals/core/schema/env-binding.ts';
 import type { ArgSchema, FlagSchema } from '#internals/core/schema/index.ts';
 import { describeNumberConstraintViolation } from '#internals/core/schema/number-constraints.ts';
-import type { DecodedSourceBinding, StdinSourceBinding } from '#internals/core/schema/source.ts';
+import type {
+	DecodedSourceBinding,
+	IndexedEnvSourceBinding,
+	StdinSourceBinding,
+} from '#internals/core/schema/source.ts';
 import { stdinReadsOnDash } from '#internals/core/schema/stdin.ts';
 import {
 	describeStringConstraintViolation,
@@ -51,6 +56,7 @@ import type {
 	FlagDiagnosticSource,
 	ResolutionDiagnosticSource,
 } from './contracts.ts';
+import type { IndexedEnvEntries, IndexedEnvFault, IndexedEnvRead } from './indexed-env.ts';
 
 type CoerceSource = FlagDiagnosticSource;
 
@@ -82,11 +88,25 @@ function sourceLabel(source: CoerceSource): string {
 			return 'from stdin';
 		case 'env':
 			return `from env ${source.envVar}`;
+		case 'env-indexed':
+			return source.index === undefined
+				? `from env entries counted by ${source.count}`
+				: `from env entry ${source.index} (${source.envVars.join(', ')})`;
 		case 'config':
 			return `from config ${source.configPath}`;
 		case 'prompt':
 			return 'from prompt';
 	}
+}
+
+/**
+ * How a suggestion names the variables of an indexed env source: the members
+ * of one entry, or the family as a whole.
+ */
+function indexedEnvSubject(source: Extract<CoerceSource, { kind: 'env-indexed' }>): string {
+	return source.index === undefined
+		? `the entries counted by ${source.count}`
+		: source.envVars.join(' and ');
 }
 
 /**
@@ -102,6 +122,13 @@ function sourceDetails(source: CoerceSource): Record<string, unknown> {
 			return { source: 'stdin' };
 		case 'env':
 			return { source: 'env', envVar: source.envVar };
+		case 'env-indexed':
+			return {
+				source: 'env',
+				countVar: source.count,
+				...(source.index !== undefined ? { index: source.index } : {}),
+				envVars: [...source.envVars],
+			};
 		case 'config':
 			return { source: 'config', configPath: source.configPath };
 		case 'prompt':
@@ -124,6 +151,8 @@ function suggestBySource(
 			return parts.stdin;
 		case 'env':
 			return parts.env(source.envVar);
+		case 'env-indexed':
+			return parts.env(indexedEnvSubject(source));
 		case 'config':
 			return parts.config(source.configPath);
 		case 'prompt':
@@ -747,7 +776,7 @@ function coerceValueSchema(
  * construction, so this is the identity.
  */
 function valueInputOf(source: CoerceSource): ValueInput {
-	return source.kind;
+	return source.kind === 'env-indexed' ? 'env' : source.kind;
 }
 
 /** Turn a value-layer failure into the resolver's validation error. */
@@ -1160,6 +1189,200 @@ function coerceArgElement(
 			};
 }
 
+// --- Indexed env families
+
+/** The input an indexed env diagnostic names. */
+interface IndexedEnvSubject {
+	readonly kind: 'flag' | 'arg';
+	readonly name: string;
+}
+
+/**
+ * Word the fault that stopped reading an indexed env family.
+ *
+ * Each fault names the one concrete variable it is about, so the aggregate
+ * summary and a reader of `details.envVar` both point at the variable to fix.
+ *
+ * @param subject - The flag or arg the family belongs to.
+ * @param fault - What reading the family rejected.
+ * @param sensitive - Whether the owning schema marks its values sensitive.
+ * @returns The validation error for this fault.
+ */
+function indexedEnvFaultError(
+	subject: IndexedEnvSubject,
+	fault: IndexedEnvFault,
+	sensitive: boolean,
+): ValidationError {
+	const label = subject.kind === 'flag' ? `flag --${subject.name}` : `argument <${subject.name}>`;
+	const owner = subject.kind === 'flag' ? { flag: subject.name } : { arg: subject.name };
+
+	switch (fault.kind) {
+		case 'count': {
+			const report = diagnosticValue(sensitive, fault.raw);
+			return new ValidationError(
+				`Invalid indexed env count '${report.text}' from env ${fault.countVar} for ${label}`,
+				{
+					code: 'TYPE_MISMATCH',
+					details: {
+						...owner,
+						source: 'env',
+						envVar: fault.countVar,
+						...(report.kind === 'visible' ? { value: report.value } : {}),
+						expected: 'count',
+					},
+					suggest: `Set ${fault.countVar} to a non-negative integer without a sign or leading zeros`,
+				},
+			);
+		}
+		case 'limit': {
+			const report = diagnosticValue(sensitive, fault.raw);
+			return new ValidationError(
+				`Indexed env count '${report.text}' from env ${fault.countVar} for ${label} exceeds the limit of ${fault.max}`,
+				{
+					code: 'CONSTRAINT_VIOLATED',
+					details: {
+						...owner,
+						source: 'env',
+						envVar: fault.countVar,
+						...(report.kind === 'visible' ? { value: report.value } : {}),
+						constraint: 'maxCount',
+						max: fault.max,
+					},
+					suggest: `Set ${fault.countVar} to at most ${fault.max}`,
+				},
+			);
+		}
+		case 'member': {
+			const entries = fault.count === 1 ? 'entry' : 'entries';
+			return new ValidationError(
+				`Env ${fault.countVar} declares ${fault.count} ${entries} for ${label}, but ${fault.envVar} is not set`,
+				{
+					code: 'CONSTRAINT_VIOLATED',
+					details: {
+						...owner,
+						source: 'env',
+						envVar: fault.envVar,
+						countVar: fault.countVar,
+						count: fault.count,
+						index: fault.index,
+						...(fault.field !== undefined ? { field: fault.field } : {}),
+						constraint: 'indexedMember',
+					},
+					suggest: `Set ${fault.envVar}, or set ${fault.countVar} to ${fault.index}`,
+				},
+			);
+		}
+	}
+}
+
+/**
+ * Decode the entries of an indexed env family.
+ *
+ * A collection decodes entry by entry, so a failure names the entry that
+ * caused it: a value family's member by its concrete variable, a record
+ * family's entry by its index and every variable it read. Any other input
+ * receives the whole list at once, named by the family's count variable.
+ *
+ * @param perEntry - Whether the input collects entries as elements.
+ * @param binding - The family that was read.
+ * @param read - The entries reading produced.
+ * @param decode - Decodes one raw value through the input's value axis.
+ * @returns The decoded list, or the first failure.
+ */
+function coerceIndexedEntries(
+	perEntry: boolean,
+	binding: IndexedEnvBinding,
+	read: IndexedEnvEntries,
+	decode: (source: CoerceSource, raw: unknown) => CoerceResult,
+): CoerceResult {
+	if (!perEntry) {
+		return decode(
+			{
+				kind: 'env-indexed',
+				count: binding.count,
+				index: undefined,
+				envVars: read.entries.flatMap((entry) => entry.envVars),
+			},
+			read.entries.map((entry) => entry.raw),
+		);
+	}
+
+	const values: unknown[] = [];
+	for (const entry of read.entries) {
+		const source: CoerceSource =
+			binding.fields === undefined
+				? { kind: 'env', envVar: entry.envVars[0] ?? binding.count }
+				: { kind: 'env-indexed', count: binding.count, index: entry.index, envVars: entry.envVars };
+		const result = decode(source, entry.raw);
+		if (!result.ok) return result;
+		values.push(result.value);
+	}
+	return { ok: true, value: values };
+}
+
+/**
+ * Decode an indexed env family that claimed a flag, or word the fault that
+ * stopped reading it.
+ *
+ * @param flagName - Canonical flag name.
+ * @param binding - The flag's indexed env source.
+ * @param read - What reading the family produced, once its count was set.
+ * @param schema - Runtime descriptor of the flag.
+ * @returns The decoded value, or a sensitivity-aware {@link ValidationError}.
+ */
+function coerceIndexedFlagValue(
+	flagName: string,
+	binding: IndexedEnvSourceBinding,
+	read: Exclude<IndexedEnvRead, { readonly kind: 'absent' }>,
+	schema: FlagSchema,
+): CoerceResult {
+	if (read.kind === 'fault') {
+		return {
+			ok: false,
+			error: sensitivityError(schema.sensitive, (sensitive) =>
+				indexedEnvFaultError({ kind: 'flag', name: flagName }, read.fault, sensitive),
+			),
+		};
+	}
+	const value = flagValueSchema(schema);
+	return coerceIndexedEntries(
+		flagCardinality(schema).kind === 'many',
+		binding.indexed,
+		read,
+		(source, raw) => coerceValueSchema(flagName, source, raw, value, schema.sensitive),
+	);
+}
+
+/**
+ * Decode an indexed env family that claimed an arg, or word the fault that
+ * stopped reading it.
+ *
+ * @param argName - Name of the positional the family belongs to.
+ * @param binding - The arg's indexed env source.
+ * @param read - What reading the family produced, once its count was set.
+ * @param schema - Runtime descriptor of the arg.
+ * @returns The decoded value, or a sensitivity-aware {@link ValidationError}.
+ */
+function coerceIndexedArgValue(
+	argName: string,
+	binding: IndexedEnvSourceBinding,
+	read: Exclude<IndexedEnvRead, { readonly kind: 'absent' }>,
+	schema: ArgSchema,
+): CoerceResult {
+	if (read.kind === 'fault') {
+		return {
+			ok: false,
+			error: indexedEnvFaultError({ kind: 'arg', name: argName }, read.fault, schema.sensitive),
+		};
+	}
+	return coerceIndexedEntries(
+		argCardinality(schema).kind === 'many',
+		binding.indexed,
+		read,
+		(source, raw) => coerceArgElement(argName, source, raw, schema),
+	);
+}
+
 // --- CLI occurrence finishing
 
 /** What finishing a CLI-sourced value produced. */
@@ -1399,4 +1622,12 @@ function readStdinOccurrence(
 }
 
 export type { CliFinish, CoerceResult };
-export { coerceArgValue, coerceValue, finishCliArgValue, finishCliFlagValue, redactCoercionError };
+export {
+	coerceArgValue,
+	coerceIndexedArgValue,
+	coerceIndexedFlagValue,
+	coerceValue,
+	finishCliArgValue,
+	finishCliFlagValue,
+	redactCoercionError,
+};
