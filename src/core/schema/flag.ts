@@ -24,7 +24,7 @@ import {
 	validateDefault,
 } from './cardinality.ts';
 import type { EnvOptions, IndexedEnvBinding } from './env-binding.ts';
-import { normalizeIndexedEnvBinding } from './env-binding.ts';
+import { isIndexedEnvBinding, normalizeIndexedEnvBinding } from './env-binding.ts';
 import { assertNumberConstraints, type NumberConstraints } from './number-constraints.ts';
 import type {
 	ConfirmPromptConfig,
@@ -333,6 +333,11 @@ interface FlagSchema<K extends FlagKind = FlagKind> {
 	 * @defaultValue `false`
 	 */
 	readonly envAbsolute: boolean;
+	/**
+	 * Whether `.env()` was called without a name. Registration on a command
+	 * replaces it with the derived {@link FlagSchema.envVar}.
+	 */
+	readonly envFromName: boolean;
 	/** Dotted config path for v0.2+ resolution (e.g. `'deploy.region'`). */
 	readonly configPath: string | undefined;
 	/** Human-readable description for help text. */
@@ -526,6 +531,11 @@ interface FlagDefinitionBase {
 	 * @defaultValue `false`
 	 */
 	readonly envAbsolute?: boolean | undefined;
+	/**
+	 * Derive `envVar` from the registered name.
+	 * @defaultValue `false`
+	 */
+	readonly envFromName?: boolean | undefined;
 	/**
 	 * Dotted config path for config resolution (e.g. `'deploy.region'`).
 	 * @defaultValue `undefined`
@@ -802,6 +812,7 @@ const NORMALIZED_FLAG_SCHEMA_KEYS: readonly (keyof FlagSchema)[] = [
 	'envVar',
 	'envIndexed',
 	'envAbsolute',
+	'envFromName',
 	'configPath',
 	'description',
 	'enumValues',
@@ -853,6 +864,7 @@ function assertEligibleFlagElementBuilder(schema: FlagSchema): void {
 		['envVar', undefined],
 		['envIndexed', undefined],
 		['envAbsolute', false],
+		['envFromName', false],
 		['configPath', undefined],
 		['description', undefined],
 		['elementSchema', undefined],
@@ -1065,11 +1077,26 @@ function assertValidFlagDefinition(kind: FlagKind, fields: FlagDefinitionFields)
 	}
 
 	if (
+		fields.envFromName === true &&
+		(fields.envVar !== undefined || fields.envIndexed !== undefined)
+	) {
+		throw new CLIError(
+			"Flag schema field 'envFromName' is mutually exclusive with 'envVar' and 'envIndexed'",
+			{
+				code: 'INVALID_SCHEMA',
+				details: { kind, field: 'envFromName' },
+				suggest: 'Declare one env source: a derived name, a variable name, or an indexed family',
+			},
+		);
+	}
+
+	if (
 		fields.envAbsolute === true &&
 		fields.envVar === undefined &&
-		fields.envIndexed === undefined
+		fields.envIndexed === undefined &&
+		fields.envFromName !== true
 	) {
-		throw new CLIError("Flag schema field 'envAbsolute' requires 'envVar' or 'envIndexed'", {
+		throw new CLIError("Flag schema field 'envAbsolute' requires an env source", {
 			code: 'INVALID_SCHEMA',
 			details: { kind, field: 'envAbsolute' },
 			suggest: "Bind an env source, or drop 'envAbsolute'",
@@ -1225,6 +1252,7 @@ function assembleFlagSchema<K extends FlagKind>(
 		stdin,
 		unique,
 		envAbsolute,
+		envFromName,
 		sensitive,
 		propagate,
 		duplicates,
@@ -1252,6 +1280,7 @@ function assembleFlagSchema<K extends FlagKind>(
 		duplicateKeys: duplicateKeys ?? 'last',
 		unique: unique ?? false,
 		envAbsolute: envAbsolute ?? false,
+		envFromName: envFromName ?? false,
 		pathChecks: undefined,
 		valueHint: undefined,
 		prompt: undefined,
@@ -1573,24 +1602,43 @@ class FlagBuilder<C extends FlagConfig> {
 	 * ```
 	 */
 	env(binding: IndexedEnvBinding, options?: EnvOptions): FlagBuilder<WithoutElementEligibility<C>>;
+	/**
+	 * Bind to an environment variable derived from this input's registered
+	 * name (`api-token` and `apiToken` → `API_TOKEN`), relative to the CLI
+	 * namespace unless `{ absolute: true }`.
+	 *
+	 * @param options - Whether the derived name ignores the CLI namespace.
+	 * @returns The builder (for chaining).
+	 */
+	env(options?: EnvOptions): FlagBuilder<WithoutElementEligibility<C>>;
 	env(
-		source: string | IndexedEnvBinding,
+		source?: string | IndexedEnvBinding | EnvOptions,
 		options?: EnvOptions,
 	): FlagBuilder<WithoutElementEligibility<C>> {
-		const envAbsolute = options?.absolute === true;
 		if (typeof source === 'string') {
 			return new FlagBuilder({
 				...this.schema,
 				envVar: source,
 				envIndexed: undefined,
-				envAbsolute,
+				envFromName: false,
+				envAbsolute: options?.absolute === true,
 			});
 		}
-		return nextFlag({
+		if (isIndexedEnvBinding(source)) {
+			return nextFlag({
+				...this.schema,
+				envVar: undefined,
+				envIndexed: normalizeIndexedEnvBinding(source),
+				envFromName: false,
+				envAbsolute: options?.absolute === true,
+			});
+		}
+		return new FlagBuilder({
 			...this.schema,
 			envVar: undefined,
-			envIndexed: normalizeIndexedEnvBinding(source),
-			envAbsolute,
+			envIndexed: undefined,
+			envFromName: true,
+			envAbsolute: source?.absolute === true,
 		});
 	}
 

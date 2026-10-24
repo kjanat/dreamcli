@@ -23,6 +23,7 @@ import type {
 import type { ArgBuilder, ArgConfig, ArgDefinition, ArgSchema, InferArgs } from './arg.ts';
 import { createArgSchema } from './arg.ts';
 import type { schemaBrand } from './brand.ts';
+import { deriveEnvName } from './env-binding.ts';
 import type { FlagBuilder, FlagConfig, FlagDefinition, FlagSchema, InferFlags } from './flag.ts';
 import { createFlagSchema, getFlagNegatedName } from './flag.ts';
 import type { ErasedMiddlewareHandler, Middleware } from './middleware.ts';
@@ -761,14 +762,14 @@ function buildCommandSchema(definition: CommandDefinition): CommandSchema {
 	const flags: Record<string, FlagSchema> = {};
 	for (const [name, value] of Object.entries(flagDefinitions)) {
 		assertUsableFlagKey(definition.name, name);
-		const flagSchema = createFlagSchema(value);
+		const flagSchema = withEnvFromName(name, createFlagSchema(value));
 		validateFlagStdinEntry(definition.name, name, flagSchema, flags, []);
 		flags[name] = flagSchema;
 	}
 
 	const args: CommandArgEntry[] = [];
 	for (const entry of definition.args ?? []) {
-		const schema = createArgSchema(entry.schema);
+		const schema = withEnvFromName(entry.name, createArgSchema(entry.schema));
 		validateArgEntry(definition.name, entry.name, schema, flags, args);
 		args.push({ name: entry.name, schema });
 	}
@@ -787,6 +788,26 @@ function buildCommandSchema(definition: CommandDefinition): CommandSchema {
 	};
 
 	return schema as CommandSchema;
+}
+
+/**
+ * Resolve a name-derived env binding against the name an input is registered
+ * under.
+ *
+ * `.env()` without a name cannot know its variable until the input has a key,
+ * so the builder leaves `envFromName` set and registration fills `envVar` in.
+ * Every registration path calls this, so a command schema never carries the
+ * marker, and resolution, help, and serialization only ever see `envVar`.
+ *
+ * @param name - The flag or arg name.
+ * @param schema - The input's schema.
+ * @returns The schema with `envVar` derived, or the same schema when there is nothing to derive.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` when no variable name can be derived.
+ * @internal
+ */
+function withEnvFromName<S extends FlagSchema | ArgSchema>(name: string, schema: S): S {
+	if (!schema.envFromName) return schema;
+	return { ...schema, envVar: deriveEnvName(name), envFromName: false };
 }
 
 /**
@@ -1675,15 +1696,10 @@ class CommandBuilder<
 			});
 		}
 
-		validateFlagStdinEntry(
-			this.schema.name,
-			name,
-			builder.schema,
-			this.schema.flags,
-			this.schema.args,
-		);
+		const flagSchema = withEnvFromName(name, builder.schema);
+		validateFlagStdinEntry(this.schema.name, name, flagSchema, this.schema.flags, this.schema.args);
 
-		const nextFlags = { ...this.schema.flags, [name]: builder.schema };
+		const nextFlags = { ...this.schema.flags, [name]: flagSchema };
 		const nextSchema = { ...this.schema, flags: nextFlags, hasAction: false };
 		validateCommandFlagTree(nextSchema);
 		return new CommandBuilder(
@@ -1747,8 +1763,9 @@ class CommandBuilder<
 		name: N & Exclude<N, keyof A>,
 		builder: B,
 	): CommandBuilder<F, A & Record<N, B>, C> {
-		validateArgEntry(this.schema.name, name, builder.schema, this.schema.flags, this.schema.args);
-		const entry: CommandArgEntry = { name, schema: builder.schema };
+		const argSchema = withEnvFromName(name, builder.schema);
+		validateArgEntry(this.schema.name, name, argSchema, this.schema.flags, this.schema.args);
+		const entry: CommandArgEntry = { name, schema: argSchema };
 		const nextArgs = [...this.schema.args, entry];
 		return new CommandBuilder(
 			{ ...this.schema, args: nextArgs, hasAction: false },

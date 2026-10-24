@@ -650,6 +650,30 @@ concrete variable, such as `[env: FOO_TOKEN]` or `{ stage: 'env', envVar:
 'FOO_TOKEN' }`. Definition documents keep the logical names and carry the
 namespace once, as `envPrefix`.
 
+Call `.env()` without a name to derive the variable from the flag's own name.
+CamelCase word boundaries and every run of characters outside `[A-Za-z0-9]`
+become `_`, and the result is uppercased, so both spellings spelling parity
+accepts derive one variable:
+
+```ts twoslash
+import { cli, command, flag } from '@kjanat/dreamcli';
+
+cli('foo')
+  .envPrefix()
+  .command(
+    command('build')
+      .flag('api-token', flag.string().env()) // reads FOO_API_TOKEN
+      .flag('cacheDir', flag.string().env()) // reads FOO_CACHE_DIR
+      .flag('home', flag.string().env({ absolute: true })), // reads HOME
+  );
+```
+
+A builder does not know its name until it is registered, so the variable is
+derived when `.flag()` attaches it; one builder registered under two names
+reads two variables. A derived name is relative like a written one, and works
+without a namespace too: `.flag('api-token', flag.string().env())` alone reads
+`API_TOKEN`.
+
 A command tested on its own has no enclosing CLI, so pass the namespace it runs
 under: `runCommand(cmd, argv, { envPrefix: 'FOO_' })`. `readFlags()` takes the
 same option.

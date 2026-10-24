@@ -455,7 +455,9 @@ If `API_TOKEN=secret` and no CLI value is provided, `args.token === 'secret'`.
 
 Under a CLI-wide [environment namespace](/guide/flags#env-namespace),
 `.env('TARGET')` reads the prefixed name, such as `FOO_TARGET`; pass
-`{ absolute: true }` to read it as written.
+`{ absolute: true }` to read it as written. `.env()` without a name derives the
+variable from the argument's name, so `.arg('out-dir', arg.string().env())`
+reads `OUT_DIR`, or `FOO_OUT_DIR` under the namespace.
 
 A variadic argument can read an [indexed environment family](/guide/flags#indexed-env)
 instead of one variable. Call `.variadic()` first, since the family yields a list:

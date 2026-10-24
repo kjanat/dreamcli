@@ -275,6 +275,62 @@ function deriveEnvPrefix(name: string): string {
 }
 
 /**
+ * Whether `.env()` received an indexed binding rather than options.
+ *
+ * Any object carrying `count`, `value`, or `fields` is read as a binding, so a
+ * malformed one still reaches {@link normalizeIndexedEnvBinding} and fails
+ * there instead of being mistaken for a derived name.
+ *
+ * @param value - The first argument `.env()` received, when not a string.
+ * @returns `true` when the argument describes an indexed family.
+ * @internal
+ */
+function isIndexedEnvBinding(
+	value: IndexedEnvBinding | EnvOptions | undefined,
+): value is IndexedEnvBinding {
+	return (
+		typeof value === 'object' &&
+		value !== null &&
+		(Object.hasOwn(value, 'count') ||
+			Object.hasOwn(value, 'value') ||
+			Object.hasOwn(value, 'fields'))
+	);
+}
+
+/**
+ * Derive the environment variable an input reads from its own name, for
+ * `.env()` called without one.
+ *
+ * Word boundaries in camelCase become `_` first, so the two spellings
+ * spelling parity treats as one flag derive one variable: `api-token` and
+ * `apiToken` both read `API_TOKEN`, and `HTTPProxy` reads `HTTP_PROXY`. Then
+ * the name is uppercased, each run of characters outside `[A-Z0-9]` becomes
+ * one `_`, and leading and trailing separators are dropped. The result is
+ * logical, so a CLI namespace still applies unless the binding is absolute.
+ *
+ * @param name - The flag or arg name the input is registered under.
+ * @returns The derived variable name.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` when no letter or digit survives.
+ * @internal
+ */
+function deriveEnvName(name: string): string {
+	const derived = name
+		.replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+		.replace(/([A-Z]+)([A-Z][a-z])/g, '$1_$2')
+		.toUpperCase()
+		.replace(/[^A-Z0-9]+/g, '_')
+		.replace(/^_+|_+$/g, '');
+	if (derived === '') {
+		throw new CLIError(`Cannot derive an env variable name from the input name '${name}'`, {
+			code: 'INVALID_SCHEMA',
+			details: { field: 'envFromName', name },
+			suggest: "Name the variable explicitly, such as .env('TOKEN')",
+		});
+	}
+	return derived;
+}
+
+/**
  * Validate an explicit CLI environment namespace.
  *
  * The prefix is used verbatim, separator included, so `'ACME_'` turns `TOKEN`
@@ -397,6 +453,7 @@ function formatIndexedEnvBinding(binding: IndexedEnvBinding): string {
 
 export type { EnvOptions, IndexedEnvBinding, IndexedRecordEnvBinding, IndexedValueEnvBinding };
 export {
+	deriveEnvName,
 	deriveEnvPrefix,
 	ENV_INDEX_PLACEHOLDER,
 	effectiveEnvName,
@@ -404,6 +461,7 @@ export {
 	expandEnvTemplate,
 	formatIndexedEnvBinding,
 	indexedEnvMembers,
+	isIndexedEnvBinding,
 	MAX_INDEXED_ENV_COUNT,
 	normalizeEnvPrefix,
 	normalizeIndexedEnvBinding,

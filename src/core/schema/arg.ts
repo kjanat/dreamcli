@@ -24,7 +24,7 @@ import {
 	validateDefault,
 } from './cardinality.ts';
 import type { EnvOptions, IndexedEnvBinding } from './env-binding.ts';
-import { normalizeIndexedEnvBinding } from './env-binding.ts';
+import { isIndexedEnvBinding, normalizeIndexedEnvBinding } from './env-binding.ts';
 import type { DefaultValueOptions } from './flag.ts';
 import { assertNumberConstraints, type NumberConstraints } from './number-constraints.ts';
 import type {
@@ -303,6 +303,11 @@ interface ArgSchema<K extends ArgKind = ArgKind> {
 	 */
 	readonly envAbsolute: boolean;
 	/**
+	 * Whether `.env()` was called without a name. Registration on a command
+	 * replaces it with the derived {@link ArgSchema.envVar}.
+	 */
+	readonly envFromName: boolean;
+	/**
 	 * Dotted config path for config resolution (e.g. `'deploy.region'`).
 	 *
 	 * @see {@link ArgBuilder.config} for the builder method.
@@ -487,6 +492,11 @@ interface ArgDefinitionBase {
 	 */
 	readonly envAbsolute?: boolean | undefined;
 	/**
+	 * Derive `envVar` from the registered name.
+	 * @defaultValue `false`
+	 */
+	readonly envFromName?: boolean | undefined;
+	/**
 	 * Dotted config path for config resolution (e.g. `'deploy.region'`).
 	 * @defaultValue `undefined`
 	 */
@@ -659,6 +669,7 @@ const NORMALIZED_ARG_SCHEMA_KEYS: readonly (keyof ArgSchema)[] = [
 	'envVar',
 	'envIndexed',
 	'envAbsolute',
+	'envFromName',
 	'configPath',
 	'prompt',
 	'enumValues',
@@ -718,6 +729,7 @@ function assertValidArgElementSchema(schema: ArgSchema): void {
 		['envVar', undefined],
 		['envIndexed', undefined],
 		['envAbsolute', false],
+		['envFromName', false],
 		['configPath', undefined],
 		['prompt', undefined],
 		['elementSchema', undefined],
@@ -871,11 +883,26 @@ function assertValidArgDefinition(kind: ArgKind, fields: ArgDefinitionFields): v
 	}
 
 	if (
+		fields.envFromName === true &&
+		(fields.envVar !== undefined || fields.envIndexed !== undefined)
+	) {
+		throw new CLIError(
+			"Arg schema field 'envFromName' is mutually exclusive with 'envVar' and 'envIndexed'",
+			{
+				code: 'INVALID_SCHEMA',
+				details: { kind, field: 'envFromName' },
+				suggest: 'Declare one env source: a derived name, a variable name, or an indexed family',
+			},
+		);
+	}
+
+	if (
 		fields.envAbsolute === true &&
 		fields.envVar === undefined &&
-		fields.envIndexed === undefined
+		fields.envIndexed === undefined &&
+		fields.envFromName !== true
 	) {
-		throw new CLIError("Arg schema field 'envAbsolute' requires 'envVar' or 'envIndexed'", {
+		throw new CLIError("Arg schema field 'envAbsolute' requires an env source", {
 			code: 'INVALID_SCHEMA',
 			details: { kind, field: 'envAbsolute' },
 			suggest: "Bind an env source, or drop 'envAbsolute'",
@@ -979,8 +1006,17 @@ function assembleArgSchema<K extends ArgKind>(
 	kind: K,
 	overrides?: ArgSchemaFieldOverrides,
 ): ArgSchema<K> {
-	const { presence, variadic, stdin, unique, sensitive, duplicateKeys, envAbsolute, ...rest } =
-		overrides ?? {};
+	const {
+		presence,
+		variadic,
+		stdin,
+		unique,
+		sensitive,
+		duplicateKeys,
+		envAbsolute,
+		envFromName,
+		...rest
+	} = overrides ?? {};
 	return {
 		kind,
 		presence: presence ?? 'required',
@@ -1006,6 +1042,7 @@ function assembleArgSchema<K extends ArgKind>(
 		duplicateKeys: duplicateKeys ?? 'last',
 		unique: unique ?? false,
 		envAbsolute: envAbsolute ?? false,
+		envFromName: envFromName ?? false,
 		standard: undefined,
 		aggregateStandard: undefined,
 		deprecated: undefined,
@@ -1533,22 +1570,10 @@ class ArgBuilder<C extends ArgConfig> {
 	 */
 	env(varName: string, options?: EnvOptions): ArgBuilder<WithoutArgElementEligibility<C>>;
 	/**
-	 * Bind to an indexed family of environment variables, read as one env source.
-	 *
-	 * The count variable owns indices `0..count-1`; `{index}` in each template
-	 * expands to the zero-based index. An unset count means the env source
-	 * supplied nothing, so resolution continues to config, the prompt, and the
-	 * default. A set count claims the arg: `0` resolves an empty list, and a
-	 * malformed count or a missing member is an error, never a fallback.
-	 *
-	 * A `value` family reads a list of strings into a variadic arg, each entry
-	 * decoded by the arg's kind; call `.variadic()` first. A `fields` family
-	 * reads a list of records, one variable per field, into a custom arg built
-	 * from a Standard Schema validator, either variadic (one record per element)
-	 * or not (the whole list at once).
-	 *
-	 * Under a CLI-wide namespace the count and every template are relative, the
-	 * same as a single name; `{ absolute: true }` reads them as written.
+	 * Bind to an indexed family of environment variables, read as one env
+	 * source; see `FlagBuilder.env()` for the count and template rules. A
+	 * `value` family needs a variadic arg (call `.variadic()` first), and a
+	 * `fields` family a Standard Schema `arg.custom()`.
 	 *
 	 * @param binding - The count variable plus a `value` template or `fields` templates.
 	 * @param options - Whether the names ignore the CLI namespace.
@@ -1559,26 +1584,49 @@ class ArgBuilder<C extends ArgConfig> {
 	 * @example
 	 * ```ts
 	 * arg.string().variadic().env({ count: 'FILE_COUNT', value: 'FILE_{index}' })
-	 * // FILE_COUNT=2 FILE_0=a.txt FILE_1=b.txt → ['a.txt', 'b.txt']
 	 * ```
 	 */
 	env(
 		binding: IndexedEnvBinding,
 		options?: EnvOptions,
 	): ArgBuilder<WithoutArgElementEligibility<C>>;
+	/**
+	 * Bind to an environment variable derived from this input's registered
+	 * name (`api-token` and `apiToken` → `API_TOKEN`), relative to the CLI
+	 * namespace unless `{ absolute: true }`.
+	 *
+	 * @param options - Whether the derived name ignores the CLI namespace.
+	 * @returns The builder (for chaining).
+	 */
+	env(options?: EnvOptions): ArgBuilder<WithoutArgElementEligibility<C>>;
 	env(
-		source: string | IndexedEnvBinding,
+		source?: string | IndexedEnvBinding | EnvOptions,
 		options?: EnvOptions,
 	): ArgBuilder<WithoutArgElementEligibility<C>> {
-		const envAbsolute = options?.absolute === true;
 		if (typeof source === 'string') {
-			return new ArgBuilder({ ...this.schema, envVar: source, envIndexed: undefined, envAbsolute });
+			return new ArgBuilder({
+				...this.schema,
+				envVar: source,
+				envIndexed: undefined,
+				envFromName: false,
+				envAbsolute: options?.absolute === true,
+			});
 		}
-		return nextArg({
+		if (isIndexedEnvBinding(source)) {
+			return nextArg({
+				...this.schema,
+				envVar: undefined,
+				envIndexed: normalizeIndexedEnvBinding(source),
+				envFromName: false,
+				envAbsolute: options?.absolute === true,
+			});
+		}
+		return new ArgBuilder({
 			...this.schema,
 			envVar: undefined,
-			envIndexed: normalizeIndexedEnvBinding(source),
-			envAbsolute,
+			envIndexed: undefined,
+			envFromName: true,
+			envAbsolute: source?.absolute === true,
 		});
 	}
 

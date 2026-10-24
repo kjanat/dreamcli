@@ -1,6 +1,6 @@
 /**
  * CLI-wide environment namespaces: `.envPrefix()`, relative and absolute env
- * bindings, and the concrete names every surface reports.
+ * bindings, name-derived bindings, and the concrete names every surface reports.
  *
  * Every test injects its environment snapshot.
  *
@@ -12,8 +12,8 @@ import { CLIError } from '#internals/core/errors/index.ts';
 import { generateSchema } from '#internals/core/json-schema/index.ts';
 import { readFlags } from '#internals/core/read-flags/index.ts';
 import { arg } from '#internals/core/schema/arg.ts';
-import { command } from '#internals/core/schema/command.ts';
-import { deriveEnvPrefix } from '#internals/core/schema/env-binding.ts';
+import { command, createCommandSchema } from '#internals/core/schema/command.ts';
+import { deriveEnvName, deriveEnvPrefix } from '#internals/core/schema/env-binding.ts';
 import { createFlagSchema, flag } from '#internals/core/schema/flag.ts';
 import { runCommand } from '#internals/core/testkit/index.ts';
 import { createTestAdapter, ExitError } from '#internals/runtime/adapter.ts';
@@ -358,7 +358,7 @@ describe('absolute bindings in schemas and documents', () => {
 
 	it('rejects envAbsolute without an env source in a definition', () => {
 		const error = schemaError(() => createFlagSchema('string', { envAbsolute: true }));
-		expect(error.message).toBe("Flag schema field 'envAbsolute' requires 'envVar' or 'envIndexed'");
+		expect(error.message).toBe("Flag schema field 'envAbsolute' requires an env source");
 	});
 
 	it('serializes the namespace at the root and logical names on fragments', () => {
@@ -378,5 +378,142 @@ describe('absolute bindings in schemas and documents', () => {
 		expect(generateSchema(cli('foo').command(deployCommand()).schema)).not.toHaveProperty(
 			'envPrefix',
 		);
+	});
+});
+
+// === name-derived bindings
+
+describe('deriveEnvName()', () => {
+	it.each([
+		['token', 'TOKEN'],
+		['api-token', 'API_TOKEN'],
+		['apiToken', 'API_TOKEN'],
+		['cacheDir', 'CACHE_DIR'],
+		['cache_dir', 'CACHE_DIR'],
+		['HTTPProxy', 'HTTP_PROXY'],
+		['httpProxy', 'HTTP_PROXY'],
+		['x2y', 'X2Y'],
+		['v2Api', 'V2_API'],
+	])('derives %j as %j', (name, envVar) => {
+		expect(deriveEnvName(name)).toBe(envVar);
+	});
+
+	it('rejects a name with no letter or digit', () => {
+		expect(schemaError(() => deriveEnvName('--')).code).toBe('INVALID_SCHEMA');
+	});
+});
+
+describe('.env() without a name', () => {
+	function derivedCommand() {
+		return command('deploy')
+			.flag('api-token', flag.string().env())
+			.flag('cacheDir', flag.string().env())
+			.flag('home', flag.string().env({ absolute: true }))
+			.arg('target', arg.string().env().optional())
+			.action(({ flags, args, sources, out }) => out.json({ flags, args, sources }));
+	}
+
+	it('fills envVar in from the registered name and clears the marker', () => {
+		const { flags, args } = derivedCommand().schema;
+
+		expect([flags['api-token']?.envVar, flags['api-token']?.envFromName]).toEqual([
+			'API_TOKEN',
+			false,
+		]);
+		expect(flags.cacheDir?.envVar).toBe('CACHE_DIR');
+		expect([flags.home?.envVar, flags.home?.envAbsolute]).toEqual(['HOME', true]);
+		expect(args[0]?.schema.envVar).toBe('TARGET');
+	});
+
+	it('leaves the marker on a builder that is not registered yet', () => {
+		const schema = flag.string().env().schema;
+		expect([schema.envVar, schema.envFromName]).toEqual([undefined, true]);
+	});
+
+	it('derives a separate name for each key one builder is registered under', () => {
+		const shared = flag.string().env();
+		const { flags } = command('x').flag('first', shared).flag('second', shared).schema;
+		expect([flags.first?.envVar, flags.second?.envVar]).toEqual(['FIRST', 'SECOND']);
+	});
+
+	it('reads derived names under the CLI namespace, absolute ones as derived', async () => {
+		const app = cli('foo').envPrefix().command(derivedCommand());
+		const result = await app.execute(['deploy'], {
+			env: { FOO_API_TOKEN: 't', FOO_CACHE_DIR: '/c', HOME: '/h', FOO_TARGET: 'p', API_TOKEN: 'x' },
+		});
+		const { flags, args, sources } = reportOf(result.stdout);
+
+		expect(flags).toEqual({ 'api-token': 't', cacheDir: '/c', home: '/h' });
+		expect(args).toEqual({ target: 'p' });
+		expect(sources.flags['api-token']).toEqual({ stage: 'env', envVar: 'FOO_API_TOKEN' });
+		expect(sources.flags.home).toEqual({ stage: 'env', envVar: 'HOME' });
+	});
+
+	it('reads the derived name as written without a namespace', async () => {
+		const result = await runCommand(derivedCommand(), [], { env: { API_TOKEN: 't' } });
+		expect(reportOf(result.stdout).flags['api-token']).toBe('t');
+	});
+
+	it('renders the derived concrete names in help', async () => {
+		const app = cli('foo').envPrefix().command(derivedCommand());
+		const help = (await app.execute(['deploy', '--help'], { help: { width: 200 } })).stdout.join(
+			'',
+		);
+
+		expect(help).toContain('[env: FOO_API_TOKEN]');
+		expect(help).toContain('[env: FOO_CACHE_DIR]');
+		expect(help).toContain('[env: HOME]');
+		expect(help).toContain('[env: FOO_TARGET]');
+	});
+
+	it('derives names on the definition path and for readFlags()', async () => {
+		const schema = createCommandSchema({
+			name: 'x',
+			flags: { httpProxy: { kind: 'string', envFromName: true } },
+			args: [{ name: 'out-dir', schema: { kind: 'string', envFromName: true } }],
+		});
+		const flags = await readFlags(
+			{ apiToken: flag.string().env() },
+			{ argv: [], env: { ACME_API_TOKEN: 't' }, envPrefix: 'ACME_' },
+		);
+
+		expect(schema.flags.httpProxy?.envVar).toBe('HTTP_PROXY');
+		expect(schema.args[0]?.schema.envVar).toBe('OUT_DIR');
+		expect(flags).toEqual({ apiToken: 't' });
+	});
+
+	it('serializes the derived name as envVar, never the marker', () => {
+		const document = generateSchema(cli('foo').envPrefix().command(derivedCommand()).schema);
+		const deploy = document.commands[0];
+
+		expect(deploy?.flags['api-token']).toMatchObject({ envVar: 'API_TOKEN' });
+		expect(deploy?.flags['api-token']).not.toHaveProperty('envFromName');
+		expect(deploy?.flags.home).toMatchObject({ envVar: 'HOME', envAbsolute: true });
+	});
+
+	it('replaces and is replaced by an explicit env source', () => {
+		const named = flag.string().env().env('TOKEN').schema;
+		const derived = flag.string().env('TOKEN').env().schema;
+
+		expect([named.envVar, named.envFromName]).toEqual(['TOKEN', false]);
+		expect([derived.envVar, derived.envFromName]).toEqual([undefined, true]);
+	});
+
+	it('rejects envFromName alongside another env source in a definition', () => {
+		const error = schemaError(() =>
+			createFlagSchema('string', { envFromName: true, envVar: 'TOKEN' }),
+		);
+		expect(error.message).toBe(
+			"Flag schema field 'envFromName' is mutually exclusive with 'envVar' and 'envIndexed'",
+		);
+	});
+
+	it('treats an object carrying binding keys as a binding, not options', () => {
+		const error = schemaError(() =>
+			flag
+				.array(flag.string())
+				.env({ value: 'V_{index}' } as unknown as { count: string; value: string }),
+		);
+		expect(error.code).toBe('INVALID_SCHEMA');
 	});
 });

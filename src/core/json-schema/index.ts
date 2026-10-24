@@ -99,8 +99,16 @@ type FragmentProperties<T> = Record<FragmentKey<T>, Record<string, unknown>>;
 /** Every key a fragment can carry, across the members of a union. */
 type FragmentKey<T> = T extends unknown ? keyof T : never;
 
-/** Fields carrying a runtime function, which no document can hold. */
-type UnserializableField = typeof schemaBrand | 'parseFn' | 'standard' | 'aggregateStandard';
+/**
+ * Fields no document holds: those carrying a runtime function, and
+ * `envFromName`, which registration on a command resolves into `envVar`.
+ */
+type UnserializableField =
+	| typeof schemaBrand
+	| 'parseFn'
+	| 'standard'
+	| 'aggregateStandard'
+	| 'envFromName';
 
 /** Flag fields that survive definition serialization. */
 type SerializedFlagField = Exclude<keyof FlagSchema, UnserializableField>;
