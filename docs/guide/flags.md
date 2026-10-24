@@ -993,9 +993,12 @@ matters more. Either way users can type both spellings; see
 
 On the command line, every flag name and long alias also accepts its kebab↔camel counterpart:
 a flag named `dry-run` matches both `--dry-run` and `--dryRun`, and a flag named `dryRun`
-matches both spellings too. The handler key is always the canonical name; parity is purely
-CLI-token sugar, and help, completions, and "did you mean" suggestions advertise only the
-declared spelling.
+matches both spellings too. Negations follow suit: a `.negatable()` flag named `dryRun` accepts
+`--no-dryRun`, `--noDryRun`, and `--no-dry-run`. The handler key is always the canonical name;
+parity is purely CLI-token sugar, and completions and "did you mean" suggestions advertise only
+the declared spelling. Help does too, unless
+[`flagSpelling: 'kebab'`](/guide/help#flag-spelling) asks it to show the kebab form of camelCase
+keys.
 
 Two escape hatches:
 

@@ -911,6 +911,39 @@ describe('readFlags() built-in help', () => {
 		expect(text).toContain('-p, --port');
 	});
 
+	it("renders kebab spellings under flagSpelling: 'kebab'", async () => {
+		const helpFor = async (options: Parameters<typeof readFlags>[1]) => {
+			const written: string[] = [];
+			const adapter = createTestAdapter({
+				argv: ['node', 'build.ts', '--help'],
+				stdout: (line) => written.push(line),
+			});
+			await thrownBy(() =>
+				readFlags(
+					{ wasmPath: flag.path().env('WASM_PATH'), dryRun: flag.boolean().negatable() },
+					{ adapter, ...options },
+				),
+			);
+			return written.join('');
+		};
+
+		const kebab = await helpFor({ flagSpelling: 'kebab' });
+		expect(kebab).toContain('--wasm-path <path>');
+		expect(kebab).toContain('--[no-]dry-run');
+		expect(await helpFor({})).toContain('--wasmPath <path>');
+		const strict = await helpFor({ flagSpelling: 'kebab', parse: { caseParity: false } });
+		expect(strict).toContain('--wasmPath <path>');
+		expect(strict).toContain('--[no-]dryRun');
+	});
+
+	it('accepts every spelling kebab help advertises', async () => {
+		const values = await readFlags(
+			{ wasmPath: flag.string(), dryRun: flag.boolean().default(true).negatable() },
+			{ argv: ['--wasm-path', 'a.wasm', '--no-dry-run'], env: {} },
+		);
+		expect(values).toEqual({ wasmPath: 'a.wasm', dryRun: false });
+	});
+
 	it('flushes help output before exiting', async () => {
 		const events: string[] = [];
 		const base = createTestAdapter({

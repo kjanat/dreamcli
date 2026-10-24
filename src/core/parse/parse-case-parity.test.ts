@@ -89,6 +89,33 @@ describe('flag case parity', () => {
 		// Negated spelling 'no-dry-run' → parity counterpart 'noDryRun'.
 		expect(parse(schema, ['--noDryRun']).flags['dry-run']).toBe(false);
 		expect(parse(schema, ['--no-dry-run']).flags['dry-run']).toBe(false);
+		expect(parse(schema, ['--no-dryRun']).flags['dry-run']).toBe(false);
+	});
+
+	it('negates a camel flag through its fully kebab spelling', () => {
+		const schema = command('run')
+			.flag('dryRun', flag.boolean().default(true).negatable())
+			.action(() => {}).schema;
+		expect(parse(schema, ['--no-dry-run']).flags['dryRun']).toBe(false);
+		expect(parse(schema, ['--no-dryRun']).flags['dryRun']).toBe(false);
+		expect(parse(schema, ['--noDryRun']).flags['dryRun']).toBe(false);
+	});
+
+	it('keeps a declared flag ahead of a synthesized negation counterpart', () => {
+		const schema = command('run')
+			.flag('dryRun', flag.boolean().negatable())
+			.flag('no-dry-run', flag.string())
+			.action(() => {}).schema;
+		const parsed = parse(schema, ['--no-dry-run', 'x']);
+		expect(parsed.flags['no-dry-run']).toBe('x');
+		expect(parsed.flags['dryRun']).toBeUndefined();
+	});
+
+	it('adds no negation counterpart without case parity', () => {
+		const schema = command('run')
+			.flag('dryRun', flag.boolean().negatable())
+			.action(() => {}).schema;
+		expect(() => parse(schema, ['--no-dry-run'], { caseParity: false })).toThrow(/Unknown flag/);
 	});
 
 	it('composes with duplicates: both spellings are one logical flag', () => {

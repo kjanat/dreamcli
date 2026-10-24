@@ -388,6 +388,17 @@ interface HelpConfig {
 	 */
 	readonly sortFlags?: (a: string, b: string) => number;
 	/**
+	 * Spelling of long flag names, aliases, and negations in the `Flags:` table.
+	 *
+	 * `'kebab'` shows `--wasm-path` for a flag keyed `wasmPath` while handlers
+	 * keep reading `flags.wasmPath`. A spelling stays as declared when the
+	 * parser would not accept its kebab form for the same flag, such as under
+	 * `cli(name, { flags: { caseParity: false } })`.
+	 *
+	 * @defaultValue `'declared'`
+	 */
+	readonly flagSpelling?: 'declared' | 'kebab';
+	/**
 	 * Theme overrides for help output, merged over the built-in theme.
 	 *
 	 * The factory receives the gated ansispeck palette (same instance as
@@ -1875,10 +1886,13 @@ async function executeCLI(
 	// channel's gated palette (escapes never leak into piped output).
 	const resolvedVersion = options?.help?.version ?? builder.schema.version;
 	const envPrefix = options?.envPrefix ?? builder.schema.envPrefix;
+	const flagSettings = options?.flags ?? builder.schema.flagSettings;
 	const helpOptions: HelpOptions = {
 		...builder.schema.helpConfig,
 		...options?.help,
 		...(envPrefix !== undefined ? { envPrefix } : {}),
+		// Help spells flags the way the parser accepts them.
+		...(flagSettings?.caseParity !== undefined ? { caseParity: flagSettings.caseParity } : {}),
 		binName: options?.help?.binName ?? builder.schema.name,
 		hyperlinks: out.isHyperlinkSupported,
 		colors: options?.help?.colors ?? out.color,
@@ -1887,7 +1901,6 @@ async function executeCLI(
 
 	// -- Shared options for command execution ----------------------------------
 	const compiled = compiledStateOf(builder);
-	const flagSettings = options?.flags ?? builder.schema.flagSettings;
 	const effectiveOptions: InternalCLIExecuteOptions = {
 		...options,
 		...(envPrefix !== undefined ? { envPrefix } : {}),

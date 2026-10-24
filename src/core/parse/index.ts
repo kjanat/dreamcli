@@ -277,6 +277,24 @@ function counterpartSpelling(name: string): string | undefined {
 	return kebab !== name ? kebab : undefined;
 }
 
+/**
+ * Every case-parity counterpart of one declared spelling.
+ *
+ * A synthesized negation (`no-wasmPath`) also gains `no-` plus the
+ * counterpart of the flag name (`no-wasm-path`), so the fully kebab and
+ * fully camel spellings of the pair negate alike.
+ */
+function counterpartSpellings(spelling: string, entry: FlagLookupEntry): readonly string[] {
+	const counterparts: string[] = [];
+	const direct = counterpartSpelling(spelling);
+	if (direct !== undefined) counterparts.push(direct);
+	if (entry.negated && entry.schema.negation?.alias === undefined) {
+		const name = counterpartSpelling(entry.name);
+		if (name !== undefined) counterparts.push(`no-${name}`);
+	}
+	return counterparts;
+}
+
 // --- Internal lookup helpers
 
 /** One resolvable spelling in the flag lookup map. */
@@ -296,7 +314,8 @@ interface FlagLookupEntry {
  *
  * Covers canonical names, aliases (long + single-char), negated spellings of
  * `.negatable()` booleans, and — unless `caseParity` is `false` — the
- * kebab↔camel counterpart of every declared spelling. Counterparts never
+ * kebab↔camel counterpart of every declared spelling (a synthesized negation
+ * also gets `no-` plus the counterpart of its flag name). Counterparts never
  * override declared spellings: when a command defines both `do-this` and
  * `doThis` explicitly, each spelling exact-matches its own flag and no
  * parity entries are added for the pair.
@@ -330,9 +349,8 @@ function buildFlagLookup(
 	if (options?.caseParity !== false) {
 		const declared = [...lookup];
 		for (const [spelling, entry] of declared) {
-			const counterpart = counterpartSpelling(spelling);
-			if (counterpart !== undefined && !lookup.has(counterpart)) {
-				lookup.set(counterpart, { ...entry, parity: true });
+			for (const counterpart of counterpartSpellings(spelling, entry)) {
+				if (!lookup.has(counterpart)) lookup.set(counterpart, { ...entry, parity: true });
 			}
 		}
 	}
