@@ -32,6 +32,7 @@ import type {
   ParseResult,
   PromptEngine,
   ResolutionProvenanceRecord,
+  SkippedPathCheck,
 } from '@kjanat/dreamcli';
 
 interface ResolverInvocation {
@@ -51,12 +52,14 @@ interface ResolveOptions {
     path: string,
   ) => Promise<'file' | 'directory' | null>;
   readonly mkdir?: (path: string) => Promise<void>;
+  readonly pathChecks?: 'lenient' | 'strict';
 }
 
 interface ResolveResult {
   readonly flags: Readonly<Record<string, unknown>>;
   readonly args: Readonly<Record<string, unknown>>;
   readonly deprecations: readonly DeprecationWarning[];
+  readonly skippedPathChecks: readonly SkippedPathCheck[];
   readonly provenance: ResolutionProvenanceRecord;
 }
 ```
@@ -64,7 +67,9 @@ interface ResolveResult {
 The intent is simple:
 
 - callers inject all external state through `ResolveOptions`
-- resolver output is resolved values plus structured deprecation facts
+- resolver output is resolved values plus structured deprecation facts and the path checks that
+  could not run (`skippedPathChecks`); `pathChecks: 'strict'` turns those into a
+  `PATH_CHECK_SKIPPED` failure instead
 - the executor layer owns rendering and handler execution after this point
 
 ## Source And Precedence Facts

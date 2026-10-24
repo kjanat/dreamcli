@@ -119,6 +119,7 @@ describe('runCommand() executor contract', () => {
 			{ type: 'spinner:succeed', text: 'Done' },
 		]);
 		expect(result.error).toBeUndefined();
+		expect(result.skippedPathChecks).toEqual([]);
 		expect(stopActive).toHaveBeenCalledTimes(1);
 	});
 

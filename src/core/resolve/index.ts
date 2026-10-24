@@ -24,9 +24,11 @@ import type {
 	ResolutionProvenanceRecord,
 	ResolveOptions,
 	ResolveResult,
+	SkippedPathCheck,
 } from './contracts.ts';
 import { collectValidationErrors, isNonEmpty, throwAggregatedErrors } from './errors.ts';
 import { resolveFlags } from './flags.ts';
+import { pathChecksSkippedError } from './path-checks.ts';
 import { applyStandardValidators } from './standard.ts';
 
 /**
@@ -49,12 +51,19 @@ import { applyStandardValidators } from './standard.ts';
  * a value. Collects **all** validation errors before throwing, so the
  * user sees every missing field at once.
  *
+ * `flag.path()` / `arg.path()` filesystem checks run only through the injected
+ * {@linkcode ResolveOptions.stat} probe. A check that cannot run is recorded in
+ * {@linkcode ResolveResult.skippedPathChecks}, or rejected outright when
+ * {@linkcode ResolveOptions.pathChecks} is `'strict'`.
+ *
  * @param schema - The command schema defining flags and args
  * @param parsed - Raw parsed values from the parser
  * @param options - External state for the resolution chain
  * @returns Fully resolved flag and arg values
  * @throws {@linkcode ValidationError} if any required flag or arg is missing,
  *   or if an env/config value fails coercion
+ * @throws {@linkcode CLIError} with code `'PATH_CHECK_SKIPPED'` when
+ *   `pathChecks: 'strict'` and a declared filesystem check could not run
  *
  * @example
  * ```ts
@@ -70,6 +79,7 @@ async function resolve(
 	options?: ResolveOptions,
 ): Promise<ResolveResult> {
 	const deprecations: DeprecationWarning[] = [];
+	const skippedPathChecks: SkippedPathCheck[] = [];
 	const flagProvenance = provenanceRecord();
 	const argProvenance = provenanceRecord();
 	const sensitiveInputs = new Set<string>();
@@ -81,6 +91,7 @@ async function resolve(
 		deprecations,
 		stat: options?.stat,
 		mkdir: options?.mkdir,
+		skippedPathChecks,
 	};
 	let flags: Readonly<Record<string, unknown>> = {};
 	let args: Readonly<Record<string, unknown>> = {};
@@ -117,6 +128,13 @@ async function resolve(
 	args = validated.args;
 	errors.push(...validated.errors);
 
+	// A skipped check makes the whole outcome unrepresentative — a `create` that
+	// never ran can even surface as a false `mustExist` failure — so strict mode
+	// reports the missing capability ahead of any value-level error.
+	if (options?.pathChecks === 'strict' && isNonEmpty(skippedPathChecks)) {
+		throw pathChecksSkippedError(skippedPathChecks);
+	}
+
 	if (isNonEmpty(errors)) {
 		throwAggregatedErrors(errors);
 	}
@@ -125,6 +143,7 @@ async function resolve(
 		flags,
 		args,
 		deprecations,
+		skippedPathChecks,
 		provenance: { flags: flagProvenance, args: argProvenance },
 	};
 }
@@ -148,5 +167,6 @@ export type {
 	ResolutionProvenanceRecord,
 	ResolveOptions,
 	ResolveResult,
+	SkippedPathCheck,
 };
 export { resolve };

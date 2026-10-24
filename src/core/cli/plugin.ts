@@ -7,7 +7,7 @@
  * @module dreamcli/core/cli/plugin
  */
 
-import type { DeprecationWarning } from '#internals/core/resolve/index.ts';
+import type { DeprecationWarning, SkippedPathCheck } from '#internals/core/resolve/index.ts';
 import type { CommandMeta, CommandSchema, Out } from '#internals/core/schema/command.ts';
 
 /** Shared hook payload for a concrete command execution. */
@@ -34,6 +34,12 @@ interface ResolvedCommandParams extends PluginCommandContext {
 	readonly args: Readonly<Record<string, unknown>>;
 	/** Structured deprecation warnings collected during resolution. */
 	readonly deprecations: readonly DeprecationWarning[];
+	/**
+	 * Declared `flag.path()` / `arg.path()` checks that could not run because
+	 * execution supplied no `stat` probe (or no `mkdir` for `create`). Always
+	 * empty under `CLIBuilder.run()`, which supplies the adapter's filesystem.
+	 */
+	readonly skippedPathChecks: readonly SkippedPathCheck[];
 }
 
 /**

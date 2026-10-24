@@ -551,7 +551,9 @@ expect(activity.activity).toContainEqual(
 ```
 
 `RunOptions` accepts: `env`, `config`, `stdinData`, `answers`, `prompter`, `help`, `jsonMode`,
-`verbosity`, and `isTTY`. Every dimension of command behavior is controllable from tests.
+`verbosity`, `isTTY`, `stat`, `mkdir`, and `pathChecks`. Every dimension of command behavior is
+controllable from tests, and a `flag.path()` / `arg.path()` check that could not run is listed in
+`result.skippedPathChecks` (or fails the run under `pathChecks: 'strict'`).
 
 ## Package structure
 

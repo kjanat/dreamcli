@@ -966,6 +966,7 @@ function buildCommandRunOptions(
 		...(options?.answers !== undefined ? { answers: options.answers } : {}),
 		...(options?.stat !== undefined ? { stat: options.stat } : {}),
 		...(options?.mkdir !== undefined ? { mkdir: options.mkdir } : {}),
+		...(options?.pathChecks !== undefined ? { pathChecks: options.pathChecks } : {}),
 		...(options?.verbosity !== undefined ? { verbosity: options.verbosity } : {}),
 		...(options?.jsonMode !== undefined ? { jsonMode: options.jsonMode } : {}),
 		...(options?.isTTY !== undefined ? { isTTY: options.isTTY } : {}),
