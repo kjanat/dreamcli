@@ -174,7 +174,7 @@
 	},
 	"volta": {
 		"node": "26.5.0",
-		"npm": "11.18.0"
+		"npm": "11.21.1"
 	},
 	"publishConfig": {
 		"access": "public"
