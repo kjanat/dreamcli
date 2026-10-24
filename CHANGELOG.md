@@ -36,7 +36,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - **A camelCase negatable flag accepts its fully kebab negation** ([#147](https://github.com/kjanat/dreamcli/issues/147)).\
-  A `.negatable()` flag keyed `dryRun` already accepted `--dry-run`, `--no-dryRun`, and `--noDryRun`, but rejected `--no-dry-run`. Case parity now also derives `no-` plus the flag name's counterpart for synthesized negations, in both directions, so `dry-run` also accepts `--no-dryRun`. Declared flags still win over every parity spelling, and `caseParity: false` adds none.
+  A `.negatable()` flag keyed `dryRun` already accepted `--dry-run`, `--no-dryRun`, and `--noDryRun`, but rejected `--no-dry-run`. Case parity now also derives `no-` plus the flag name's counterpart for synthesized negations, in both directions, so `dry-run` also accepts `--no-dryRun`. Declared flags, and another flag's ordinary counterpart, still win over these negation spellings whatever the declaration order, and `caseParity: false` adds none.
 - **Nested command help names the full command path** ([#151](https://github.com/kjanat/dreamcli/issues/151)).\
   `demo parent child --help` now renders `Usage: demo parent child` instead of the unrunnable `demo child`, through every depth of nesting, via aliases, via the bare `help` token, and in `--json` help. Function-form examples receive the same path as `meta.name`, and a runtime `help.binName` override is honoured for nested groups as well as leaves.
 

@@ -278,21 +278,15 @@ function counterpartSpelling(name: string): string | undefined {
 }
 
 /**
- * Every case-parity counterpart of one declared spelling.
- *
- * A synthesized negation (`no-wasmPath`) also gains `no-` plus the
- * counterpart of the flag name (`no-wasm-path`), so the fully kebab and
- * fully camel spellings of the pair negate alike.
+ * The extra counterpart of a synthesized negation: `no-` plus the counterpart
+ * of the flag name (`no-wasm-path` for `no-wasmPath`), so the fully kebab and
+ * fully camel spellings of the pair negate alike. `undefined` for any other
+ * spelling.
  */
-function counterpartSpellings(spelling: string, entry: FlagLookupEntry): readonly string[] {
-	const counterparts: string[] = [];
-	const direct = counterpartSpelling(spelling);
-	if (direct !== undefined) counterparts.push(direct);
-	if (entry.negated && entry.schema.negation?.alias === undefined) {
-		const name = counterpartSpelling(entry.name);
-		if (name !== undefined) counterparts.push(`no-${name}`);
-	}
-	return counterparts;
+function negationCounterpart(entry: FlagLookupEntry): string | undefined {
+	if (!entry.negated || entry.schema.negation?.alias !== undefined) return undefined;
+	const name = counterpartSpelling(entry.name);
+	return name !== undefined ? `no-${name}` : undefined;
 }
 
 // --- Internal lookup helpers
@@ -349,8 +343,17 @@ function buildFlagLookup(
 	if (options?.caseParity !== false) {
 		const declared = [...lookup];
 		for (const [spelling, entry] of declared) {
-			for (const counterpart of counterpartSpellings(spelling, entry)) {
-				if (!lookup.has(counterpart)) lookup.set(counterpart, { ...entry, parity: true });
+			const counterpart = counterpartSpelling(spelling);
+			if (counterpart !== undefined && !lookup.has(counterpart)) {
+				lookup.set(counterpart, { ...entry, parity: true });
+			}
+		}
+		// Pass 3: negation counterparts come last, so they never take a spelling
+		// that another flag's ordinary counterpart already accepted.
+		for (const [, entry] of declared) {
+			const counterpart = negationCounterpart(entry);
+			if (counterpart !== undefined && !lookup.has(counterpart)) {
+				lookup.set(counterpart, { ...entry, parity: true });
 			}
 		}
 	}

@@ -111,6 +111,22 @@ describe('flag case parity', () => {
 		expect(parsed.flags['dryRun']).toBeUndefined();
 	});
 
+	it("keeps another flag's ordinary counterpart ahead of a negation counterpart", () => {
+		for (const order of ['negatable first', 'negatable last'] as const) {
+			const base = command('run');
+			const withNegatable = (c: typeof base) => c.flag('dryRun', flag.boolean().negatable());
+			const withOther = (c: typeof base) => c.flag('noDryRun', flag.string());
+			const schema = (
+				order === 'negatable first'
+					? withOther(withNegatable(base))
+					: withNegatable(withOther(base))
+			).action(() => {}).schema;
+			const parsed = parse(schema, ['--no-dry-run=abc']);
+			expect(parsed.flags['noDryRun'], order).toBe('abc');
+			expect(parsed.flags['dryRun'], order).toBeUndefined();
+		}
+	});
+
 	it('adds no negation counterpart without case parity', () => {
 		const schema = command('run')
 			.flag('dryRun', flag.boolean().negatable())
