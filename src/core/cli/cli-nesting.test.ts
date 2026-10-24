@@ -281,6 +281,64 @@ describe('CLIBuilder', () => {
 			expect(viaHelp.exitCode).toBe(0);
 			expect(viaHelp.stdout).toEqual(viaDirect.stdout);
 		});
+
+		// #151 — the usage line must name a runnable path: `myapp db migrate`,
+		// not `myapp migrate` (an unknown root command).
+		it('usage line keeps the parent group for a nested subcommand', async () => {
+			const app = cli('myapp').command(dbGroup());
+			const result = await app.execute(['db', 'migrate', '--help']);
+			expect(result.exitCode).toBe(0);
+			const output = result.stdout.join('');
+			expect(output).toContain('Usage: myapp db migrate [flags]');
+			expect(output).not.toContain('Usage: myapp migrate');
+		});
+
+		it('usage line keeps every ancestor group through 3 levels', async () => {
+			const up = command('up')
+				.description('Run migrations up')
+				.action(() => {});
+			const migrate = group('migrate').command(up);
+			const db = group('db').command(migrate);
+			const app = cli('myapp').command(db);
+
+			const leaf = await app.execute(['db', 'migrate', 'up', '--help']);
+			expect(leaf.exitCode).toBe(0);
+			expect(leaf.stdout.join('')).toContain('Usage: myapp db migrate up');
+
+			const nestedGroup = await app.execute(['db', 'migrate']);
+			expect(nestedGroup.exitCode).toBe(0);
+			expect(nestedGroup.stdout.join('')).toContain('Usage: myapp db migrate <command>');
+		});
+
+		it('usage line shows canonical names when a nested command is reached via alias', async () => {
+			const migrate = command('migrate')
+				.alias('m')
+				.action(() => {});
+			const app = cli('myapp').command(group('db').alias('d').command(migrate));
+			const result = await app.execute(['d', 'm', '--help']);
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout.join('')).toContain('Usage: myapp db migrate');
+		});
+
+		it('usage line honours a runtime binName override for nested commands', async () => {
+			const app = cli('myapp').command(dbGroup());
+			const leaf = await app.execute(['db', 'migrate', '--help'], {
+				help: { binName: 'renamed' },
+			});
+			expect(leaf.stdout.join('')).toContain('Usage: renamed db migrate [flags]');
+
+			const nestedGroup = await app.execute(['db'], { help: { binName: 'renamed' } });
+			expect(nestedGroup.stdout.join('')).toContain('Usage: renamed db <command>');
+		});
+
+		it('resolves function-form examples with the full command path', async () => {
+			const migrate = command('migrate')
+				.example((m) => `${m.name} migrate --steps 2`)
+				.action(() => {});
+			const app = cli('myapp').command(group('db').command(migrate));
+			const result = await app.execute(['db', 'migrate', '--help']);
+			expect(result.stdout.join('')).toContain('$ myapp db migrate --steps 2');
+		});
 	});
 
 	// --- nested dispatch with --json

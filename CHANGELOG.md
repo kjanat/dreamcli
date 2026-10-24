@@ -21,6 +21,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Skipped filesystem checks are observable, and optionally fatal** ([#146](https://github.com/kjanat/dreamcli/issues/146)).\
   `runCommand()`, `.execute()`, and `resolve()` results carry `skippedPathChecks`: one entry per `flag.path()` / `arg.path()` input whose declared `mustExist`, `type`, or `create` check could not run because no `stat` probe (or no `mkdir` for `create`) was supplied. The new `pathChecks: 'strict'` run option fails such a run with `PATH_CHECK_SKIPPED` (exit code `1`) naming each input, for tests that must exercise every declared check; the default `'lenient'` keeps isolated parser and action tests off the host filesystem. `afterResolve` plugins receive the same list. The testing guide gains a filesystem-checks section with probe, strict-mode, input/output, and directory-creation recipes.
 
+### Fixed
+
+- **Nested command help names the full command path** ([#151](https://github.com/kjanat/dreamcli/issues/151)).\
+  `demo parent child --help` now renders `Usage: demo parent child` instead of the unrunnable `demo child`, through every depth of nesting, via aliases, via the bare `help` token, and in `--json` help. Function-form examples receive the same path as `meta.name`, and a runtime `help.binName` override is honoured for nested groups as well as leaves.
+
 ## [4.2.0] - 2026-10-21
 
 ### Added
