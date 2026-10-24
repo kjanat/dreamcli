@@ -99,6 +99,15 @@ interface ResolveOptions {
 	 * @defaultValue `'lenient'`
 	 */
 	readonly pathChecks?: 'lenient' | 'strict';
+	/**
+	 * Environment namespace prepended to every relative env binding, the count
+	 * and templates of an indexed family included. A binding declared
+	 * `absolute` is read as written. Diagnostics and provenance name the
+	 * concrete variable.
+	 *
+	 * @defaultValue `undefined` (no namespace)
+	 */
+	readonly envPrefix?: string;
 }
 
 /**

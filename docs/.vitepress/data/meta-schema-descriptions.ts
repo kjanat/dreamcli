@@ -27,6 +27,7 @@ const ROOT_PROPERTY_TARGETS: Readonly<Record<string, NodeTarget>> = {
 	name: { exportId: 'dreamcli:CLISchema', property: 'name' },
 	version: { exportId: 'dreamcli:CLISchema', property: 'version' },
 	description: { exportId: 'dreamcli:CLISchema', property: 'description' },
+	envPrefix: { exportId: 'dreamcli:CLISchema', property: 'envPrefix' },
 	defaultCommand: {
 		exportId: 'dreamcli:CLISchema',
 		property: 'defaultCommand',
@@ -57,6 +58,7 @@ const FLAG_PROPERTY_TARGETS: Readonly<Record<string, NodeTarget>> = {
 	stdin: { exportId: 'dreamcli:FlagSchema', property: 'stdin' },
 	envVar: { exportId: 'dreamcli:FlagSchema', property: 'envVar' },
 	envIndexed: { exportId: 'dreamcli:FlagSchema', property: 'envIndexed' },
+	envAbsolute: { exportId: 'dreamcli:FlagSchema', property: 'envAbsolute' },
 	configPath: { exportId: 'dreamcli:FlagSchema', property: 'configPath' },
 	description: { exportId: 'dreamcli:FlagSchema', property: 'description' },
 	enumValues: { exportId: 'dreamcli:FlagSchema', property: 'enumValues' },
@@ -81,6 +83,7 @@ const DEF_PROPERTY_TARGETS: Readonly<Record<string, Readonly<Record<string, Node
 	},
 	commandDocument: {
 		schemaVersion: { exportId: 'dreamcli:DEFINITION_SCHEMA_VERSION' },
+		envPrefix: { exportId: 'dreamcli:CLISchema', property: 'envPrefix' },
 		name: { exportId: 'dreamcli:CommandDefinitionFragmentV1', property: 'name' },
 		description: { exportId: 'dreamcli:CommandDefinitionFragmentV1', property: 'description' },
 		aliases: { exportId: 'dreamcli:CommandDefinitionFragmentV1', property: 'aliases' },
@@ -122,6 +125,7 @@ const DEF_PROPERTY_TARGETS: Readonly<Record<string, Readonly<Record<string, Node
 		description: { exportId: 'dreamcli:ArgSchema', property: 'description' },
 		envVar: { exportId: 'dreamcli:ArgSchema', property: 'envVar' },
 		envIndexed: { exportId: 'dreamcli:ArgSchema', property: 'envIndexed' },
+		envAbsolute: { exportId: 'dreamcli:ArgSchema', property: 'envAbsolute' },
 		configPath: { exportId: 'dreamcli:ArgSchema', property: 'configPath' },
 		prompt: { exportId: 'dreamcli:ArgSchema', property: 'prompt' },
 		enumValues: { exportId: 'dreamcli:ArgSchema', property: 'enumValues' },

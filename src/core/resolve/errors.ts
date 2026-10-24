@@ -10,6 +10,7 @@
 
 import type { ValidationErrorCode } from '#internals/core/errors/index.ts';
 import { ValidationError } from '#internals/core/errors/index.ts';
+import type { EnvSourceBinding } from '#internals/core/schema/source.ts';
 
 type AggregateIssueSourceKind = 'env' | 'config' | 'stdin' | 'prompt';
 
@@ -142,6 +143,17 @@ function formatAggregateLine(issue: AggregateIssueSummary): string {
 	return `${issue.label}${source}: ${issue.message}`;
 }
 
+/**
+ * How a missing-input suggestion names an env source: the concrete variable,
+ * or an indexed family's count variable.
+ *
+ * @param env - The input's env binding, with concrete names.
+ * @returns A clause such as `set FOO_TOKEN` or `set FOO_ITEM_COUNT and its entries`.
+ */
+function requiredEnvSuggestion(env: EnvSourceBinding): string {
+	return 'envVar' in env ? `set ${env.envVar}` : `set ${env.indexed.count} and its entries`;
+}
+
 /** Type-narrowing guard that asserts a readonly array has at least one element. */
 function isNonEmpty<T>(arr: readonly T[]): arr is readonly [T, ...T[]] {
 	return arr.length > 0;
@@ -230,4 +242,4 @@ function throwAggregatedErrors(errors: readonly [ValidationError, ...ValidationE
 	});
 }
 
-export { collectValidationErrors, isNonEmpty, throwAggregatedErrors };
+export { collectValidationErrors, isNonEmpty, requiredEnvSuggestion, throwAggregatedErrors };

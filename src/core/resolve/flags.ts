@@ -21,10 +21,15 @@ import type {
 } from '#internals/core/schema/command.ts';
 import type { FlagKind, FlagSchema } from '#internals/core/schema/flag.ts';
 import type { PromptConfig, PromptKind } from '#internals/core/schema/prompt.ts';
-import type { PromptSourceBinding, SourceBinding } from '#internals/core/schema/source.ts';
+import type {
+	EnvSourceBinding,
+	PromptSourceBinding,
+	SourceBinding,
+} from '#internals/core/schema/source.ts';
 import {
 	bindingsBeforePrompt,
 	bindingsFromPrompt,
+	envBindingOf,
 	sourceBindings,
 	withPromptBinding,
 } from '#internals/core/schema/source.ts';
@@ -36,7 +41,7 @@ import {
 	redactCoercionError,
 } from './coerce.ts';
 import type { DeprecationWarning, ResolutionProvenance, SkippedPathCheck } from './contracts.ts';
-import { isNonEmpty, throwAggregatedErrors } from './errors.ts';
+import { isNonEmpty, requiredEnvSuggestion, throwAggregatedErrors } from './errors.ts';
 import type { MkdirFn, StatFn } from './path-checks.ts';
 import { checkResolvedPath } from './path-checks.ts';
 import type { PromptOutcome, StageInput, StageOutcome, StageState } from './stages.ts';
@@ -62,6 +67,8 @@ interface FlagResolutionOptions {
 	readonly stat: StatFn | undefined;
 	/** Directory creation for `flag.path()` `create` checks. */
 	readonly mkdir: MkdirFn | undefined;
+	/** CLI env namespace applied to relative env bindings, or `undefined`. */
+	readonly envPrefix: string | undefined;
 	/** Collector for `flag.path()` checks that could not run. */
 	readonly skippedPathChecks: SkippedPathCheck[];
 	/** Receiver for the stage that produced each resolved flag. */
@@ -104,7 +111,7 @@ async function resolveFlags(
 
 	for (const [name, schema] of Object.entries(flagSchemas)) {
 		if (parseErrors?.has(name)) continue;
-		const bindings = sourceBindings(schema);
+		const bindings = sourceBindings(schema, options.envPrefix);
 		if (parseErrors?.size && flagValueSchema(schema).codec.name === 'custom') {
 			// Do not run unrelated user parsers after failure. Resolve only callback reads.
 			let done = false;
@@ -200,7 +207,7 @@ async function resolveFlags(
 			continue;
 		}
 
-		const bindings = withPromptBinding(schema, sourceBindings(schema), config);
+		const bindings = withPromptBinding(schema, sourceBindings(schema, options.envPrefix), config);
 		const outcome = await runStages(
 			bindingsFromPrompt(bindings),
 			stageInput(name, schema, parsedFlags, bindings, options.prompter),
@@ -226,14 +233,15 @@ async function resolveFlags(
 
 		if (schema.presence === 'required') {
 			const details: Record<string, unknown> = { flag: name, kind: schema.kind };
-			if (schema.envVar !== undefined) details.envVar = schema.envVar;
-			if (schema.envIndexed !== undefined) details.envIndexed = schema.envIndexed;
+			const env = envBindingOf(sourceBindings(schema, options.envPrefix));
+			if (env !== undefined && 'envVar' in env) details.envVar = env.envVar;
+			if (env !== undefined && 'indexed' in env) details.envIndexed = env.indexed;
 			if (schema.configPath !== undefined) details.configPath = schema.configPath;
 			errors.push(
 				new ValidationError(`Missing required flag --${name}`, {
 					code: 'REQUIRED_FLAG',
 					details,
-					suggest: buildRequiredFlagSuggest(name, schema),
+					suggest: buildRequiredFlagSuggest(name, schema, env),
 				}),
 			);
 			continue;
@@ -503,7 +511,11 @@ async function resolvePromptValueWithConfig(
 }
 
 /** Build a human-readable suggestion listing all available sources for a required flag. @internal */
-function buildRequiredFlagSuggest(name: string, schema: FlagSchema): string {
+function buildRequiredFlagSuggest(
+	name: string,
+	schema: FlagSchema,
+	env: EnvSourceBinding | undefined,
+): string {
 	const sources: string[] = [];
 	const takesValue = schema.kind !== 'boolean' && schema.kind !== 'count';
 	sources.push(`Provide --${name}${takesValue ? ' <value>' : ''}`);
@@ -519,10 +531,8 @@ function buildRequiredFlagSuggest(name: string, schema: FlagSchema): string {
 		);
 	}
 
-	if (schema.envVar !== undefined) {
-		sources.push(`set ${schema.envVar}`);
-	} else if (schema.envIndexed !== undefined) {
-		sources.push(`set ${schema.envIndexed.count} and its entries`);
+	if (env !== undefined) {
+		sources.push(requiredEnvSuggestion(env));
 	}
 
 	if (schema.configPath !== undefined) {

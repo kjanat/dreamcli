@@ -603,6 +603,84 @@ The family is not a delimited string. `TAGS=a,b,c` is one variable that
 `.split()` decodes; an indexed family states its own cardinality, so each
 member keeps its exact text, including commas and empty strings.
 
+### Environment namespaces {#env-namespace}
+
+A CLI can own its environment API under one prefix instead of spelling it on
+every input. `.envPrefix()` derives the prefix from the name passed to `cli()`,
+and `.envPrefix('ACME_')` sets one explicitly:
+
+```ts twoslash
+import { cli, command, flag } from '@kjanat/dreamcli';
+
+cli('foo')
+  .envPrefix()
+  .command(
+    command('deploy')
+      .flag('token', flag.string().env('TOKEN')) // reads FOO_TOKEN
+      .flag('home', flag.string().env('HOME', { absolute: true })) // reads HOME
+      .flag('servers', flag.array(flag.string()).env({ count: 'COUNT', value: 'SERVER_{index}' })),
+    // reads FOO_COUNT, FOO_SERVER_0, FOO_SERVER_1, …
+  );
+```
+
+Every `.env()` name is relative to the namespace unless declared with
+`{ absolute: true }`, which suits variables the CLI does not own: `HOME`, `CI`,
+`NO_COLOR`, or a credential another tool exports. Without `.envPrefix()`, every
+name is read exactly as written, as before.
+
+The derived prefix turns camelCase word boundaries and each run of characters
+outside `[A-Za-z0-9]` into one `_`, uppercases the result, drops leading and
+trailing separators, and appends `_`. It is the same rule a name-derived
+`.env()` follows, so a CLI and its flags spell words the same way:
+
+| CLI name      | Prefix         |
+| ------------- | -------------- |
+| `foo`         | `FOO_`         |
+| `foo-bar`     | `FOO_BAR_`     |
+| `foo.bar`     | `FOO_BAR_`     |
+| `fooBar`      | `FOO_BAR_`     |
+| `HTTPServer`  | `HTTP_SERVER_` |
+| `my cool cli` | `MY_COOL_CLI_` |
+
+An explicit prefix is used verbatim, so `.envPrefix('ACME')` reads `ACMETOKEN`.
+Either way the prefix is fixed when declared: a manifest-inferred name or an
+inherited invocation name (a symlink, an alias, `npx`) never changes which
+variables the CLI reads.
+
+The namespace changes only the concrete name. Precedence, coercion, and
+validation are untouched, and help, diagnostics, and `sources` all name the
+concrete variable, such as `[env: FOO_TOKEN]` or `{ stage: 'env', envVar:
+'FOO_TOKEN' }`. Definition documents keep the logical names and carry the
+namespace once, as `envPrefix`.
+
+Call `.env()` without a name to derive the variable from the flag's own name.
+CamelCase word boundaries and every run of characters outside `[A-Za-z0-9]`
+become `_`, and the result is uppercased, so both spellings spelling parity
+accepts derive one variable:
+
+```ts twoslash
+import { cli, command, flag } from '@kjanat/dreamcli';
+
+cli('foo')
+  .envPrefix()
+  .command(
+    command('build')
+      .flag('api-token', flag.string().env()) // reads FOO_API_TOKEN
+      .flag('cacheDir', flag.string().env()) // reads FOO_CACHE_DIR
+      .flag('home', flag.string().env({ absolute: true })), // reads HOME
+  );
+```
+
+A builder does not know its name until it is registered, so the variable is
+derived when `.flag()` attaches it; one builder registered under two names
+reads two variables. A derived name is relative like a written one, and works
+without a namespace too: `.flag('api-token', flag.string().env())` alone reads
+`API_TOKEN`.
+
+A command tested on its own has no enclosing CLI, so pass the namespace it runs
+under: `runCommand(cmd, argv, { envPrefix: 'FOO_' })`. `readFlags()` takes the
+same option.
+
 ### Required vs Optional
 
 Presence is the last question the sources axis answers: what happens when the

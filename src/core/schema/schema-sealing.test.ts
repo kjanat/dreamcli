@@ -41,6 +41,8 @@ const spelledFlagFields: UnbrandedFlagSchema = {
 	stdin: undefined,
 	envVar: undefined,
 	envIndexed: undefined,
+	envAbsolute: false,
+	envFromName: false,
 	configPath: undefined,
 	description: undefined,
 	enumValues: undefined,
@@ -74,6 +76,8 @@ const spelledArgFields: UnbrandedArgSchema = {
 	description: undefined,
 	envVar: undefined,
 	envIndexed: undefined,
+	envAbsolute: false,
+	envFromName: false,
 	configPath: undefined,
 	prompt: undefined,
 	enumValues: undefined,
@@ -132,6 +136,7 @@ const spelledCLIFields: UnbrandedCLISchema = {
 	helpConfig: undefined,
 	flagSettings: undefined,
 	builtins: spelledBuiltinsFields,
+	envPrefix: undefined,
 };
 
 /**

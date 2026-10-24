@@ -18,6 +18,10 @@ const definitionMetaSchemaDescriptions = {
 			description: {
 				description: 'Program description (shown in root help).',
 			},
+			envPrefix: {
+				description:
+					"CLI-wide environment namespace prepended to every relative env binding\n(`undefined` when none is set). `.env('TOKEN')` reads `<envPrefix>TOKEN`;\na binding declared with `{ absolute: true }` is read as written.\n\nSet via the .envPrefix() builder method\nor the `envPrefix` field of CLIDefinition. Fixed when declared, so\nneither manifest name inference nor an inherited invocation name changes it.",
+			},
 			defaultCommand: {
 				description:
 					'Schema of the default command dispatched when no subcommand matches.\n\nWhen set, the CLI root behaves like a hybrid command group: subcommands\ndispatch by name as usual, but empty argv or flags-only argv falls\nthrough to this command instead of showing root help.\n\nSet via the .default() builder method\nor the `defaultCommand` field of CLIDefinition.',
@@ -66,6 +70,10 @@ const definitionMetaSchemaDescriptions = {
 				schemaVersion: {
 					description:
 						'Version of the definition document format emitted by `generateSchema()`\nand `generateCommandSchema()` from `@kjanat/dreamcli/json-schema`.',
+				},
+				envPrefix: {
+					description:
+						"CLI-wide environment namespace prepended to every relative env binding\n(`undefined` when none is set). `.env('TOKEN')` reads `<envPrefix>TOKEN`;\na binding declared with `{ absolute: true }` is read as written.\n\nSet via the .envPrefix() builder method\nor the `envPrefix` field of CLIDefinition. Fixed when declared, so\nneither manifest name inference nor an inherited invocation name changes it.",
 				},
 				name: {
 					description: 'The command name used for dispatch.',
@@ -120,6 +128,10 @@ const definitionMetaSchemaDescriptions = {
 				envIndexed: {
 					description:
 						'Indexed environment family read as the env source, set by `.env()` with an\nIndexedEnvBinding (`undefined` otherwise). A flag declares at most\none env source, so this and FlagSchema.envVar are never both set.',
+				},
+				envAbsolute: {
+					description:
+						'Whether the env source is read exactly as written, outside the CLI-wide\nnamespace set by `CLIBuilder.envPrefix()` (set by `.env(…, { absolute:\ntrue })`). Applies to FlagSchema.envVar and\nFlagSchema.envIndexed alike.\n\nDefault: `false`',
 				},
 				configPath: {
 					description: "Dotted config path for v0.2+ resolution (e.g. `'deploy.region'`).",
@@ -188,6 +200,10 @@ const definitionMetaSchemaDescriptions = {
 				envIndexed: {
 					description:
 						'Indexed environment family read as the env source, set by `.env()` with an\nIndexedEnvBinding (`undefined` otherwise). A flag declares at most\none env source, so this and FlagSchema.envVar are never both set.',
+				},
+				envAbsolute: {
+					description:
+						'Whether the env source is read exactly as written, outside the CLI-wide\nnamespace set by `CLIBuilder.envPrefix()` (set by `.env(…, { absolute:\ntrue })`). Applies to FlagSchema.envVar and\nFlagSchema.envIndexed alike.\n\nDefault: `false`',
 				},
 				configPath: {
 					description: "Dotted config path for v0.2+ resolution (e.g. `'deploy.region'`).",
@@ -310,6 +326,10 @@ const definitionMetaSchemaDescriptions = {
 				envIndexed: {
 					description:
 						'Indexed environment family read as the env source, set by `.env()` with an\nIndexedEnvBinding (`undefined` otherwise). An arg declares at most\none env source, so this and ArgSchema.envVar are never both set.',
+				},
+				envAbsolute: {
+					description:
+						'Whether the env source is read exactly as written, outside the CLI-wide\nnamespace set by `CLIBuilder.envPrefix()` (set by `.env(…, { absolute:\ntrue })`). Applies to ArgSchema.envVar and\nArgSchema.envIndexed alike.\n\nDefault: `false`',
 				},
 				configPath: {
 					description: "Dotted config path for config resolution (e.g. `'deploy.region'`).",

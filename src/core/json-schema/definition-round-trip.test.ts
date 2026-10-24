@@ -174,6 +174,7 @@ function cliDefinitionOf(document: DefinitionDocumentV1): CLIDefinition {
 		name: document.name,
 		...(document.version !== undefined ? { version: document.version } : {}),
 		...(document.description !== undefined ? { description: document.description } : {}),
+		...(document.envPrefix !== undefined ? { envPrefix: document.envPrefix } : {}),
 		...(document.defaultCommand !== undefined
 			? { defaultCommand: commandDefinitionOf(document.defaultCommand) }
 			: {}),
@@ -189,6 +190,7 @@ function maximalDefinition(): CLIDefinition {
 		name: 'maximal',
 		version: '4.0.0',
 		description: 'Every field a V1 document carries',
+		envPrefix: 'MAXIMAL_',
 		defaultCommand: {
 			name: 'root',
 			description: 'The default command',
@@ -284,6 +286,7 @@ function maximalDefinition(): CLIDefinition {
 							count: 'GIT_CONFIG_COUNT',
 							fields: { key: 'GIT_CONFIG_KEY_{index}', value: 'GIT_CONFIG_VALUE_{index}' },
 						},
+						envAbsolute: true,
 					},
 					confirmed: {
 						kind: 'boolean',
@@ -414,8 +417,9 @@ describe('a maximal definition document', () => {
 			]),
 		);
 		expect(new Set(Object.keys(flags.gitConfig ?? {}))).toEqual(
-			new Set(['kind', 'presence', 'envIndexed']),
+			new Set(['kind', 'presence', 'envIndexed', 'envAbsolute']),
 		);
+		expect(first.envPrefix).toBe('MAXIMAL_');
 		expect(flags.gitConfig?.envIndexed).toEqual({
 			count: 'GIT_CONFIG_COUNT',
 			fields: { key: 'GIT_CONFIG_KEY_{index}', value: 'GIT_CONFIG_VALUE_{index}' },

@@ -234,6 +234,193 @@ function normalizeIndexedEnvBinding(binding: IndexedEnvBinding): IndexedEnvBindi
 	});
 }
 
+/** Options accepted by `.env()` beside the variable name or indexed binding. */
+interface EnvOptions {
+	/**
+	 * Read the name exactly as written, ignoring the CLI-wide namespace set by
+	 * `CLIBuilder.envPrefix()`. Use it for variables the CLI does not own, such
+	 * as `HOME`, `CI`, or a credential another tool exports.
+	 *
+	 * @defaultValue `false` (the name is relative to the CLI namespace)
+	 */
+	readonly absolute?: boolean;
+}
+
+/**
+ * Turn a name into an environment-variable identifier, the one rule both a
+ * derived prefix and a derived variable name follow.
+ *
+ * CamelCase word boundaries become `_` first (`apiToken` → `api_Token`,
+ * `HTTPProxy` → `HTTP_Proxy`), then the text is uppercased, each run of
+ * characters outside `[A-Z0-9]` becomes one `_`, and leading and trailing
+ * separators are dropped.
+ *
+ * @param name - The name to convert.
+ * @returns The identifier, or `''` when no letter or digit survives.
+ */
+function envIdentifier(name: string): string {
+	return name
+		.replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+		.replace(/([A-Z]+)([A-Z][a-z])/g, '$1_$2')
+		.toUpperCase()
+		.replace(/[^A-Z0-9]+/g, '_')
+		.replace(/^_+|_+$/g, '');
+}
+
+/**
+ * Derive a CLI environment namespace from a declared CLI name.
+ *
+ * The name becomes an identifier under the same rule as a derived variable
+ * name, then `_` is appended: `foo` → `FOO_`, `foo-bar`, `foo.bar`, and
+ * `fooBar` → `FOO_BAR_`, `my cool cli` → `MY_COOL_CLI_`.
+ *
+ * @param name - The declared CLI name.
+ * @returns The derived prefix.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` when no letter or digit survives.
+ * @internal
+ */
+function deriveEnvPrefix(name: string): string {
+	const core = envIdentifier(name);
+	if (core === '') {
+		throw new CLIError(`Cannot derive an env prefix from the CLI name '${name}'`, {
+			code: 'INVALID_SCHEMA',
+			details: { field: 'envPrefix', name },
+			suggest: "Pass the prefix explicitly, such as .envPrefix('ACME_')",
+		});
+	}
+	return `${core}_`;
+}
+
+/**
+ * Whether `.env()` received an indexed binding rather than options.
+ *
+ * Any object carrying `count`, `value`, or `fields` is read as a binding, so a
+ * malformed one still reaches {@link normalizeIndexedEnvBinding} and fails
+ * there instead of being mistaken for a derived name.
+ *
+ * @param value - The first argument `.env()` received, when not a string.
+ * @returns `true` when the argument describes an indexed family.
+ * @internal
+ */
+function isIndexedEnvBinding(
+	value: IndexedEnvBinding | EnvOptions | undefined,
+): value is IndexedEnvBinding {
+	return (
+		typeof value === 'object' &&
+		value !== null &&
+		(Object.hasOwn(value, 'count') ||
+			Object.hasOwn(value, 'value') ||
+			Object.hasOwn(value, 'fields'))
+	);
+}
+
+/**
+ * Derive the environment variable an input reads from its own name, for
+ * `.env()` called without one.
+ *
+ * Word boundaries in camelCase become `_` first, so the two spellings
+ * spelling parity treats as one flag derive one variable: `api-token` and
+ * `apiToken` both read `API_TOKEN`, and `HTTPProxy` reads `HTTP_PROXY`. Then
+ * the name is uppercased, each run of characters outside `[A-Z0-9]` becomes
+ * one `_`, and leading and trailing separators are dropped. The result is
+ * logical, so a CLI namespace still applies unless the binding is absolute.
+ *
+ * @param name - The flag or arg name the input is registered under.
+ * @returns The derived variable name.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` when no letter or digit survives.
+ * @internal
+ */
+function deriveEnvName(name: string): string {
+	const derived = envIdentifier(name);
+	if (derived === '') {
+		throw new CLIError(`Cannot derive an env variable name from the input name '${name}'`, {
+			code: 'INVALID_SCHEMA',
+			details: { field: 'envFromName', name },
+			suggest: "Name the variable explicitly, such as .env('TOKEN')",
+		});
+	}
+	return derived;
+}
+
+/**
+ * Validate an explicit CLI environment namespace.
+ *
+ * The prefix is used verbatim, separator included, so `'ACME_'` turns `TOKEN`
+ * into `ACME_TOKEN` and `'ACME'` into `ACMETOKEN`. It must be non-empty and
+ * carry no `=`, NUL, or brace, since it is prepended to indexed templates too.
+ *
+ * @param prefix - The prefix a caller declared.
+ * @returns The same prefix.
+ * @throws {CLIError} With code `'INVALID_SCHEMA'` on an unusable prefix.
+ * @internal
+ */
+function normalizeEnvPrefix(prefix: string): string {
+	const fault =
+		typeof prefix !== 'string' || prefix.length === 0
+			? 'must be a non-empty string'
+			: /[={}\0]/.test(prefix)
+				? "must not contain '=', braces, or NUL"
+				: undefined;
+	if (fault !== undefined) {
+		throw new CLIError(`Env prefix ${fault}`, {
+			code: 'INVALID_SCHEMA',
+			details: { field: 'envPrefix' },
+			suggest: "Use a prefix such as 'ACME_', or call .envPrefix() to derive one from the CLI name",
+		});
+	}
+	return prefix;
+}
+
+/**
+ * The concrete variable name an env binding reads.
+ *
+ * A relative name takes the CLI namespace; an absolute one, or any name when
+ * no namespace is set, is read as written. This is the one place a logical
+ * name becomes a concrete one.
+ *
+ * @param name - The logical name a schema declares.
+ * @param prefix - The CLI namespace, or `undefined` when none applies.
+ * @param absolute - Whether the binding opted out of the namespace.
+ * @returns The concrete variable name.
+ * @internal
+ */
+function effectiveEnvName(name: string, prefix: string | undefined, absolute: boolean): string {
+	return absolute || prefix === undefined ? name : `${prefix}${name}`;
+}
+
+/**
+ * The concrete form of an indexed binding: the namespace applied to the count
+ * and to every member template.
+ *
+ * A prefix carries no braces, so prefixing before expansion names the same
+ * variables as expanding first and prefixing after.
+ *
+ * @param binding - A normalized indexed binding with logical names.
+ * @param prefix - The CLI namespace, or `undefined` when none applies.
+ * @param absolute - Whether the binding opted out of the namespace.
+ * @returns The binding with concrete names, or the same binding when none change.
+ * @internal
+ */
+function effectiveIndexedEnvBinding(
+	binding: IndexedEnvBinding,
+	prefix: string | undefined,
+	absolute: boolean,
+): IndexedEnvBinding {
+	if (absolute || prefix === undefined) return binding;
+	const count = `${prefix}${binding.count}`;
+	return binding.fields === undefined
+		? { count, value: `${prefix}${binding.value}` }
+		: {
+				count,
+				fields: Object.fromEntries(
+					Object.entries(binding.fields).map(([field, template]) => [
+						field,
+						`${prefix}${template}`,
+					]),
+				),
+			};
+}
+
 /**
  * Expand a member template for one entry.
  *
@@ -276,12 +463,18 @@ function formatIndexedEnvBinding(binding: IndexedEnvBinding): string {
 	return `${templates.join(' + ')}, count: ${binding.count}`;
 }
 
-export type { IndexedEnvBinding, IndexedRecordEnvBinding, IndexedValueEnvBinding };
+export type { EnvOptions, IndexedEnvBinding, IndexedRecordEnvBinding, IndexedValueEnvBinding };
 export {
+	deriveEnvName,
+	deriveEnvPrefix,
 	ENV_INDEX_PLACEHOLDER,
+	effectiveEnvName,
+	effectiveIndexedEnvBinding,
 	expandEnvTemplate,
 	formatIndexedEnvBinding,
 	indexedEnvMembers,
+	isIndexedEnvBinding,
 	MAX_INDEXED_ENV_COUNT,
+	normalizeEnvPrefix,
 	normalizeIndexedEnvBinding,
 };

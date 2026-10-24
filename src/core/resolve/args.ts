@@ -11,12 +11,20 @@ import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import { resolvePromptConfig } from '#internals/core/prompt/index.ts';
 import { argCardinality, dedupe } from '#internals/core/schema/cardinality.ts';
 import type { ArgSchema, CommandArgEntry, PromptKind } from '#internals/core/schema/index.ts';
-import type { PromptSourceBinding, SourceBinding } from '#internals/core/schema/source.ts';
-import { argCollectedNothing, sourceBindings } from '#internals/core/schema/source.ts';
+import type {
+	EnvSourceBinding,
+	PromptSourceBinding,
+	SourceBinding,
+} from '#internals/core/schema/source.ts';
+import {
+	argCollectedNothing,
+	envBindingOf,
+	sourceBindings,
+} from '#internals/core/schema/source.ts';
 import { argValueSchema, valueEnumValues } from '#internals/core/schema/value.ts';
 import { coerceArgValue, coerceIndexedArgValue, finishCliArgValue } from './coerce.ts';
 import type { DeprecationWarning, ResolutionProvenance, SkippedPathCheck } from './contracts.ts';
-import { isNonEmpty, throwAggregatedErrors } from './errors.ts';
+import { isNonEmpty, requiredEnvSuggestion, throwAggregatedErrors } from './errors.ts';
 import { COMPATIBLE_PROMPT_KINDS, promptCompatibilityError } from './flags.ts';
 import type { MkdirFn, StatFn } from './path-checks.ts';
 import { checkResolvedPath } from './path-checks.ts';
@@ -39,6 +47,8 @@ interface ArgResolutionOptions {
 	readonly stat: StatFn | undefined;
 	/** Directory creation for `arg.path()` `create` checks. */
 	readonly mkdir: MkdirFn | undefined;
+	/** CLI env namespace applied to relative env bindings, or `undefined`. */
+	readonly envPrefix: string | undefined;
 	/** Collector for `arg.path()` checks that could not run. */
 	readonly skippedPathChecks: SkippedPathCheck[];
 	/** Receiver for the stage that produced each resolved arg. */
@@ -70,7 +80,8 @@ async function resolveArgs(
 	};
 
 	for (const { name, schema } of argEntries) {
-		const bindings = sourceBindings(schema);
+		const bindings = sourceBindings(schema, options.envPrefix);
+		const env = envBindingOf(bindings);
 		const outcome = await runStages(
 			bindings,
 			stageInput(name, schema, parsedArgs, bindings, options.prompter),
@@ -98,7 +109,7 @@ async function resolveArgs(
 					new ValidationError(`Missing required argument <${name}>`, {
 						code: 'REQUIRED_ARG',
 						details: { arg: name, ...(schema.variadic ? { variadic: true } : {}) },
-						suggest: buildRequiredArgSuggest(name, schema, schema.variadic),
+						suggest: buildRequiredArgSuggest(name, schema, env, schema.variadic),
 					}),
 				);
 				continue;
@@ -113,7 +124,7 @@ async function resolveArgs(
 				new ValidationError(`Missing required argument <${name}>`, {
 					code: 'REQUIRED_ARG',
 					details: { arg: name },
-					suggest: buildRequiredArgSuggest(name, schema),
+					suggest: buildRequiredArgSuggest(name, schema, env),
 				}),
 			);
 			continue;
@@ -267,7 +278,12 @@ async function resolveArgPromptValue(
 	);
 }
 
-function buildRequiredArgSuggest(name: string, schema: ArgSchema, variadic?: boolean): string {
+function buildRequiredArgSuggest(
+	name: string,
+	schema: ArgSchema,
+	env: EnvSourceBinding | undefined,
+	variadic?: boolean,
+): string {
 	const sources: [string, ...string[]] = [
 		variadic ? `Provide at least one value for <${name}>` : `Provide a value for <${name}>`,
 	];
@@ -283,10 +299,8 @@ function buildRequiredArgSuggest(name: string, schema: ArgSchema, variadic?: boo
 		);
 	}
 
-	if (schema.envVar !== undefined) {
-		sources.push(`set ${schema.envVar}`);
-	} else if (schema.envIndexed !== undefined) {
-		sources.push(`set ${schema.envIndexed.count} and its entries`);
+	if (env !== undefined) {
+		sources.push(requiredEnvSuggestion(env));
 	}
 
 	if (schema.configPath !== undefined) {

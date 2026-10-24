@@ -219,3 +219,11 @@ probe is **recorded**, not dropped: `ResolveResult.skippedPathChecks` (and `RunR
 `create` found no `mkdir` for a missing path (`missing: 'mkdir'`). `ResolveOptions.pathChecks:
 'strict'` throws a `CLIError` (`PATH_CHECK_SKIPPED`, exit 1) ahead of the aggregated validation
 errors. The code is deliberately outside the closed `ValidationErrorCode` union.
+
+## ENV NAMESPACE
+
+`ResolveOptions.envPrefix` (validated by `normalizeEnvPrefix()` in `resolve()`) is threaded to
+`sourceBindings(schema, envPrefix)`, the single place logical env names become concrete via
+`effectiveEnvName()` / `effectiveIndexedEnvBinding()` in `schema/env-binding.ts`. A schema with
+`envAbsolute` keeps its names. Everything downstream (stages, diagnostics, required suggestions,
+provenance) only ever sees concrete names. The CLI sets the option from `CLISchema.envPrefix`.

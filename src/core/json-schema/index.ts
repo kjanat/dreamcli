@@ -78,12 +78,25 @@ interface JsonSchemaOptions {
 	 * @defaultValue `true`
 	 */
 	readonly includePrompts?: boolean;
+
+	/**
+	 * CLI-wide env namespace recorded on the document, so a reader can tell
+	 * `envVar: 'TOKEN'` that reads `FOO_TOKEN` from one that reads `TOKEN`.
+	 *
+	 * {@link generateSchema} defaults it to the CLI schema's own `envPrefix`.
+	 * {@link generateCommandSchema} has no CLI to read it from, so pass the
+	 * namespace the command runs under; `--help --json` does this itself.
+	 *
+	 * @defaultValue the CLI's `envPrefix` for {@link generateSchema}, none otherwise
+	 */
+	readonly envPrefix?: string;
 }
 
 /** Internal resolved options with defaults applied. */
 interface ResolvedOptions {
 	readonly includeHidden: boolean;
 	readonly includePrompts: boolean;
+	readonly envPrefix: string | undefined;
 }
 
 /**
@@ -99,8 +112,16 @@ type FragmentProperties<T> = Record<FragmentKey<T>, Record<string, unknown>>;
 /** Every key a fragment can carry, across the members of a union. */
 type FragmentKey<T> = T extends unknown ? keyof T : never;
 
-/** Fields carrying a runtime function, which no document can hold. */
-type UnserializableField = typeof schemaBrand | 'parseFn' | 'standard' | 'aggregateStandard';
+/**
+ * Fields no document holds: those carrying a runtime function, and
+ * `envFromName`, which registration on a command resolves into `envVar`.
+ */
+type UnserializableField =
+	| typeof schemaBrand
+	| 'parseFn'
+	| 'standard'
+	| 'aggregateStandard'
+	| 'envFromName';
 
 /** Flag fields that survive definition serialization. */
 type SerializedFlagField = Exclude<keyof FlagSchema, UnserializableField>;
@@ -118,6 +139,7 @@ function resolveOptions(options: JsonSchemaOptions | undefined): ResolvedOptions
 	return {
 		includeHidden: options?.includeHidden ?? true,
 		includePrompts: options?.includePrompts ?? true,
+		envPrefix: options?.envPrefix,
 	};
 }
 
@@ -247,6 +269,7 @@ type FlagElementFragmentV1 = {
 	readonly stdin?: StdinBindingFragmentV1;
 	readonly envVar?: string;
 	readonly envIndexed?: EnvIndexedFragmentV1;
+	readonly envAbsolute?: true;
 	readonly configPath?: string;
 	readonly description?: string;
 	readonly enumValues?: readonly string[];
@@ -312,6 +335,7 @@ type ArgDefinitionFragmentV1 = {
 	readonly description?: string;
 	readonly envVar?: string;
 	readonly envIndexed?: EnvIndexedFragmentV1;
+	readonly envAbsolute?: true;
 	readonly configPath?: string;
 	readonly enumValues?: readonly string[];
 	readonly elementSchema?: ArgElementFragmentV1;
@@ -367,6 +391,12 @@ type DefinitionDocumentV1 = {
 	readonly name: string;
 	readonly version?: string;
 	readonly description?: string;
+	/**
+	 * CLI-wide env namespace. Each relative `envVar`, and each count and
+	 * template of a relative `envIndexed`, reads with this prefix prepended; a
+	 * fragment marked `envAbsolute` reads its names as written.
+	 */
+	readonly envPrefix?: string;
 	readonly defaultCommand?: CommandDefinitionFragmentV1;
 	readonly commands: readonly CommandDefinitionFragmentV1[];
 };
@@ -381,6 +411,11 @@ type DefinitionDocumentV1 = {
 type CommandDefinitionDocumentV1 = CommandDefinitionFragmentV1 & {
 	/** Definition document format version. */
 	readonly schemaVersion: 1;
+	/**
+	 * CLI-wide env namespace the command runs under, read the same way as
+	 * {@link DefinitionDocumentV1.envPrefix}.
+	 */
+	readonly envPrefix?: string;
 };
 
 /** The current whole-CLI definition document. */
@@ -443,6 +478,7 @@ function generateSchema(
 	meta?: ExampleMeta,
 ): DefinitionDocumentV1 {
 	const opts = resolveOptions(options);
+	const envPrefix = opts.envPrefix ?? schema.envPrefix;
 	const resolvedMeta: ExampleMeta = meta ?? { name: schema.name, version: schema.version };
 
 	// Full definition, not just the name — the default command lives only in
@@ -461,6 +497,7 @@ function generateSchema(
 		...(schema.description !== undefined
 			? { description: resolvePlainHelpDescription(schema.description) }
 			: {}),
+		...(envPrefix !== undefined ? { envPrefix } : {}),
 		...(defaultCommand !== undefined ? { defaultCommand } : {}),
 		commands: schema.commands
 			.filter((cmd) => opts.includeHidden || !cmd.hidden)
@@ -493,9 +530,11 @@ function generateCommandSchema(
 	meta?: ExampleMeta,
 ): CommandDefinitionDocumentV1 {
 	const resolvedMeta: ExampleMeta = meta ?? { name: schema.name, version: undefined };
+	const opts = resolveOptions(options);
 	return {
 		schemaVersion: DEFINITION_SCHEMA_VERSION,
-		...serializeCommand(schema, resolveOptions(options), resolvedMeta),
+		...(opts.envPrefix !== undefined ? { envPrefix: opts.envPrefix } : {}),
+		...serializeCommand(schema, opts, resolvedMeta),
 	};
 }
 
@@ -573,6 +612,7 @@ function serializeFlag(
 		...(schema.envIndexed !== undefined
 			? { envIndexed: serializeEnvIndexed(schema.envIndexed) }
 			: {}),
+		...(schema.envAbsolute ? { envAbsolute: true } : {}),
 		...(schema.configPath !== undefined ? { configPath: schema.configPath } : {}),
 		...(schema.description !== undefined
 			? { description: resolvePlainHelpDescription(schema.description) }
@@ -702,6 +742,7 @@ function serializeArgValue(schema: ArgSchema, opts: ResolvedOptions): ArgValueFr
 		...(schema.envIndexed !== undefined
 			? { envIndexed: serializeEnvIndexed(schema.envIndexed) }
 			: {}),
+		...(schema.envAbsolute ? { envAbsolute: true } : {}),
 		...(schema.configPath !== undefined ? { configPath: schema.configPath } : {}),
 		...(schema.enumValues !== undefined ? { enumValues: [...schema.enumValues] } : {}),
 		...(schema.elementSchema !== undefined
@@ -1327,6 +1368,9 @@ function withDefinitionMetaSchemaDescriptions(
 	};
 }
 
+/** The `envPrefix` property schema shared by both standalone document roots. */
+const ENV_PREFIX_PROPERTY = { type: 'string', minLength: 1, not: { pattern: '[={}]' } } as const;
+
 /**
  * Command-fragment property schemas shared by the nested `command` def and
  * the standalone `commandDocument` def, so the two cannot drift.
@@ -1356,6 +1400,7 @@ const argValueFragmentProperties = {
 	description: { type: 'string' },
 	envVar: { type: 'string' },
 	envIndexed: { $ref: '#/$defs/envIndexed' },
+	envAbsolute: { const: true },
 	configPath: { type: 'string' },
 	enumValues: { type: 'array', items: { type: 'string' } },
 	elementSchema: { $ref: '#/$defs/argElement' },
@@ -1394,6 +1439,7 @@ const flagElementFragmentProperties = {
 	stdin: { $ref: '#/$defs/stdin' },
 	envVar: { type: 'string' },
 	envIndexed: { $ref: '#/$defs/envIndexed' },
+	envAbsolute: { const: true },
 	configPath: { type: 'string' },
 	description: { type: 'string' },
 	enumValues: { type: 'array', items: { type: 'string' } },
@@ -1453,6 +1499,7 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 			name: { type: 'string' },
 			version: { type: 'string' },
 			description: { type: 'string' },
+			envPrefix: ENV_PREFIX_PROPERTY,
 			defaultCommand: { $ref: '#/$defs/command' },
 			commands: { type: 'array', items: { $ref: '#/$defs/command' } },
 		} satisfies FragmentProperties<DefinitionDocumentV1>,
@@ -1469,6 +1516,7 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 				additionalProperties: false,
 				properties: {
 					schemaVersion: { const: DEFINITION_SCHEMA_VERSION },
+					envPrefix: ENV_PREFIX_PROPERTY,
 					...commandFragmentProperties,
 				},
 				required: ['schemaVersion', 'name', 'flags', 'args', 'commands'],
@@ -1479,12 +1527,16 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 				properties: flagFragmentProperties,
 				required: ['kind', 'presence'],
 				not: { required: ['envVar', 'envIndexed'] },
+				dependentSchemas: { envAbsolute: { $ref: '#/$defs/envBound' } },
 			},
 			flagElement: {
 				type: 'object',
 				additionalProperties: false,
 				properties: flagElementFragmentProperties,
 				required: ['kind', 'presence'],
+			},
+			envBound: {
+				anyOf: [{ required: ['envVar'] }, { required: ['envIndexed'] }],
 			},
 			envIndexed: {
 				type: 'object',
@@ -1613,6 +1665,7 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 					{ properties: { kind: { const: 'keyValue' } }, required: ['kind'] },
 				],
 				not: { required: ['envVar', 'envIndexed'] },
+				dependentSchemas: { envAbsolute: { $ref: '#/$defs/envBound' } },
 			},
 			prompt: {
 				type: 'object',

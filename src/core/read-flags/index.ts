@@ -321,7 +321,13 @@ async function readFlags<const F extends FlagMap>(
 		!lookup.has('h') &&
 		requestsHelp(argv)
 	) {
-		host().stdout(formatHelp(schema, { binName: scriptName(host()), isDefaultHelp: true }));
+		host().stdout(
+			formatHelp(schema, {
+				binName: scriptName(host()),
+				isDefaultHelp: true,
+				...(options?.envPrefix !== undefined ? { envPrefix: options.envPrefix } : {}),
+			}),
+		);
 		await exitAfterFlush(host(), 0);
 	}
 
@@ -343,6 +349,7 @@ async function readFlags<const F extends FlagMap>(
 		env: options?.env ?? host().env,
 		stat: options?.stat ?? ((path: string) => host().stat(path)),
 		mkdir: options?.mkdir ?? ((path: string) => host().mkdir(path)),
+		...(options?.envPrefix !== undefined ? { envPrefix: options.envPrefix } : {}),
 		...(options?.config !== undefined ? { config: options.config } : {}),
 		...(options?.prompter !== undefined ? { prompter: options.prompter } : {}),
 		...(stdinData !== undefined ? { stdinData } : {}),

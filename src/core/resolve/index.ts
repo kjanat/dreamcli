@@ -16,6 +16,7 @@
 
 import { isValidationError, type ValidationError } from '#internals/core/errors/index.ts';
 import type { ParseResult } from '#internals/core/parse/index.ts';
+import { normalizeEnvPrefix } from '#internals/core/schema/env-binding.ts';
 import type { CommandSchema } from '#internals/core/schema/index.ts';
 import { resolveArgs } from './args.ts';
 import type {
@@ -62,6 +63,8 @@ import { applyStandardValidators } from './standard.ts';
  * @returns Fully resolved flag and arg values
  * @throws {@linkcode ValidationError} if any required flag or arg is missing,
  *   or if an env/config value fails coercion
+ * @throws {@linkcode CLIError} with code `'INVALID_SCHEMA'` when
+ *   {@linkcode ResolveOptions.envPrefix} is empty or carries `=`, a brace, or NUL
  * @throws {@linkcode CLIError} with code `'PATH_CHECK_SKIPPED'` when
  *   `pathChecks: 'strict'` and a declared filesystem check could not run
  *
@@ -91,6 +94,7 @@ async function resolve(
 		deprecations,
 		stat: options?.stat,
 		mkdir: options?.mkdir,
+		envPrefix: options?.envPrefix === undefined ? undefined : normalizeEnvPrefix(options.envPrefix),
 		skippedPathChecks,
 	};
 	let flags: Readonly<Record<string, unknown>> = {};

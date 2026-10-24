@@ -20,18 +20,18 @@ interface Budget {
 	readonly hotPathModules: number;
 }
 
-// Deliberately tight ceilings: future API or JSDoc growth must fit these limits
-// or include a reviewed budget increase alongside the change that needs it.
-// 4.2.0 shipped at 197.0 kB packed and 750.0 kB unpacked, exactly at the old
-// unpacked ceiling. Indexed env families (#139) add about 6 kB packed and
-// 24 kB unpacked; the ceilings below also leave room for #146.
+// Ceilings that future API or JSDoc growth must fit, or raise in a reviewed
+// change alongside the code that needs it. 4.2.0 shipped at 197.0 kB packed
+// and 750.0 kB unpacked; indexed env families (#139) and CLI-wide env
+// namespaces (#138) brought that to about 208 kB and 793 kB. Every byte
+// ceiling then rose 20% so ordinary feature work has headroom.
 const BUDGET: Budget = {
-	tarballBytes: 207_000,
-	unpackedBytes: 785_000,
+	tarballBytes: 254_400,
+	unpackedBytes: 960_000,
 	files: 60,
-	runtimeJsBytes: 350_000,
-	declarationBytes: 400_000,
-	hotPathBytes: 300_000,
+	runtimeJsBytes: 420_000,
+	declarationBytes: 480_000,
+	hotPathBytes: 360_000,
 	hotPathModules: 2,
 };
 

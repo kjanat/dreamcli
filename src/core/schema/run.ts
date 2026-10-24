@@ -124,6 +124,18 @@ export interface RunOptions {
 	readonly pathChecks?: 'lenient' | 'strict';
 
 	/**
+	 * Environment namespace prepended to every relative `.env()` binding, the
+	 * same way `CLIBuilder.envPrefix()` applies one CLI-wide.
+	 *
+	 * `.execute()` and `.run()` default it to the CLI's own prefix, and a value
+	 * here wins. Pass it to `runCommand()` to test a command under the namespace
+	 * its CLI declares; without it a command reads its env names as written.
+	 *
+	 * @defaultValue `undefined` (no namespace)
+	 */
+	readonly envPrefix?: string;
+
+	/**
 	 * Verbosity level for the output channel.
 	 * @defaultValue `'normal'`
 	 */

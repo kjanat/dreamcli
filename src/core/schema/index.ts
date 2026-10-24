@@ -72,6 +72,7 @@ export {
 	resolveExampleCommand,
 } from './command.ts';
 export type {
+	EnvOptions,
 	IndexedEnvBinding,
 	IndexedRecordEnvBinding,
 	IndexedValueEnvBinding,
