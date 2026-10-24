@@ -628,15 +628,18 @@ Every `.env()` name is relative to the namespace unless declared with
 `NO_COLOR`, or a credential another tool exports. Without `.envPrefix()`, every
 name is read exactly as written, as before.
 
-The derived prefix uppercases the name, collapses each run of characters
-outside `[A-Z0-9]` into one `_`, drops leading and trailing separators, and
-appends `_`:
+The derived prefix turns camelCase word boundaries and each run of characters
+outside `[A-Za-z0-9]` into one `_`, uppercases the result, drops leading and
+trailing separators, and appends `_`. It is the same rule a name-derived
+`.env()` follows, so a CLI and its flags spell words the same way:
 
 | CLI name      | Prefix         |
 | ------------- | -------------- |
 | `foo`         | `FOO_`         |
 | `foo-bar`     | `FOO_BAR_`     |
 | `foo.bar`     | `FOO_BAR_`     |
+| `fooBar`      | `FOO_BAR_`     |
+| `HTTPServer`  | `HTTP_SERVER_` |
 | `my cool cli` | `MY_COOL_CLI_` |
 
 An explicit prefix is used verbatim, so `.envPrefix('ACME')` reads `ACMETOKEN`.

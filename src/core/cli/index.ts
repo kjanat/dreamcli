@@ -1098,9 +1098,11 @@ class CLIBuilder {
 	 * Namespace every relative env binding under one CLI-wide prefix.
 	 *
 	 * With no argument the prefix is derived from the name passed to `cli()`:
-	 * uppercased, each run of characters outside `[A-Z0-9]` collapsed to `_`,
-	 * leading and trailing separators dropped, and `_` appended (`foo-bar` →
-	 * `FOO_BAR_`). An explicit prefix is used verbatim. Either way it is fixed
+	 * camelCase word boundaries and each run of characters outside
+	 * `[A-Za-z0-9]` become `_`, the result is uppercased with leading and
+	 * trailing separators dropped, and `_` is appended (`foo-bar` and `fooBar`
+	 * → `FOO_BAR_`). This is the rule a name-derived `.env()` follows, minus
+	 * the trailing `_`. An explicit prefix is used verbatim. Either way it is fixed
 	 * here, so a manifest-inferred name or an inherited invocation name (a
 	 * symlink, an alias, `npx`) never changes the environment API.
 	 *

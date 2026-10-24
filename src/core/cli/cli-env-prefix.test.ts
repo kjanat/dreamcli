@@ -70,8 +70,18 @@ describe('deriveEnvPrefix()', () => {
 		['--foo--bar--', 'FOO_BAR_'],
 		['9lives', '9LIVES_'],
 		['café', 'CAF_'],
+		['fooBar', 'FOO_BAR_'],
+		['myCoolCli', 'MY_COOL_CLI_'],
+		['HTTPServer', 'HTTP_SERVER_'],
+		['v2Api', 'V2_API_'],
 	])('derives %j as %j', (name, prefix) => {
 		expect(deriveEnvPrefix(name)).toBe(prefix);
+	});
+
+	it('splits words the way a name-derived env binding does', () => {
+		for (const name of ['fooBar', 'foo-bar', 'HTTPServer', 'my cool cli']) {
+			expect(deriveEnvPrefix(name)).toBe(`${deriveEnvName(name)}_`);
+		}
 	});
 
 	it('rejects a name with no letter or digit', () => {
@@ -86,6 +96,7 @@ describe('deriveEnvPrefix()', () => {
 describe('CLIBuilder.envPrefix()', () => {
 	it('derives the namespace from the declared CLI name', () => {
 		expect(cli('foo-bar').envPrefix().schema.envPrefix).toBe('FOO_BAR_');
+		expect(cli('fooBar').envPrefix().schema.envPrefix).toBe('FOO_BAR_');
 	});
 
 	it('uses an explicit prefix verbatim', () => {

@@ -247,12 +247,32 @@ interface EnvOptions {
 }
 
 /**
+ * Turn a name into an environment-variable identifier, the one rule both a
+ * derived prefix and a derived variable name follow.
+ *
+ * CamelCase word boundaries become `_` first (`apiToken` → `api_Token`,
+ * `HTTPProxy` → `HTTP_Proxy`), then the text is uppercased, each run of
+ * characters outside `[A-Z0-9]` becomes one `_`, and leading and trailing
+ * separators are dropped.
+ *
+ * @param name - The name to convert.
+ * @returns The identifier, or `''` when no letter or digit survives.
+ */
+function envIdentifier(name: string): string {
+	return name
+		.replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+		.replace(/([A-Z]+)([A-Z][a-z])/g, '$1_$2')
+		.toUpperCase()
+		.replace(/[^A-Z0-9]+/g, '_')
+		.replace(/^_+|_+$/g, '');
+}
+
+/**
  * Derive a CLI environment namespace from a declared CLI name.
  *
- * The name is uppercased, every run of characters outside `[A-Z0-9]` becomes
- * one `_`, leading and trailing separators are dropped, and `_` is appended:
- * `foo` → `FOO_`, `foo-bar` and `foo.bar` → `FOO_BAR_`, `my cool cli` →
- * `MY_COOL_CLI_`.
+ * The name becomes an identifier under the same rule as a derived variable
+ * name, then `_` is appended: `foo` → `FOO_`, `foo-bar`, `foo.bar`, and
+ * `fooBar` → `FOO_BAR_`, `my cool cli` → `MY_COOL_CLI_`.
  *
  * @param name - The declared CLI name.
  * @returns The derived prefix.
@@ -260,10 +280,7 @@ interface EnvOptions {
  * @internal
  */
 function deriveEnvPrefix(name: string): string {
-	const core = name
-		.toUpperCase()
-		.replace(/[^A-Z0-9]+/g, '_')
-		.replace(/^_+|_+$/g, '');
+	const core = envIdentifier(name);
 	if (core === '') {
 		throw new CLIError(`Cannot derive an env prefix from the CLI name '${name}'`, {
 			code: 'INVALID_SCHEMA',
@@ -314,12 +331,7 @@ function isIndexedEnvBinding(
  * @internal
  */
 function deriveEnvName(name: string): string {
-	const derived = name
-		.replace(/([a-z0-9])([A-Z])/g, '$1_$2')
-		.replace(/([A-Z]+)([A-Z][a-z])/g, '$1_$2')
-		.toUpperCase()
-		.replace(/[^A-Z0-9]+/g, '_')
-		.replace(/^_+|_+$/g, '');
+	const derived = envIdentifier(name);
 	if (derived === '') {
 		throw new CLIError(`Cannot derive an env variable name from the input name '${name}'`, {
 			code: 'INVALID_SCHEMA',
