@@ -109,7 +109,7 @@ async function resolveArgs(
 					new ValidationError(`Missing required argument <${name}>`, {
 						code: 'REQUIRED_ARG',
 						details: { arg: name, ...(schema.variadic ? { variadic: true } : {}) },
-						suggest: buildRequiredArgSuggest(name, schema, env, schema.variadic),
+						suggest: buildRequiredArgSuggest(name, schema, env, options.env, schema.variadic),
 					}),
 				);
 				continue;
@@ -124,7 +124,7 @@ async function resolveArgs(
 				new ValidationError(`Missing required argument <${name}>`, {
 					code: 'REQUIRED_ARG',
 					details: { arg: name },
-					suggest: buildRequiredArgSuggest(name, schema, env),
+					suggest: buildRequiredArgSuggest(name, schema, env, options.env),
 				}),
 			);
 			continue;
@@ -282,6 +282,7 @@ function buildRequiredArgSuggest(
 	name: string,
 	schema: ArgSchema,
 	env: EnvSourceBinding | undefined,
+	snapshot: Readonly<Record<string, string | undefined>>,
 	variadic?: boolean,
 ): string {
 	const sources: [string, ...string[]] = [
@@ -300,7 +301,7 @@ function buildRequiredArgSuggest(
 	}
 
 	if (env !== undefined) {
-		sources.push(requiredEnvSuggestion(env));
+		sources.push(requiredEnvSuggestion(env, snapshot));
 	}
 
 	if (schema.configPath !== undefined) {

@@ -7,9 +7,12 @@
  * Deno requires explicit permissions for some operations. The adapter
  * handles missing permissions gracefully:
  *
- * - **`--allow-env`**: needed for `Deno.env.toObject()`. Without it,
- *   the adapter falls back to an empty env (flags using env sources
- *   simply won't resolve from env).
+ * - **`--allow-env`**: a full grant snapshots the whole environment. A scoped
+ *   grant (`--allow-env=WASM_PATH`) reads each granted variable on demand,
+ *   and no grant reads none; variables without a grant resolve as unset
+ *   (inputs bound to them fall through to later sources). The adapter
+ *   queries permission state first, so it never triggers a permission
+ *   prompt.
  * - **`--allow-read`**: needed for `Deno.readTextFile()`. Without it,
  *   `readFile` returns `null` (same as file-not-found).
  *
@@ -20,6 +23,8 @@
  */
 
 import type { WriteFn } from '#internals/core/output/index.ts';
+import type { EnvAccessHint } from '#internals/core/resolve/env-access.ts';
+import { ENV_ACCESS_HINT } from '#internals/core/resolve/env-access.ts';
 import type { RuntimeAdapter, TerminalSize } from './adapter.ts';
 import { createInputReader } from './input.ts';
 import { resolveConfigDirectory, resolveHomeDirectory } from './paths.ts';
@@ -32,9 +37,9 @@ import { resolveConfigDirectory, resolveHomeDirectory } from './paths.ts';
  * We avoid `@types/deno` to keep the core runtime-agnostic at the type level.
  * This interface declares only what `createDenoAdapter` actually reads.
  *
- * The `env` property is optional because it requires `--allow-env` permission.
- * When permission is denied, the adapter catches the error and falls back to
- * an empty env object.
+ * Reading `env` requires `--allow-env` permission. The adapter checks
+ * `permissions` before reading, so a missing or scoped grant leaves the
+ * ungranted variables unset instead of failing or prompting.
  */
 interface DenoNamespace {
 	/** Build target metadata (OS detection). */
@@ -56,6 +61,14 @@ interface DenoNamespace {
 	};
 	/** Raw command-line args (excludes the binary/script — Deno pre-strips them). */
 	readonly args: readonly string[];
+
+	/** Permission state queries; read without prompting the user. */
+	readonly permissions?: {
+		/** Query one permission's state synchronously. */
+		querySync?(descriptor: { readonly name: 'env'; readonly variable?: string }): {
+			readonly state: 'granted' | 'denied' | 'prompt';
+		};
+	};
 
 	/** Environment variable access (requires `--allow-env`). */
 	readonly env: {
@@ -129,18 +142,97 @@ function isDenoErrorNamed(err: unknown, name: string): boolean {
 }
 
 /**
- * Safely read all environment variables. Returns empty object if
- * `--allow-env` permission is not granted.
+ * Whether a thrown value is a Deno permission failure: `NotCapable` on
+ * current Deno, `PermissionDenied` on earlier releases.
  *
  * @internal
  */
-function safeEnvToObject(deno: DenoNamespace): Readonly<Record<string, string | undefined>> {
+function isDenoPermissionError(err: unknown): boolean {
+	return isDenoErrorNamed(err, 'NotCapable') || isDenoErrorNamed(err, 'PermissionDenied');
+}
+
+/**
+ * Whether env access is granted, for the whole environment or one variable.
+ * `undefined` when the namespace cannot answer without being asked.
+ *
+ * @internal
+ */
+function envGranted(deno: DenoNamespace, variable?: string): boolean | undefined {
+	const query = deno.permissions?.querySync;
+	if (query === undefined) return undefined;
+	const descriptor =
+		variable === undefined ? { name: 'env' as const } : { name: 'env' as const, variable };
+	return query.call(deno.permissions, descriptor).state === 'granted';
+}
+
+/**
+ * Read one variable, or `undefined` when it is unset or not granted.
+ *
+ * @internal
+ */
+function readGrantedEnv(deno: DenoNamespace, name: string): string | undefined {
+	if (envGranted(deno, name) === false) return undefined;
 	try {
-		return deno.env.toObject();
+		return deno.env.get(name);
 	} catch (err: unknown) {
-		if (isDenoErrorNamed(err, 'PermissionDenied')) return {};
+		if (isDenoPermissionError(err)) return undefined;
 		throw err;
 	}
+}
+
+/**
+ * An env view that reads each variable on first access, for a scoped grant
+ * or none. `Deno.env.toObject()` needs access to every variable, so a grant
+ * for `WASM_PATH` alone would otherwise lose `WASM_PATH` too. The view lists
+ * no keys, since it cannot learn the names it was not granted.
+ *
+ * @internal
+ */
+function scopedDenoEnv(deno: DenoNamespace): Readonly<Record<string, string | undefined>> {
+	const cache = new Map<string, string | undefined>();
+	const read = (name: string): string | undefined => {
+		if (!cache.has(name)) cache.set(name, readGrantedEnv(deno, name));
+		return cache.get(name);
+	};
+	// Diagnostics name the grant to add, never the value.
+	const hint: EnvAccessHint = (name) =>
+		envGranted(deno, name) === false
+			? `Deno has not granted access to ${name}; run with --allow-env=${name}`
+			: undefined;
+	return new Proxy(Object.create(null) as Record<string, string | undefined>, {
+		get: (_target, key) =>
+			typeof key === 'string' ? read(key) : key === ENV_ACCESS_HINT ? hint : undefined,
+		has: (_target, key) => typeof key === 'string' && read(key) !== undefined,
+		getOwnPropertyDescriptor: (_target, key) => {
+			if (typeof key !== 'string') return undefined;
+			const value = read(key);
+			return value === undefined
+				? undefined
+				: { value, writable: false, enumerable: true, configurable: true };
+		},
+		ownKeys: () => [],
+		set: () => false,
+		defineProperty: () => false,
+		deleteProperty: () => false,
+	});
+}
+
+/**
+ * Read the environment the process may see: a snapshot under a full
+ * `--allow-env` grant, otherwise a {@link scopedDenoEnv} view of the
+ * variables it was granted. Never prompts for permission.
+ *
+ * @internal
+ */
+function readDenoEnv(deno: DenoNamespace): Readonly<Record<string, string | undefined>> {
+	if (envGranted(deno) !== false) {
+		try {
+			return deno.env.toObject();
+		} catch (err: unknown) {
+			if (!isDenoPermissionError(err)) throw err;
+		}
+	}
+	return scopedDenoEnv(deno);
 }
 
 /**
@@ -153,7 +245,7 @@ function safeCwd(deno: DenoNamespace): string {
 	try {
 		return deno.cwd();
 	} catch (err: unknown) {
-		if (isDenoErrorNamed(err, 'PermissionDenied')) return '/';
+		if (isDenoPermissionError(err)) return '/';
 		throw err;
 	}
 }
@@ -190,8 +282,8 @@ function createDenoAdapter(ns?: DenoNamespace): RuntimeAdapter {
 	// --- Synthetic argv: Deno.args has user args only (no binary/script) ---
 	const argv: readonly string[] = ['deno', 'run', ...d.args];
 
-	// --- Environment (permission-safe) ---
-	const env = safeEnvToObject(d);
+	// --- Environment (permission-safe, never prompts) ---
+	const env = readDenoEnv(d);
 
 	// --- CWD (permission-safe) ---
 	const cwd = safeCwd(d);
@@ -214,9 +306,9 @@ function createDenoAdapter(ns?: DenoNamespace): RuntimeAdapter {
 		} catch (err: unknown) {
 			// NotFound = file doesn't exist → null (expected for config probing)
 			if (isDenoErrorNamed(err, 'NotFound')) return null;
-			// PermissionDenied = --allow-read not granted → treat as not found
+			// NotCapable/PermissionDenied = --allow-read not granted → treat as not found
 			// (config discovery is opt-in; failing silently is the graceful path)
-			if (isDenoErrorNamed(err, 'PermissionDenied')) return null;
+			if (isDenoPermissionError(err)) return null;
 			throw err; // Other I/O errors propagate
 		}
 	};

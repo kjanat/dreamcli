@@ -7,6 +7,7 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
+import { envAccessHint } from '#internals/core/resolve/env-access.ts';
 import type { RuntimeAdapter } from './adapter.ts';
 import type { DenoNamespace } from './deno.ts';
 import { createDenoAdapter } from './deno.ts';
@@ -78,6 +79,7 @@ function mockDeno(overrides?: Partial<DenoNamespace>): DenoNamespace {
 			writeSync: vi.fn(() => 0),
 			isTerminal: () => false,
 		},
+		...(overrides?.permissions !== undefined ? { permissions: overrides.permissions } : {}),
 		...(overrides?.consoleSize !== undefined ? { consoleSize: overrides.consoleSize } : {}),
 		...(overrides?.addSignalListener !== undefined
 			? { addSignalListener: overrides.addSignalListener }
@@ -217,6 +219,105 @@ describe('createDenoAdapter', () => {
 			});
 			const adapter = createDenoAdapter(ns);
 			expect(adapter.env).toEqual({});
+		});
+
+		it('falls back to per-variable reads on NotCapable', () => {
+			const ns = mockDeno({
+				env: {
+					get: (key: string) => ({ WASM_PATH: 'plugin.wasm' })[key],
+					toObject: () => {
+						throw makeDenoError('NotCapable');
+					},
+				},
+			});
+			const adapter = createDenoAdapter(ns);
+			expect(adapter.env.WASM_PATH).toBe('plugin.wasm');
+			expect(Object.hasOwn(adapter.env, 'WASM_PATH')).toBe(true);
+			expect(adapter.env.HOME).toBeUndefined();
+		});
+
+		describe('with permission queries', () => {
+			/** A namespace granting env access only to `granted`, recording every read. */
+			function scopedDeno(
+				values: Readonly<Record<string, string>>,
+				granted: 'all' | readonly string[],
+			) {
+				const reads: string[] = [];
+				const ns = mockDeno({
+					permissions: {
+						querySync: ({ variable }) => ({
+							state:
+								granted === 'all' || (variable !== undefined && granted.includes(variable))
+									? 'granted'
+									: 'prompt',
+						}),
+					},
+					env: {
+						get: (key: string) => {
+							reads.push(key);
+							return values[key];
+						},
+						toObject: () => {
+							if (granted !== 'all') throw makeDenoError('NotCapable');
+							return { ...values };
+						},
+					},
+				});
+				return { ns, reads };
+			}
+
+			it('snapshots the whole environment under a full grant', () => {
+				const { ns } = scopedDeno({ WASM_PATH: 'a.wasm', OTHER: 'x' }, 'all');
+				expect(createDenoAdapter(ns).env).toEqual({ WASM_PATH: 'a.wasm', OTHER: 'x' });
+			});
+
+			it('reads only granted variables under a scoped grant', () => {
+				const { ns, reads } = scopedDeno({ WASM_PATH: 'a.wasm', OTHER: 'x' }, ['WASM_PATH']);
+				const adapter = createDenoAdapter(ns);
+				expect(adapter.env.WASM_PATH).toBe('a.wasm');
+				expect(adapter.env.OTHER).toBeUndefined();
+				expect(Object.hasOwn(adapter.env, 'OTHER')).toBe(false);
+				// An ungranted variable is never read, so Deno never prompts for it.
+				expect(reads).toEqual(['WASM_PATH']);
+			});
+
+			it('reads nothing and lists no keys without a grant', () => {
+				const { ns, reads } = scopedDeno({ HOME: '/home/alice' }, []);
+				const adapter = createDenoAdapter(ns);
+				expect(adapter.env.HOME).toBeUndefined();
+				expect(Object.keys(adapter.env)).toEqual([]);
+				expect(adapter.homedir).toBe('/');
+				expect(reads).toEqual([]);
+			});
+
+			it('reads each granted variable once', () => {
+				const { ns, reads } = scopedDeno({ WASM_PATH: 'a.wasm' }, ['WASM_PATH']);
+				const adapter = createDenoAdapter(ns);
+				void adapter.env.WASM_PATH;
+				void adapter.env.WASM_PATH;
+				expect(reads).toEqual(['WASM_PATH']);
+			});
+
+			it('names the missing grant for an ungranted variable, without its value', () => {
+				const { ns } = scopedDeno({ WASM_PATH: 'secret.wasm' }, []);
+				const env = createDenoAdapter(ns).env;
+				expect(envAccessHint(env, 'WASM_PATH')).toBe(
+					'Deno has not granted access to WASM_PATH; run with --allow-env=WASM_PATH',
+				);
+				expect(envAccessHint(env, 'WASM_PATH')).not.toContain('secret');
+			});
+
+			it('gives no hint for a granted variable', () => {
+				const { ns } = scopedDeno({}, ['WASM_PATH']);
+				expect(envAccessHint(createDenoAdapter(ns).env, 'WASM_PATH')).toBeUndefined();
+			});
+
+			it('keeps the view read-only', () => {
+				const { ns } = scopedDeno({}, ['WASM_PATH']);
+				const env: Record<string, string | undefined> = { ...createDenoAdapter(ns).env };
+				expect(env).toEqual({});
+				expect(Reflect.set(createDenoAdapter(ns).env, 'WASM_PATH', 'x')).toBe(false);
+			});
 		});
 
 		it('propagates non-permission errors from env', () => {

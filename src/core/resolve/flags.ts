@@ -241,7 +241,7 @@ async function resolveFlags(
 				new ValidationError(`Missing required flag --${name}`, {
 					code: 'REQUIRED_FLAG',
 					details,
-					suggest: buildRequiredFlagSuggest(name, schema, env),
+					suggest: buildRequiredFlagSuggest(name, schema, env, options.env),
 				}),
 			);
 			continue;
@@ -515,6 +515,7 @@ function buildRequiredFlagSuggest(
 	name: string,
 	schema: FlagSchema,
 	env: EnvSourceBinding | undefined,
+	snapshot: Readonly<Record<string, string | undefined>>,
 ): string {
 	const sources: string[] = [];
 	const takesValue = schema.kind !== 'boolean' && schema.kind !== 'count';
@@ -532,7 +533,7 @@ function buildRequiredFlagSuggest(
 	}
 
 	if (env !== undefined) {
-		sources.push(requiredEnvSuggestion(env));
+		sources.push(requiredEnvSuggestion(env, snapshot));
 	}
 
 	if (schema.configPath !== undefined) {

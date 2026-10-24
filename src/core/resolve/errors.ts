@@ -11,6 +11,7 @@
 import type { ValidationErrorCode } from '#internals/core/errors/index.ts';
 import { ValidationError } from '#internals/core/errors/index.ts';
 import type { EnvSourceBinding } from '#internals/core/schema/source.ts';
+import { envAccessHint } from './env-access.ts';
 
 type AggregateIssueSourceKind = 'env' | 'config' | 'stdin' | 'prompt';
 
@@ -145,13 +146,21 @@ function formatAggregateLine(issue: AggregateIssueSummary): string {
 
 /**
  * How a missing-input suggestion names an env source: the concrete variable,
- * or an indexed family's count variable.
+ * or an indexed family's count variable, plus the runtime's access hint when
+ * the variable may be unreadable rather than unset.
  *
  * @param env - The input's env binding, with concrete names.
+ * @param snapshot - The env view resolution read.
  * @returns A clause such as `set FOO_TOKEN` or `set FOO_ITEM_COUNT and its entries`.
  */
-function requiredEnvSuggestion(env: EnvSourceBinding): string {
-	return 'envVar' in env ? `set ${env.envVar}` : `set ${env.indexed.count} and its entries`;
+function requiredEnvSuggestion(
+	env: EnvSourceBinding,
+	snapshot: Readonly<Record<string, string | undefined>>,
+): string {
+	const name = 'envVar' in env ? env.envVar : env.indexed.count;
+	const clause = 'envVar' in env ? `set ${name}` : `set ${name} and its entries`;
+	const hint = envAccessHint(snapshot, name);
+	return hint === undefined ? clause : `${clause} (${hint})`;
 }
 
 /** Type-narrowing guard that asserts a readonly array has at least one element. */

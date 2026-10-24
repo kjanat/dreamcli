@@ -68,7 +68,11 @@ joinPath(...segments: string[]): string
 - Win32 paths: `resolveConfigDir` strips trailing separator, `resolveHomedir` has
   `HOMEDRIVE`+`HOMEPATH` fallback
 - `deno.ts`: Deno.args pre-strips binary/script — adapter prepends synthetic `['deno', 'run']`
-- Permission-safe: env/cwd catch `PermissionDenied`, readFile returns null for both `NotFound` and
-  `PermissionDenied`
+- Permission-safe: env/cwd/readFile treat `NotCapable` (current Deno) and `PermissionDenied` (older)
+  alike. Env snapshots only under a full grant; otherwise a read-only proxy reads granted variables
+  one at a time after `permissions.querySync()`, never prompting, and carries an `ENV_ACCESS_HINT`
+  for missing-input diagnostics. It lists no keys, so never enumerate `adapter.env`
+- `deno-permissions.test.ts` spawns real Deno; under Deno it must use `Deno.Command`, because
+  `node:child_process` rewrites a spawn of Deno's own executable into `deno run -A`
 - `paths.ts` centralizes XDG config/data/cache path logic used by both Node and Deno adapters
 - `support.ts` detects feature availability (stdin readability, TTY support) across runtimes
