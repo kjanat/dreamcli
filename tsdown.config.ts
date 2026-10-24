@@ -43,7 +43,7 @@ export default defineConfig({
 	target: [`node${engines.node.replace('>=', '')}`, `deno${engines.deno.replace('>=', '')}`],
 	dts: {
 		enabled: true,
-		newContext: true,
+		tsc: { newContext: true },
 		resolver: 'oxc',
 		oxc: {
 			stripInternal: true,
