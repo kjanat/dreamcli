@@ -83,6 +83,7 @@ const DEF_PROPERTY_TARGETS: Readonly<Record<string, Readonly<Record<string, Node
 	},
 	commandDocument: {
 		schemaVersion: { exportId: 'dreamcli:DEFINITION_SCHEMA_VERSION' },
+		envPrefix: { exportId: 'dreamcli:CLISchema', property: 'envPrefix' },
 		name: { exportId: 'dreamcli:CommandDefinitionFragmentV1', property: 'name' },
 		description: { exportId: 'dreamcli:CommandDefinitionFragmentV1', property: 'description' },
 		aliases: { exportId: 'dreamcli:CommandDefinitionFragmentV1', property: 'aliases' },

@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { CLIError } from '#internals/core/errors/index.ts';
-import { generateSchema } from '#internals/core/json-schema/index.ts';
+import { generateCommandSchema, generateSchema } from '#internals/core/json-schema/index.ts';
 import { readFlags } from '#internals/core/read-flags/index.ts';
 import { arg } from '#internals/core/schema/arg.ts';
 import { command, createCommandSchema } from '#internals/core/schema/command.ts';
@@ -526,5 +526,65 @@ describe('.env() without a name', () => {
 				.env({ value: 'V_{index}' } as unknown as { count: string; value: string }),
 		);
 		expect(error.code).toBe('INVALID_SCHEMA');
+	});
+});
+
+// === built-ins and JSON help under a namespace
+
+describe('built-ins and JSON help under a CLI namespace', () => {
+	it('keeps reading SHELL for the completions command', async () => {
+		const app = cli('foo').envPrefix().completions().command(deployCommand());
+		const result = await app.execute(['completions'], {
+			env: { SHELL: '/bin/zsh', FOO_SHELL: '/bin/fish' },
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout.join('')).toContain('compdef');
+	});
+
+	it('records the namespace on command-level --help --json', async () => {
+		const app = cli('foo').envPrefix().command(deployCommand());
+		const parsed = JSON.parse(
+			(await app.execute(['deploy', '--help', '--json'])).stdout.join(''),
+		) as { envPrefix?: string; flags: Record<string, { envVar?: string }> };
+
+		expect(parsed.envPrefix).toBe('FOO_');
+		expect(parsed.flags.token?.envVar).toBe('TOKEN');
+	});
+
+	it('records the namespace on a group that needs a subcommand', async () => {
+		const app = cli('foo').envPrefix().command(command('db').command(deployCommand()));
+		const parsed = JSON.parse((await app.execute(['db', '--json'])).stdout.join('')) as {
+			envPrefix?: string;
+		};
+		expect(parsed.envPrefix).toBe('FOO_');
+	});
+
+	it('records a run-level namespace on root and runCommand() JSON help', async () => {
+		const root = JSON.parse(
+			(
+				await cli('foo')
+					.envPrefix()
+					.command(deployCommand())
+					.execute(['--help', '--json'], { envPrefix: 'BAR_' })
+			).stdout.join(''),
+		) as { envPrefix?: string };
+		const command = JSON.parse(
+			(await runCommand(deployCommand(), ['--help', '--json'], { envPrefix: 'FOO_' })).stdout.join(
+				'',
+			),
+		) as { envPrefix?: string };
+
+		expect(root.envPrefix).toBe('BAR_');
+		expect(command.envPrefix).toBe('FOO_');
+	});
+
+	it('leaves envPrefix off a command document when none applies', () => {
+		const schema = deployCommand().schema;
+		expect(generateCommandSchema(schema)).not.toHaveProperty('envPrefix');
+		expect(generateCommandSchema(schema, { envPrefix: 'FOO_' })).toHaveProperty(
+			'envPrefix',
+			'FOO_',
+		);
 	});
 });

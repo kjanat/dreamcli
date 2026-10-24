@@ -71,6 +71,10 @@ const definitionMetaSchemaDescriptions = {
 					description:
 						'Version of the definition document format emitted by `generateSchema()`\nand `generateCommandSchema()` from `@kjanat/dreamcli/json-schema`.',
 				},
+				envPrefix: {
+					description:
+						"CLI-wide environment namespace prepended to every relative env binding\n(`undefined` when none is set). `.env('TOKEN')` reads `<envPrefix>TOKEN`;\na binding declared with `{ absolute: true }` is read as written.\n\nSet via the .envPrefix() builder method\nor the `envPrefix` field of CLIDefinition. Fixed when declared, so\nneither manifest name inference nor an inherited invocation name changes it.",
+				},
 				name: {
 					description: 'The command name used for dispatch.',
 				},

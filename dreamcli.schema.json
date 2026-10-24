@@ -330,6 +330,14 @@
           "description": "Human-readable description for help text.",
           "type": "string"
         },
+        "envPrefix": {
+          "description": "CLI-wide environment namespace prepended to every relative env binding\n(`undefined` when none is set). `.env('TOKEN')` reads `<envPrefix>TOKEN`;\na binding declared with `{ absolute: true }` is read as written.\n\nSet via the .envPrefix() builder method\nor the `envPrefix` field of CLIDefinition. Fixed when declared, so\nneither manifest name inference nor an inherited invocation name changes it.",
+          "type": "string",
+          "minLength": 1,
+          "not": {
+            "pattern": "[={}]"
+          }
+        },
         "examples": {
           "description": "Usage examples attached to the command.",
           "type": "array",

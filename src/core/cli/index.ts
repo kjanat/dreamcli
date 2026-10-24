@@ -1691,7 +1691,8 @@ class CLIBuilder {
 						}
 						return shell;
 					})
-					.env('SHELL')
+					// SHELL belongs to the host, not the CLI, so a namespace never applies.
+					.env('SHELL', { absolute: true })
 					.describe(`Target shell (${SHELLS.join(', ')})`),
 			)
 			.action(async ({ args, meta, out }) => {
@@ -1951,7 +1952,7 @@ async function executeCLI(
 			if (jsonMode) {
 				const { generateSchema } = await import('#internals/core/json-schema/index.ts');
 				out.json(
-					generateSchema(builder.schema, undefined, {
+					generateSchema(builder.schema, envPrefix !== undefined ? { envPrefix } : undefined, {
 						name: planned.help.binName ?? builder.schema.name,
 						version: planned.help.version ?? builder.schema.version,
 					}),
@@ -1979,10 +1980,14 @@ async function executeCLI(
 			if (jsonMode) {
 				const { generateCommandSchema } = await import('#internals/core/json-schema/index.ts');
 				out.json(
-					generateCommandSchema(planned.command.schema, undefined, {
-						name: planned.help.binName ?? planned.command.schema.name,
-						version: planned.help.version,
-					}),
+					generateCommandSchema(
+						planned.command.schema,
+						envPrefix !== undefined ? { envPrefix } : undefined,
+						{
+							name: planned.help.binName ?? planned.command.schema.name,
+							version: planned.help.version,
+						},
+					),
 				);
 			} else {
 				const helpText = formatHelp(planned.command.schema, planned.help);

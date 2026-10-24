@@ -171,6 +171,7 @@ describe('generateSchema — definition metadata', () => {
 		const commandDocument = expectRecord(defs.commandDocument);
 		expect(Object.keys(expectRecord(commandDocument.properties))).toEqual([
 			'schemaVersion',
+			'envPrefix',
 			...Object.keys(expectRecord(command.properties)),
 		]);
 		expect(commandDocument.required).toEqual([
@@ -193,7 +194,9 @@ describe('generateSchema — definition metadata', () => {
 				args: [argEntry('target')],
 				commands: [commandDef({ name: 'status' })],
 			}),
+			{ envPrefix: 'FOO_' },
 		);
+		expect(doc.envPrefix).toBe('FOO_');
 		const allowed = new Set(Object.keys(expectRecord(commandDocument.properties)));
 		for (const key of Object.keys(doc)) {
 			expect(allowed).toContain(key);

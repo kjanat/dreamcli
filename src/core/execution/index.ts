@@ -111,10 +111,14 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 			if (out.jsonMode || options?.jsonMode === true) {
 				const { generateCommandSchema } = await import('#internals/core/json-schema/index.ts');
 				out.json(
-					generateCommandSchema(schema, undefined, {
-						name: options?.help?.binName ?? schema.name,
-						version: options?.help?.version,
-					}),
+					generateCommandSchema(
+						schema,
+						options?.envPrefix !== undefined ? { envPrefix: options.envPrefix } : undefined,
+						{
+							name: options?.help?.binName ?? schema.name,
+							version: options?.help?.version,
+						},
+					),
 				);
 				return { exitCode: 0, error: undefined };
 			}

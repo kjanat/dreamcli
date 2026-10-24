@@ -78,12 +78,25 @@ interface JsonSchemaOptions {
 	 * @defaultValue `true`
 	 */
 	readonly includePrompts?: boolean;
+
+	/**
+	 * CLI-wide env namespace recorded on the document, so a reader can tell
+	 * `envVar: 'TOKEN'` that reads `FOO_TOKEN` from one that reads `TOKEN`.
+	 *
+	 * {@link generateSchema} defaults it to the CLI schema's own `envPrefix`.
+	 * {@link generateCommandSchema} has no CLI to read it from, so pass the
+	 * namespace the command runs under; `--help --json` does this itself.
+	 *
+	 * @defaultValue the CLI's `envPrefix` for {@link generateSchema}, none otherwise
+	 */
+	readonly envPrefix?: string;
 }
 
 /** Internal resolved options with defaults applied. */
 interface ResolvedOptions {
 	readonly includeHidden: boolean;
 	readonly includePrompts: boolean;
+	readonly envPrefix: string | undefined;
 }
 
 /**
@@ -126,6 +139,7 @@ function resolveOptions(options: JsonSchemaOptions | undefined): ResolvedOptions
 	return {
 		includeHidden: options?.includeHidden ?? true,
 		includePrompts: options?.includePrompts ?? true,
+		envPrefix: options?.envPrefix,
 	};
 }
 
@@ -397,6 +411,11 @@ type DefinitionDocumentV1 = {
 type CommandDefinitionDocumentV1 = CommandDefinitionFragmentV1 & {
 	/** Definition document format version. */
 	readonly schemaVersion: 1;
+	/**
+	 * CLI-wide env namespace the command runs under, read the same way as
+	 * {@link DefinitionDocumentV1.envPrefix}.
+	 */
+	readonly envPrefix?: string;
 };
 
 /** The current whole-CLI definition document. */
@@ -459,6 +478,7 @@ function generateSchema(
 	meta?: ExampleMeta,
 ): DefinitionDocumentV1 {
 	const opts = resolveOptions(options);
+	const envPrefix = opts.envPrefix ?? schema.envPrefix;
 	const resolvedMeta: ExampleMeta = meta ?? { name: schema.name, version: schema.version };
 
 	// Full definition, not just the name — the default command lives only in
@@ -477,7 +497,7 @@ function generateSchema(
 		...(schema.description !== undefined
 			? { description: resolvePlainHelpDescription(schema.description) }
 			: {}),
-		...(schema.envPrefix !== undefined ? { envPrefix: schema.envPrefix } : {}),
+		...(envPrefix !== undefined ? { envPrefix } : {}),
 		...(defaultCommand !== undefined ? { defaultCommand } : {}),
 		commands: schema.commands
 			.filter((cmd) => opts.includeHidden || !cmd.hidden)
@@ -510,9 +530,11 @@ function generateCommandSchema(
 	meta?: ExampleMeta,
 ): CommandDefinitionDocumentV1 {
 	const resolvedMeta: ExampleMeta = meta ?? { name: schema.name, version: undefined };
+	const opts = resolveOptions(options);
 	return {
 		schemaVersion: DEFINITION_SCHEMA_VERSION,
-		...serializeCommand(schema, resolveOptions(options), resolvedMeta),
+		...(opts.envPrefix !== undefined ? { envPrefix: opts.envPrefix } : {}),
+		...serializeCommand(schema, opts, resolvedMeta),
 	};
 }
 
@@ -1346,6 +1368,9 @@ function withDefinitionMetaSchemaDescriptions(
 	};
 }
 
+/** The `envPrefix` property schema shared by both standalone document roots. */
+const ENV_PREFIX_PROPERTY = { type: 'string', minLength: 1, not: { pattern: '[={}]' } } as const;
+
 /**
  * Command-fragment property schemas shared by the nested `command` def and
  * the standalone `commandDocument` def, so the two cannot drift.
@@ -1474,7 +1499,7 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 			name: { type: 'string' },
 			version: { type: 'string' },
 			description: { type: 'string' },
-			envPrefix: { type: 'string', minLength: 1, not: { pattern: '[={}]' } },
+			envPrefix: ENV_PREFIX_PROPERTY,
 			defaultCommand: { $ref: '#/$defs/command' },
 			commands: { type: 'array', items: { $ref: '#/$defs/command' } },
 		} satisfies FragmentProperties<DefinitionDocumentV1>,
@@ -1491,6 +1516,7 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 				additionalProperties: false,
 				properties: {
 					schemaVersion: { const: DEFINITION_SCHEMA_VERSION },
+					envPrefix: ENV_PREFIX_PROPERTY,
 					...commandFragmentProperties,
 				},
 				required: ['schemaVersion', 'name', 'flags', 'args', 'commands'],

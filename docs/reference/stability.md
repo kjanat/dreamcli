@@ -551,7 +551,8 @@ every other env binding unchanged. The meta-schema hoists it as
 `$defs.envIndexed`.
 
 The CLI-wide env namespace arrived the same way. A document carries the
-namespace once, as the optional root `envPrefix`, and each flag or arg fragment
+namespace once, as the optional root `envPrefix` (a standalone command document,
+such as `--help --json` output, carries it at its own root), and each flag or arg fragment
 keeps its logical `envVar` or `envIndexed` plus an optional `envAbsolute: true`
 when it opts out. A reader resolves the concrete name as `envPrefix` + the
 logical name unless the fragment is absolute. A document from a CLI without a
