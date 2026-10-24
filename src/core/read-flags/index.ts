@@ -95,6 +95,17 @@ interface ReadFlagsOptions<F extends FlagMap = FlagMap> extends ResolveOptions {
 	readonly help?: 'on' | 'off';
 
 	/**
+	 * Spelling of long flag names, aliases, and negations in generated help.
+	 *
+	 * `'kebab'` shows `--wasm-path` for a definition keyed `wasmPath`, which
+	 * still resolves as `wasmPath`. A spelling stays as declared when the
+	 * parser would not accept its kebab form for the same flag, such as with
+	 * `parse: { caseParity: false }`.
+	 * @defaultValue `'declared'`
+	 */
+	readonly flagSpelling?: 'declared' | 'kebab';
+
+	/**
 	 * Receiver for notices produced by `.deprecated()` flags.
 	 * @defaultValue `undefined`, which drops the notices
 	 */
@@ -326,6 +337,10 @@ async function readFlags<const F extends FlagMap>(
 				binName: scriptName(host()),
 				isDefaultHelp: true,
 				...(options?.envPrefix !== undefined ? { envPrefix: options.envPrefix } : {}),
+				...(options?.flagSpelling !== undefined ? { flagSpelling: options.flagSpelling } : {}),
+				...(options?.parse?.caseParity !== undefined
+					? { caseParity: options.parse.caseParity }
+					: {}),
 			}),
 		);
 		await exitAfterFlush(host(), 0);

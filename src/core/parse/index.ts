@@ -277,6 +277,18 @@ function counterpartSpelling(name: string): string | undefined {
 	return kebab !== name ? kebab : undefined;
 }
 
+/**
+ * The extra counterpart of a synthesized negation: `no-` plus the counterpart
+ * of the flag name (`no-wasm-path` for `no-wasmPath`), so the fully kebab and
+ * fully camel spellings of the pair negate alike. `undefined` for any other
+ * spelling.
+ */
+function negationCounterpart(entry: FlagLookupEntry): string | undefined {
+	if (!entry.negated || entry.schema.negation?.alias !== undefined) return undefined;
+	const name = counterpartSpelling(entry.name);
+	return name !== undefined ? `no-${name}` : undefined;
+}
+
 // --- Internal lookup helpers
 
 /** One resolvable spelling in the flag lookup map. */
@@ -296,7 +308,8 @@ interface FlagLookupEntry {
  *
  * Covers canonical names, aliases (long + single-char), negated spellings of
  * `.negatable()` booleans, and — unless `caseParity` is `false` — the
- * kebab↔camel counterpart of every declared spelling. Counterparts never
+ * kebab↔camel counterpart of every declared spelling (a synthesized negation
+ * also gets `no-` plus the counterpart of its flag name). Counterparts never
  * override declared spellings: when a command defines both `do-this` and
  * `doThis` explicitly, each spelling exact-matches its own flag and no
  * parity entries are added for the pair.
@@ -331,6 +344,14 @@ function buildFlagLookup(
 		const declared = [...lookup];
 		for (const [spelling, entry] of declared) {
 			const counterpart = counterpartSpelling(spelling);
+			if (counterpart !== undefined && !lookup.has(counterpart)) {
+				lookup.set(counterpart, { ...entry, parity: true });
+			}
+		}
+		// Pass 3: negation counterparts come last, so they never take a spelling
+		// that another flag's ordinary counterpart already accepted.
+		for (const [, entry] of declared) {
+			const counterpart = negationCounterpart(entry);
 			if (counterpart !== undefined && !lookup.has(counterpart)) {
 				lookup.set(counterpart, { ...entry, parity: true });
 			}

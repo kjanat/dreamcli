@@ -10,6 +10,7 @@
 
 import type { Colors } from 'ansispeck';
 import { formatDisplayValue } from '#internals/core/output/display-value.ts';
+import { buildFlagLookup, camelToKebab } from '#internals/core/parse/index.ts';
 import { resolveExampleCommand } from '#internals/core/schema/command.ts';
 import {
 	effectiveEnvName,
@@ -58,6 +59,28 @@ interface HelpOptions {
 	 * @defaultValue `undefined` (use `flagOrder`)
 	 */
 	readonly sortFlags?: (a: string, b: string) => number;
+	/**
+	 * Spelling of long flag names, aliases, and negations in the `Flags:` table.
+	 *
+	 * - `'declared'` — each spelling exactly as it was declared.
+	 * - `'kebab'` — the kebab-case counterpart of a camelCase spelling
+	 *   (`--wasm-path` for a flag keyed `wasmPath`), while the resolved value
+	 *   keeps its declared key. A spelling stays as declared when the parser
+	 *   would not read the counterpart as the same flag form: with
+	 *   {@link HelpOptions.caseParity} off, or when another declared flag owns it.
+	 *
+	 * @defaultValue `'declared'`
+	 */
+	readonly flagSpelling?: 'declared' | 'kebab';
+	/**
+	 * Whether the parser accepts kebab↔camel counterpart spellings, so
+	 * `flagSpelling: 'kebab'` only renders spellings the parser accepts.
+	 * `CLIBuilder.execute()`/`.run()` and `readFlags()` thread their parser
+	 * settings here automatically.
+	 *
+	 * @defaultValue `true`
+	 */
+	readonly caseParity?: boolean;
 	/**
 	 * Emit OSC 8 hyperlinks where link metadata is available (currently the
 	 * root-help header name/version configured via `CLIBuilder.links()`).
@@ -133,6 +156,8 @@ interface ResolvedHelpOptions {
 	readonly version: string | undefined;
 	readonly flagOrder: 'alphabetical' | 'declaration';
 	readonly sortFlags: ((a: string, b: string) => number) | undefined;
+	readonly flagSpelling: 'declared' | 'kebab';
+	readonly caseParity: boolean;
 	readonly isDefaultHelp: boolean;
 	readonly envPrefix: string | undefined;
 	readonly theme: HelpTheme;
@@ -155,6 +180,8 @@ function resolveOptions(options?: HelpOptions): ResolvedHelpOptions {
 		version: options?.version,
 		flagOrder: options?.flagOrder ?? 'alphabetical',
 		sortFlags: options?.sortFlags,
+		flagSpelling: options?.flagSpelling ?? 'declared',
+		caseParity: options?.caseParity ?? true,
 		isDefaultHelp: options?.isDefaultHelp ?? false,
 		envPrefix: options?.envPrefix,
 		theme,
@@ -211,29 +238,74 @@ interface FlagEntry {
 	readonly description: string;
 }
 
+/** Whether the parser reads `spelling` as flag `name`, negated or not. */
+type SpellingCheck = (spelling: string, name: string, negated: boolean) => boolean;
+
+/**
+ * The parser check behind `flagSpelling: 'kebab'`, or `undefined` when help
+ * renders spellings as declared.
+ */
+function spellingCheck(
+	flags: Readonly<Record<string, FlagSchema>>,
+	opts: ResolvedHelpOptions,
+): SpellingCheck | undefined {
+	if (opts.flagSpelling === 'declared') return undefined;
+	const lookup = buildFlagLookup(flags, { caseParity: opts.caseParity });
+	return (spelling, name, negated) => {
+		const entry = lookup.get(spelling);
+		return entry?.name === name && entry.negated === negated;
+	};
+}
+
+/**
+ * The kebab-case counterpart of a camelCase spelling, or `undefined` when it
+ * has none worth showing: already hyphenated, or one word (`HTTPPort` only
+ * lowercases to `httpport`).
+ */
+function kebabSpelling(spelling: string): string | undefined {
+	if (spelling.includes('-')) return undefined;
+	const kebab = camelToKebab(spelling);
+	return kebab.includes('-') ? kebab : undefined;
+}
+
 /**
  * Format a flag's left column: `-a, --name <type>`.
  *
  * @param name - Long flag name (without `--` prefix).
  * @param schema - The {@link FlagSchema} describing the flag.
  * @param theme - Theme applied to the flag forms and value hint.
+ * @param reads - Parser check for kebab spellings; `undefined` keeps declared spellings.
  * @returns Formatted left-column string for the flags table.
  */
-function formatFlagLeft(name: string, schema: FlagSchema, theme: HelpTheme): string {
+function formatFlagLeft(
+	name: string,
+	schema: FlagSchema,
+	theme: HelpTheme,
+	reads: SpellingCheck | undefined,
+): string {
 	const visibleShortAliases = getFlagAliasNames(schema, { kind: 'short' });
 	const visibleLongAliases = getFlagAliasNames(schema, { kind: 'long' });
+	// A kebab spelling replaces a declared one only when the parser reads it
+	// as the same flag form, so help never advertises a rejected spelling.
+	const spell = (spelling: string, negated: boolean): string => {
+		const kebab = reads === undefined ? undefined : kebabSpelling(spelling);
+		return kebab !== undefined && reads?.(kebab, name, negated) === true ? kebab : spelling;
+	};
 	// Negatable booleans render as one logical flag: `--[no-]foo` when the
 	// negated spelling is the synthesized default, or an extra `--no-custom`
 	// form when a custom alias was set. Hidden negations render nothing.
 	const negation =
 		schema.negation !== undefined && !schema.negation.hidden ? schema.negation : undefined;
-	const canonicalForm =
-		negation !== undefined && negation.alias === undefined ? `--[no-]${name}` : `--${name}`;
+	const synthesized = negation !== undefined && negation.alias === undefined;
+	const shown = spell(name, false);
+	// `--[no-]x` claims both spellings, so it switches only when both parse.
+	const canonical =
+		synthesized && shown !== name && reads?.(`no-${shown}`, name, true) !== true ? name : shown;
 	const forms = [
 		...visibleShortAliases.map((alias) => `-${alias}`),
-		canonicalForm,
-		...visibleLongAliases.map((alias) => `--${alias}`),
-		...(negation?.alias !== undefined ? [`--${negation.alias}`] : []),
+		synthesized ? `--[no-]${canonical}` : `--${canonical}`,
+		...visibleLongAliases.map((alias) => `--${spell(alias, false)}`),
+		...(negation?.alias !== undefined ? [`--${spell(negation.alias, true)}`] : []),
 	];
 
 	// Value placeholder (skip for kinds that take no value)
@@ -431,12 +503,13 @@ function buildFlagEntries(
 	const names = Object.keys(flags);
 	if (names.length === 0) return [];
 
+	const reads = spellingCheck(flags, opts);
 	const entries: FlagEntry[] = [];
 	for (const name of orderFlagNames(names, flags, opts)) {
 		const schema = flags[name];
 		if (schema === undefined) continue;
 		entries.push({
-			left: formatFlagLeft(name, schema, opts.theme),
+			left: formatFlagLeft(name, schema, opts.theme, reads),
 			description: formatFlagDescription(schema, opts.theme, opts.descriptionTheme, opts.envPrefix),
 		});
 	}

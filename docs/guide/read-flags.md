@@ -235,6 +235,11 @@ The usage line names the script from the adapter's argv. Help renders ahead of
 parsing, so a malformed value elsewhere in argv never hides the text explaining
 the flags.
 
+`flagSpelling: 'kebab'` renders camelCase keys the way users usually type them,
+`--wasm-path` for `wasmPath`, while the returned record keeps the key. It
+follows `parse: { caseParity }`, so help never lists a spelling the parser
+would reject. See [Flag spelling](/guide/help#flag-spelling).
+
 The built-in yields in two ways. Declaring a flag that answers to `help` or `h`
 through its name, an alias, a negated spelling, or a case-parity counterpart
 takes both spellings over, and they parse as that flag's own. Passing

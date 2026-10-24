@@ -785,6 +785,80 @@ describe('formatHelp', () => {
 	});
 
 	// -----------------------------------------------------------------------
+	// Flag spelling
+	// -----------------------------------------------------------------------
+
+	describe('flag spelling', () => {
+		/** The `Flags:` table's left column, one entry per flag. */
+		function flagForms(help: string): string[] {
+			const table = help.slice(help.indexOf('Flags:\n') + 'Flags:\n'.length).split('\n\n')[0] ?? '';
+			return table
+				.split('\n')
+				.filter((line) => line.length > 0)
+				.map((line) => line.trim().split(/ {2,}/)[0] ?? '');
+		}
+
+		function camel() {
+			return command('build')
+				.flag('wasmPath', flag.string().alias('w').alias('wasmFile'))
+				.flag('dryRun', flag.boolean().negatable())
+				.flag('useCache', flag.boolean().negatable({ alias: 'skipCache' }))
+				.flag('HTTPPort', flag.number())
+				.flag('force', flag.boolean());
+		}
+
+		it("defaults to the declared spellings ('declared')", () => {
+			expect(flagForms(formatHelp(camel().schema, { flagOrder: 'declaration' }))).toEqual([
+				'-w, --wasmPath, --wasmFile <string>',
+				'--[no-]dryRun',
+				'--useCache, --skipCache',
+				'--HTTPPort <number>',
+				'--force',
+			]);
+		});
+
+		it("'kebab' renders names, aliases, and negations in kebab-case", () => {
+			const help = formatHelp(camel().schema, { flagOrder: 'declaration', flagSpelling: 'kebab' });
+			expect(flagForms(help)).toEqual([
+				'-w, --wasm-path, --wasm-file <string>',
+				'--[no-]dry-run',
+				'--use-cache, --skip-cache',
+				'--HTTPPort <number>',
+				'--force',
+			]);
+		});
+
+		it("'kebab' keeps declared spellings when case parity is off", () => {
+			const help = formatHelp(camel().schema, {
+				flagOrder: 'declaration',
+				flagSpelling: 'kebab',
+				caseParity: false,
+			});
+			expect(flagForms(help)).toEqual([
+				'-w, --wasmPath, --wasmFile <string>',
+				'--[no-]dryRun',
+				'--useCache, --skipCache',
+				'--HTTPPort <number>',
+				'--force',
+			]);
+		});
+
+		it("'kebab' keeps a spelling whose counterpart another flag declares", () => {
+			const cmd = command('build').flag('dryRun', flag.boolean()).flag('dry-run', flag.string());
+			const help = formatHelp(cmd.schema, { flagOrder: 'declaration', flagSpelling: 'kebab' });
+			expect(flagForms(help)).toEqual(['--dryRun', '--dry-run <string>']);
+		});
+
+		it("'kebab' keeps `--[no-]` declared when the kebab negation belongs elsewhere", () => {
+			const cmd = command('build')
+				.flag('dryRun', flag.boolean().negatable())
+				.flag('no-dry-run', flag.string());
+			const help = formatHelp(cmd.schema, { flagOrder: 'declaration', flagSpelling: 'kebab' });
+			expect(flagForms(help)).toEqual(['--[no-]dryRun', '--no-dry-run <string>']);
+		});
+	});
+
+	// -----------------------------------------------------------------------
 	// Examples section
 	// -----------------------------------------------------------------------
 

@@ -125,14 +125,19 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 			// Standalone `cmd.run()` / testkit paths reach here without the CLI
 			// builder's help merge — default the palette from the output channel.
 			// Help names the variables resolution reads, so a run-level namespace
-			// reaches the annotations unless the help options already carry one.
-			const help =
-				options?.envPrefix !== undefined && options.help?.envPrefix === undefined
-					? { ...options.help, envPrefix: options.envPrefix }
-					: options?.help;
+			// reaches the annotations unless the help options already carry one,
+			// and help spells flags the way this run's parser accepts them.
+			const caseParity = options?.flags?.caseParity ?? options?.help?.caseParity;
+			const help = {
+				...options?.help,
+				...(options?.envPrefix !== undefined && options.help?.envPrefix === undefined
+					? { envPrefix: options.envPrefix }
+					: {}),
+				...(caseParity !== undefined ? { caseParity } : {}),
+			};
 			const helpText = formatHelp(
 				schema,
-				help?.colors !== undefined ? help : { ...help, colors: out.color },
+				help.colors !== undefined ? help : { ...help, colors: out.color },
 			);
 			out.log(helpText);
 			return { exitCode: 0, error: undefined };

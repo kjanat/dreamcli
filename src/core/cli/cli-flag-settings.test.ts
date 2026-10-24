@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { formatHelp } from '#internals/core/help/index.ts';
 import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/index.ts';
+import { runCommand } from '#internals/core/testkit/index.ts';
 import { cli } from './index.ts';
 
 function buildApp(options?: { flags?: { caseParity?: boolean } }) {
@@ -89,5 +90,94 @@ describe('negatable help rendering', () => {
 		expect(help).toContain('--sandbox');
 		expect(help).not.toContain('no-sandbox');
 		expect(help).not.toContain('--[no-]');
+	});
+});
+
+describe('kebab flag spelling in help', () => {
+	function spellingApp(options?: { flags?: { caseParity?: boolean } }) {
+		return cli('demo', options)
+			.help({ flagSpelling: 'kebab' })
+			.command(
+				command('build')
+					.flag('wasmPath', flag.string().describe('Plugin path'))
+					.flag('dryRun', flag.boolean().negatable())
+					.action(() => {}),
+			);
+	}
+
+	it('renders command help in kebab-case while handlers keep camelCase keys', async () => {
+		let seen: unknown;
+		const app = cli('demo')
+			.help({ flagSpelling: 'kebab' })
+			.command(
+				command('build')
+					.flag('wasmPath', flag.string())
+					.flag('dryRun', flag.boolean().negatable())
+					.action(({ flags }) => {
+						seen = flags;
+					}),
+			);
+		const help = (await app.execute(['build', '--help'])).stdout.join('');
+		expect(help).toContain('--wasm-path <string>');
+		expect(help).toContain('--[no-]dry-run');
+		expect(help).not.toContain('wasmPath');
+
+		const result = await app.execute(['build', '--wasm-path', 'a.wasm', '--no-dry-run']);
+		expect(result.exitCode).toBe(0);
+		expect(seen).toEqual({ wasmPath: 'a.wasm', dryRun: false });
+	});
+
+	it('keeps declared spellings when the CLI disables case parity', async () => {
+		const help = (
+			await spellingApp({ flags: { caseParity: false } }).execute(['build', '--help'])
+		).stdout.join('');
+		expect(help).toContain('--wasmPath <string>');
+		expect(help).toContain('--[no-]dryRun');
+	});
+
+	it('follows a runtime caseParity override', async () => {
+		const help = (
+			await spellingApp().execute(['build', '--help'], { flags: { caseParity: false } })
+		).stdout.join('');
+		expect(help).toContain('--wasmPath <string>');
+	});
+
+	it('applies to a default command inlined in root help', async () => {
+		const app = cli('demo')
+			.help({ flagSpelling: 'kebab' })
+			.default(
+				command('serve')
+					.flag('logLevel', flag.string())
+					.action(() => {}),
+			);
+		const help = (await app.execute(['--help'])).stdout.join('');
+		expect(help).toContain('--log-level <string>');
+	});
+
+	it('is accepted as a runtime help option', async () => {
+		const app = cli('demo').command(
+			command('build')
+				.flag('wasmPath', flag.string())
+				.action(() => {}),
+		);
+		const declared = (await app.execute(['build', '--help'])).stdout.join('');
+		expect(declared).toContain('--wasmPath <string>');
+		const kebab = (
+			await app.execute(['build', '--help'], { help: { flagSpelling: 'kebab' } })
+		).stdout.join('');
+		expect(kebab).toContain('--wasm-path <string>');
+	});
+
+	it('follows the run-level parser settings in standalone runCommand help', async () => {
+		const build = command('build')
+			.flag('wasmPath', flag.string())
+			.action(() => {});
+		const kebab = await runCommand(build, ['--help'], { help: { flagSpelling: 'kebab' } });
+		expect(kebab.stdout.join('')).toContain('--wasm-path <string>');
+		const strict = await runCommand(build, ['--help'], {
+			help: { flagSpelling: 'kebab' },
+			flags: { caseParity: false },
+		});
+		expect(strict.stdout.join('')).toContain('--wasmPath <string>');
 	});
 });

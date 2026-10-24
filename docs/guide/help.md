@@ -103,6 +103,41 @@ cli('mycli')
 
 Both are also accepted per call via `execute(argv, { help })` / `run({ help })`.
 
+### Flag spelling
+
+The parser accepts the kebab-case spelling of a camelCase flag key, so a flag
+keyed `wasmPath` answers to `--wasm-path` while handlers keep reading
+`flags.wasmPath`. `flagSpelling: 'kebab'` makes help advertise that spelling
+for names, long aliases, and negations:
+
+```ts twoslash
+import { cli, command, flag } from '@kjanat/dreamcli';
+
+cli('mycli')
+  .command(
+    command('build')
+      .flag('wasmPath', flag.path())
+      .flag('dryRun', flag.boolean().negatable())
+      .action(({ flags }) => {
+        flags.wasmPath; // still camelCase
+      }),
+  )
+  .help({ flagSpelling: 'kebab' });
+```
+
+```text
+Flags:
+  --[no-]dry-run
+  --wasm-path <path>
+```
+
+Help only shows a spelling the parser accepts for the same flag. Under
+`cli(name, { flags: { caseParity: false } })`, or when another flag declares
+the kebab spelling itself, the declared spelling stays. One-word keys such as
+`HTTPPort` also stay as declared. The default, `'declared'`, renders every
+spelling exactly as written. `readFlags()` takes the same choice as its
+`flagSpelling` option.
+
 ### Header hyperlinks
 
 The root-help header can wrap the program name and version in OSC 8 terminal
