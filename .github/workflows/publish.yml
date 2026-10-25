@@ -1,8 +1,8 @@
 name: Publish
-run-name: Publish ${{ github.event.release.tag_name || github.ref_name }}
+run-name: Publish ${{ github.ref_name }}
 
 on:
-  release: { types: [published] }
+  # Publish registries first; create the GitHub release after this workflow succeeds.
   workflow_dispatch:
 
 permissions: { contents: read }
@@ -13,7 +13,6 @@ jobs:
     name: Resolve Release Metadata
     if: github.repository == 'kjanat/dreamcli'
     runs-on: ubuntu-latest
-    env: { RELEASE_TAG: "${{ github.event.release.tag_name }}" }
     outputs:
       npm: ${{ steps.npm.outputs.meta }}
       jsr: ${{ steps.jsr.outputs.meta }}

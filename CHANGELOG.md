@@ -14,7 +14,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - [ ] Pack with `bun pm pack --quiet --ignore-scripts` and inspect the tarball's files and version.
 - [ ] Confirm generators and formatters leave no unexpected worktree changes.
 - [ ] Commit and push the release preparation, then verify the target commit is signed, `master` matches the remote, and every required check is green.
-- [ ] Confirm the exact `v<version>` tag does not already exist and npm and JSR do not already contain that version before publishing the GitHub release.
+- [ ] Confirm the exact `v<version>` tag does not already exist and npm and JSR do not already contain that version before dispatching the Publish workflow.
+- [ ] Dispatch Publish for the signed tag, confirm npm and JSR publication, then publish the GitHub release.
+
+## [5.0.0] - 2026-10-25
 
 ### Added
 
@@ -31,7 +34,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 
 - **Breaking: `ResolutionProvenance` gains an indexed env record** ([#139](https://github.com/kjanat/dreamcli/issues/139)).\
-  A value read from an indexed family reports `{ stage: 'env', via: 'indexed', count, envVars }`, listing every variable it read, because no single `envVar` describes it truthfully. Variables bound by name still report `{ stage: 'env', envVar }`. Code that narrows `stage === 'env'` and then reads `envVar` must also test `'envVar' in source`. `ResolutionProvenance` is a closed union, so this ships in the next major release.
+  A value read from an indexed family reports `{ stage: 'env', via: 'indexed', count, envVars }`, listing every variable it read, because no single `envVar` describes it truthfully. Variables bound by name still report `{ stage: 'env', envVar }`. Code that narrows `stage === 'env'` and then reads `envVar` must also test `'envVar' in source`. `ResolutionProvenance` is a closed union, so this ships in 5.0.0.
+
+- **Breaking: constructed result objects must include `skippedPathChecks`** ([#146](https://github.com/kjanat/dreamcli/issues/146)).\
+  `RunResult` and `ResolveResult` require this list, including when it is empty. Add `skippedPathChecks: []` to hand-built fixtures and mocks; actual runs populate it automatically. See [Upgrading From 4.x](https://dreamcli.kjanat.dev/guide/upgrading-v5) for both type migrations.
 
 ### Fixed
 
@@ -1151,7 +1157,8 @@ The stable 3.0.0 release. It ships the code of 3.0.0-rc.20 plus the fix and docu
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v4.2.0...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v5.0.0...HEAD
+[5.0.0]: https://github.com/kjanat/dreamcli/compare/v4.2.0...v5.0.0
 [4.2.0]: https://github.com/kjanat/dreamcli/compare/v4.1.0...v4.2.0
 [4.1.0]: https://github.com/kjanat/dreamcli/compare/v4.0.0...v4.1.0
 [4.0.0]: https://github.com/kjanat/dreamcli/compare/v4.0.0-rc.3...v4.0.0
