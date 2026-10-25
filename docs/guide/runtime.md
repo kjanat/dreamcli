@@ -56,12 +56,31 @@ const nodeAdapter = createNodeAdapter(); // explicit
 
 ## Deno Permissions
 
-On Deno, the adapter handles permission-safe access to the Deno namespace.
-If permissions are missing, features degrade gracefully with clear error messages.
+On Deno, the adapter asks for nothing it was not granted. A full
+`--allow-env` grant snapshots the whole environment. A scoped grant reads
+only the variables it names, so a command bound to `.env('WASM_PATH')` needs
+no more than that variable:
 
 ```bash
-deno run --allow-read --allow-env mycli.ts deploy
+deno run --allow-read --allow-env=WASM_PATH mycli.ts deploy
 ```
+
+Without any env grant the adapter still starts, and every variable reads as
+unset, so `.env()` inputs fall through to config, prompts, and defaults. The
+adapter checks permission state before each read, so it never triggers a
+Deno permission prompt. When a required input is missing and its variable
+was not granted, the error names the grant to add, never the value:
+
+```text
+Missing required flag --wasm-path
+Suggestion: Provide --wasm-path <value> or set WASM_PATH (Deno has not granted access to WASM_PATH; run with --allow-env=WASM_PATH)
+```
+
+Grant the variables your CLI reads for its own purposes too, such as
+`HOME` and `XDG_CONFIG_HOME` for config discovery, and `NO_COLOR`,
+`FORCE_COLOR`, or `NO_HYPERLINKS` if users should be able to steer output
+styling. `--allow-read` covers config files and path checks; without it,
+config discovery finds nothing.
 
 ## Testing Runtime Seams
 
