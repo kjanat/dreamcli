@@ -34,11 +34,33 @@ function findDeno(): string | undefined {
 const deno = findDeno();
 
 /**
- * The variables ansispeck 0.4.2 reads while it loads. Granting them keeps the
- * CLI probes about the adapter until a release that reads only granted
- * variables lands.
+ * Host variables the child keeps so Deno can find its cache and reach JSR.
+ * The CLI under test never reads them, so they cannot satisfy a probe.
  */
-const COLOR_HINTS = 'FORCE_COLOR,NO_COLOR,CI,TERM,NO_HYPERLINKS,FORCE_HYPERLINKS';
+const PASSTHROUGH = [
+	'PATH',
+	'HOME',
+	'DENO_DIR',
+	'DENO_CERT',
+	'DENO_TLS_CA_STORE',
+	'SSL_CERT_FILE',
+	'HTTPS_PROXY',
+	'HTTP_PROXY',
+	'NO_PROXY',
+	'https_proxy',
+	'http_proxy',
+	'no_proxy',
+] as const;
+
+/** The passthrough variables the host actually sets. */
+function hostEnv(): Record<string, string> {
+	const env: Record<string, string> = {};
+	for (const name of PASSTHROUGH) {
+		const value = process.env[name];
+		if (value !== undefined) env[name] = value;
+	}
+	return env;
+}
 
 interface ProbeResult {
 	readonly code: number | null;
@@ -74,8 +96,12 @@ function spawnExact(
 	return { code: result.status, stdout: result.stdout, stderr: result.stderr };
 }
 
-/** Run `source` as a module under Deno with `permissions` and a fixed environment. */
-function runDeno(source: string, permissions: readonly string[]): ProbeResult {
+/** Run `source` as a module under Deno with `permissions`, `args`, and a fixed environment. */
+function runDeno(
+	source: string,
+	permissions: readonly string[],
+	args: readonly string[] = [],
+): ProbeResult {
 	const dir = mkdtempSync(join(tmpdir(), 'dreamcli-deno-'));
 	try {
 		const file = join(dir, 'probe.ts');
@@ -88,13 +114,14 @@ function runDeno(source: string, permissions: readonly string[]): ProbeResult {
 				join(root, 'deno.json'),
 				'--no-lock',
 				'--no-prompt',
+				// Keep first-run module downloads off stderr.
+				'--quiet',
 				...permissions,
 				file,
+				...args,
 			],
 			{
-				PATH: process.env.PATH ?? '',
-				...(process.env.DENO_DIR !== undefined ? { DENO_DIR: process.env.DENO_DIR } : {}),
-				...(process.env.HOME !== undefined ? { HOME: process.env.HOME } : {}),
+				...hostEnv(),
 				NO_COLOR: '1',
 				WASM_PATH: 'plugin.wasm',
 				UNRELATED: 'do-not-read',
@@ -122,6 +149,13 @@ await cli('probe')
 	.run();
 `;
 
+const helpProbe = `
+import { cli, command } from ${JSON.stringify(indexUrl)};
+await cli('probe')
+	.default(command('probe').action(({ out }) => out.log('ok')))
+	.run();
+`;
+
 describe.skipIf(deno === undefined)('Deno env permissions (subprocess)', () => {
 	it('creates the adapter without any env grant', () => {
 		const result = runDeno(adapterProbe, []);
@@ -143,14 +177,21 @@ describe.skipIf(deno === undefined)('Deno env permissions (subprocess)', () => {
 	}, 60_000);
 
 	it('resolves a declared .env() binding from a scoped grant', () => {
-		const result = runDeno(cliProbe, [`--allow-env=${COLOR_HINTS},WASM_PATH`]);
+		const result = runDeno(cliProbe, ['--allow-env=WASM_PATH']);
 		expect(result.stderr).toBe('');
 		expect(result.code).toBe(0);
 		expect(result.stdout).toBe('wasm=plugin.wasm\n');
 	}, 60_000);
 
+	it('runs the CLI without any env grant', () => {
+		const result = runDeno(helpProbe, [], ['--help']);
+		expect(result.stderr).toBe('');
+		expect(result.code).toBe(0);
+		expect(result.stdout).toContain('Usage: probe');
+	}, 60_000);
+
 	it('names the missing grant without exposing the value', () => {
-		const result = runDeno(cliProbe, [`--allow-env=${COLOR_HINTS}`]);
+		const result = runDeno(cliProbe, []);
 		expect(result.code).toBe(2);
 		expect(result.stderr).toContain('run with --allow-env=WASM_PATH');
 		expect(result.stderr).not.toContain('plugin.wasm');

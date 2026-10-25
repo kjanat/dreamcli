@@ -5,7 +5,7 @@
     "": {
       "name": "@kjanat/dreamcli",
       "dependencies": {
-        "ansispeck": "^0.4.2",
+        "ansispeck": "^0.4.3",
       },
       "devDependencies": {
         "@arethetypeswrong/core": "^0.18.5",
@@ -730,7 +730,7 @@
 
     "alien-signals": ["alien-signals@3.2.1", "", {}, "sha512-I8FjmltrfnDFoZedi5CG8DghVYNhzb/Ijluz7tCSJH0xpd0484Kowhbb1XDYOxfJpU1p5wnM2X54dA+IfGyD1g=="],
 
-    "ansispeck": ["ansispeck@0.4.2", "", {}, "sha512-ZIIS0aQgc1HyhgK3Rru5SgL162D8jpRd39BH84eWDYmyT7eUuMj0Mx5OrKplp1dZJxZ/eQQNuYzkoX9OFnoYtA=="],
+    "ansispeck": ["ansispeck@0.4.3", "", {}, "sha512-+U6dFeORz6VrHK0AYqkVpLsjsRZGWgVQDqp7c6KpKDzpGbCdNAyEH7K8wtomuElS3sX1Nne1YeMgCK0kfPB/9A=="],
 
     "argparse": ["argparse@3.0.3", "", {}, "sha512-Sn98ftV3KfsO8xfLPHG6oT8y+b0yvbrLgZjgPDXsharNY15tTAjqIsIju4S32nl6/iEUNNE4v+yL2Zhm8ooP3w=="],
 

@@ -135,7 +135,7 @@
 		"version:check": "bun scripts/check-version-sync.ts"
 	},
 	"dependencies": {
-		"ansispeck": "^0.4.2"
+		"ansispeck": "^0.4.3"
 	},
 	"devDependencies": {
 		"@arethetypeswrong/core": "^0.18.5",
