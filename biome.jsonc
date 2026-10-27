@@ -7,6 +7,7 @@
 		"defaultBranch": "master"
 	},
 	"files": {
+		"includes": ["**", "!!**/*.yaml", "!!**/*.yml"],
 		"ignoreUnknown": true,
 		"maxSize": 5000000
 	},
