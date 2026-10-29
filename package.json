@@ -148,7 +148,7 @@
 		"biome": "npm:@biomejs/biome@^2.5.15",
 		"dprint": "0.64.3",
 		"importmapify": "1.7.0",
-		"knip": "^6.43.0",
+		"knip": "^6.44.0",
 		"publint": "^0.3.25",
 		"runner-run": "0.28.0",
 		"tsdown": "0.23.2",
