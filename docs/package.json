@@ -21,7 +21,7 @@
 		"mermaid": "^12.3.0",
 		"typedoc": "^0.28.20",
 		"typescript": "catalog:",
-		"vite": "^8.3.5",
+		"vite": "^8.3.6",
 		"vitepress": "next",
 		"vitest": "catalog:",
 		"wrangler": "4.157.0"
