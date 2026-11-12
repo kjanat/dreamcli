@@ -78,6 +78,33 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 	lines.push('#');
 	lines.push('# Requires: bash-completion (provides _init_completion)');
 	lines.push('');
+	if (hasDynamicCompletion(schema)) {
+		// Decode ordinary quotes and escapes without evaluating shell expressions.
+		lines.push(`${funcName}_unquote() {`);
+		lines.push('\tlocal text="$1" char escaped=0 i');
+		lines.push('\tunquoted="" quote=""');
+		// biome-ignore lint/suspicious/noTemplateCurlyInString: bash parameter expansion
+		lines.push('\tfor ((i = 0; i < ${#text}; i++)); do');
+		// biome-ignore lint/suspicious/noTemplateCurlyInString: bash parameter expansion
+		lines.push('\t\tchar="${text:i:1}"');
+		lines.push('\t\tif ((escaped)); then');
+		lines.push('\t\t\t[[ "$quote" == \'"\' && "$char" != [\\\\\\"\\$\\`] ]] && unquoted+=\'\\\'');
+		lines.push('\t\t\tunquoted+="$char"; escaped=0');
+		lines.push('\t\telif [[ "$char" == \'\\\' && "$quote" != "\'" ]]; then');
+		lines.push('\t\t\tescaped=1');
+		lines.push('\t\telif [[ -n "$quote" ]]; then');
+		lines.push('\t\t\tif [[ "$char" == "$quote" ]]; then quote=""; else unquoted+="$char"; fi');
+		lines.push('\t\telif [[ "$char" == "\'" || "$char" == \'"\' ]]; then');
+		lines.push('\t\t\tquote="$char"');
+		lines.push('\t\telse');
+		lines.push('\t\t\tunquoted+="$char"');
+		lines.push('\t\tfi');
+		lines.push('\tdone');
+		lines.push("\t((escaped)) && unquoted+='\\'");
+		lines.push('\treturn 0');
+		lines.push('}');
+		lines.push('');
+	}
 	lines.push(`${funcName}() {`);
 	lines.push(`\tlocal cur prev words cword`);
 	lines.push(
@@ -85,14 +112,49 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 			? '\t_init_completion -n = || return'
 			: '\t_init_completion || return',
 	);
+	lines.push('\tlocal readline_prefix=""');
+	lines.push('\tif [[ $# -ge 2 && "$cur" == *"$2" ]]; then');
+	// Readline replaces its own word fragment, even when _init_completion joins '=' tokens.
+	// biome-ignore lint/suspicious/noTemplateCurlyInString: bash parameter expansion
+	lines.push('\t\treadline_prefix="${cur%"$2"}"');
+	lines.push('\tfi');
 	if (hasDynamicCompletion(schema)) {
-		lines.push('\tlocal dynamic candidate');
+		lines.push('\tlocal dynamic candidate unquoted quote readline_quote word char i quoted');
+		lines.push(`\t${funcName}_unquote "$readline_prefix"`);
+		lines.push('\treadline_prefix="$unquoted" readline_quote="$quote"');
+		lines.push('\tlocal -a dynamic_words=()');
+		// biome-ignore lint/suspicious/noTemplateCurlyInString: bash parameter expansion
+		lines.push('\tfor word in "${words[@]:1:cword-1}" "$cur"; do');
+		lines.push(`\t\t${funcName}_unquote "$word"`);
+		lines.push('\t\tdynamic_words+=("$unquoted")');
+		lines.push('\tdone');
 		lines.push(
-			`\tif dynamic=$(command ${quoteShellArg(schema.name)} __complete "\${words[@]:1:cword-1}" "$cur" 2>/dev/null); then`,
+			`\tif dynamic=$(command ${quoteShellArg(schema.name)} __complete "\${dynamic_words[@]}" 2>/dev/null); then`,
 		);
+		lines.push('\t\tcompopt -o noquote 2>/dev/null');
 		lines.push('\t\tCOMPREPLY=()');
 		lines.push('\t\twhile IFS= read -r candidate; do');
-		lines.push('\t\t\t[[ -n "$candidate" ]] && COMPREPLY+=("$candidate")');
+		lines.push('\t\t\t[[ -n "$candidate" ]] || continue');
+		// biome-ignore lint/suspicious/noTemplateCurlyInString: bash parameter expansion
+		lines.push('\t\t\tcandidate="${candidate#"$readline_prefix"}"');
+		lines.push('\t\t\tif [[ -z "$readline_quote" ]]; then');
+		lines.push('\t\t\t\tprintf -v candidate %q "$candidate"');
+		lines.push('\t\t\telse');
+		lines.push('\t\t\t\tquoted="$readline_quote"');
+		// biome-ignore lint/suspicious/noTemplateCurlyInString: bash parameter expansion
+		lines.push('\t\t\t\tfor ((i = 0; i < ${#candidate}; i++)); do');
+		// biome-ignore lint/suspicious/noTemplateCurlyInString: bash parameter expansion
+		lines.push('\t\t\t\t\tchar="${candidate:i:1}"');
+		lines.push(
+			'\t\t\t\t\tif [[ "$readline_quote" == \'"\' && "$char" == [\\\\\\"\\$\\`] ]]; then quoted+=\'\\\'; fi',
+		);
+		lines.push(
+			'\t\t\t\t\tif [[ "$readline_quote" == "\'" && "$char" == "\'" ]]; then quoted+="\'\\\\\'\'"; else quoted+="$char"; fi',
+		);
+		lines.push('\t\t\t\tdone');
+		lines.push('\t\t\t\tcandidate="$quoted"');
+		lines.push('\t\t\tfi');
+		lines.push('\t\t\tCOMPREPLY+=("$candidate")');
 		lines.push('\t\tdone <<< "$dynamic"');
 		lines.push('\t\treturn');
 		lines.push('\tfi');
@@ -375,6 +437,10 @@ function formatBashEnumCompletion(
 		lines.push(`${indent}\tdone`);
 		lines.push(`${indent}fi`);
 	}
+	lines.push(`${indent}local reply`);
+	lines.push(`${indent}for reply in "\${!COMPREPLY[@]}"; do`);
+	lines.push(`${indent}\tCOMPREPLY[reply]="\${COMPREPLY[reply]#"$readline_prefix"}"`);
+	lines.push(`${indent}done`);
 	return lines.join('\n');
 }
 

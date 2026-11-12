@@ -1773,6 +1773,7 @@ class CLIBuilder {
 				options?.flags === undefined
 					? this.schema
 					: { ...this.schema, flagSettings: options.flags },
+				compiledStateOf(this),
 				adapter.argv.slice(adapter.argv[3] === '--value-only' ? 4 : 3),
 				options?.env ?? adapter.env,
 				adapter.argv[3] === '--value-only',
@@ -1873,6 +1874,7 @@ async function executeCLI(
 			options?.flags === undefined
 				? builder.schema
 				: { ...builder.schema, flagSettings: options.flags },
+			compiledStateOf(builder),
 			argv.slice(argv[1] === '--value-only' ? 2 : 1),
 			options?.env ?? {},
 			argv[1] === '--value-only',

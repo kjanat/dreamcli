@@ -70,6 +70,120 @@ describe('dynamic value completion', () => {
 		expect(result.stdout[0]).toBe(first);
 	});
 
+	it.each([
+		['--verbose', 'deploy', '--name', 'wi'],
+		['-v', 'd', '--name', 'wi'],
+		['--profile=prod', 'deploy', '--name', 'wi'],
+	])('matches execution with leading command flags: %j', async (...argv) => {
+		const app = cli('app').command(
+			command('deploy')
+				.alias('d')
+				.flag('verbose', flag.boolean().alias('v'))
+				.flag('profile', flag.string())
+				.flag(
+					'name',
+					flag.string().complete(() => ['widget']),
+				)
+				.action(({ flags, out }) => out.log(String(flags.name))),
+		);
+		expect((await app.execute([...argv.slice(0, -1), 'widget'])).stdout).toEqual(['widget\n']);
+		expect((await app.execute(['__complete', ...argv])).stdout).toEqual(['widget\n']);
+	});
+
+	it('uses parent flag arity when descending through nested aliases', async () => {
+		let context: CompletionContext | undefined;
+		const app = cli('app').command(
+			group('repo')
+				.alias('r')
+				.flag('profile', flag.string().propagate())
+				.command(
+					command('deploy')
+						.alias('d')
+						.flag('verbose', flag.boolean())
+						.flag(
+							'name',
+							flag.string().complete((value) => {
+								context = value;
+								return ['widget'];
+							}),
+						)
+						.action(({ flags, out }) => {
+							expect(flags).toMatchObject({ profile: 'd' });
+							out.log(String(flags.name));
+						}),
+				),
+		);
+		const argv = ['r', '--profile', 'd', '--verbose', 'd', '--name', 'wi'];
+		expect((await app.execute([...argv.slice(0, -1), 'widget'])).stdout).toEqual(['widget\n']);
+		expect((await app.execute(['__complete', ...argv])).stdout).toEqual(['widget\n']);
+		expect(context?.commandPath).toEqual(['repo', 'deploy']);
+		expect(context?.argv).toEqual(argv);
+	});
+
+	it('completes a pending flag on a group that still needs a subcommand', async () => {
+		const app = cli('app').command(
+			group('repo')
+				.flag(
+					'profile',
+					flag.string().complete(() => ['main']),
+				)
+				.command(command('deploy')),
+		);
+		expect((await app.execute(['__complete', 'repo', '--profile', 'ma'])).stdout).toEqual([
+			'main\n',
+		]);
+	});
+
+	it('uses default-command flag arity before selecting a named command', async () => {
+		const app = cli('app')
+			.default(command('default').flag('profile', flag.string()))
+			.command(
+				command('deploy')
+					.flag('profile', flag.string())
+					.flag(
+						'name',
+						flag.string().complete(() => ['widget']),
+					)
+					.action(({ flags, out }) => out.log(String(flags.name))),
+			);
+		const argv = ['--profile', 'deploy', 'deploy', '--name', 'wi'];
+		expect((await app.execute([...argv.slice(0, -1), 'widget'])).stdout).toEqual(['widget\n']);
+		expect((await app.execute(['__complete', ...argv])).stdout).toEqual(['widget\n']);
+	});
+
+	it('rejects unknown leading flags and unrecognized root value operands', async () => {
+		const app = cli('app').command(
+			command('deploy')
+				.flag('profile', flag.string())
+				.flag('name', flag.string().complete(unexpected))
+				.action(unexpected),
+		);
+		for (const argv of [
+			['--unknown', 'deploy', '--name', 'wi'],
+			['--profile', 'prod', 'deploy', '--name', 'wi'],
+		]) {
+			expect((await app.execute([...argv.slice(0, -1), 'widget'])).exitCode).not.toBe(0);
+			expect((await app.execute(['__complete', ...argv])).exitCode).toBe(1);
+		}
+	});
+
+	it('preserves the separator left by command dispatch', async () => {
+		const app = cli('app').command(
+			command('deploy')
+				.flag('name', flag.string().complete(unexpected))
+				.arg(
+					'target',
+					arg.string().complete(() => ['--name=widget']),
+				)
+				.action(({ args, out }) => out.log(args.target)),
+		);
+		const argv = ['--', 'deploy', '--name=wi'];
+		expect((await app.execute(['--', 'deploy', '--name=widget'])).stdout).toEqual([
+			'--name=widget\n',
+		]);
+		expect((await app.execute(['__complete', ...argv])).stdout).toEqual(['--name=widget\n']);
+	});
+
 	it('counts positionals while skipping flag operands', async () => {
 		const result = await fixture().execute(['__complete', 'adopt', '-p', 'widget', 'st']);
 		expect(result.stdout).toEqual(['staging\n']);

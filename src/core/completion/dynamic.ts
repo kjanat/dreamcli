@@ -6,11 +6,16 @@
  */
 
 import { BUILTIN_NAMES, BUILTIN_SPECS, builtinEnabled } from '#internals/core/cli/builtins.ts';
+import type { CompiledCLI } from '#internals/core/cli/compiled.ts';
+import { dispatch, findClosestCommand } from '#internals/core/cli/dispatch.ts';
 import type { CLISchema } from '#internals/core/cli/index.ts';
+import {
+	buildRootCommandMap,
+	canDelegateUnknownRootToDefault,
+} from '#internals/core/cli/planner.ts';
 import { collectPropagatedFlags } from '#internals/core/cli/propagate.ts';
 import type { FlagLookupEntry } from '#internals/core/parse/index.ts';
 import { buildFlagLookup, flagExpectsValue } from '#internals/core/parse/index.ts';
-import type { CommandSchema } from '#internals/core/schema/command.ts';
 import type { CompletionContext, CompletionHandler } from '#internals/core/schema/completion.ts';
 import { acceptsArgv } from '#internals/core/schema/stdin.ts';
 
@@ -22,27 +27,42 @@ interface CompletionTarget {
 
 function findCompletion(
 	schema: CLISchema,
+	compiled: CompiledCLI,
 	argv: readonly string[],
 	env: CompletionContext['env'],
 ): CompletionTarget | undefined {
 	if (argv.length === 0) return undefined;
-	const path: CommandSchema[] = [];
-	let command = schema.defaultCommand;
-	let children = schema.commands;
-	if (schema.defaultCommandRouted && schema.defaultCommand !== undefined) {
-		children = [...children, schema.defaultCommand];
-	}
+	const completedArgv = argv.slice(0, -1);
+	const commands =
+		schema.defaultCommandRouted && compiled.defaultCommand !== undefined
+			? [...compiled.commands, compiled.defaultCommand]
+			: compiled.commands;
+	const result = dispatch(
+		completedArgv,
+		buildRootCommandMap(commands),
+		[],
+		buildFlagLookup(schema.defaultCommand?.flags ?? {}, schema.flagSettings),
+		schema.flagSettings,
+	);
+	if (
+		result.kind === 'unknown' &&
+		(result.parentPath.length > 0 ||
+			compiled.defaultCommand === undefined ||
+			!canDelegateUnknownRootToDefault(compiled.defaultCommand, result.input) ||
+			(result.input !== '' && findClosestCommand(result.input, result.candidates) !== undefined))
+	)
+		return undefined;
+	const command = result.kind === 'unknown' ? schema.defaultCommand : result.command.schema;
+	const path = result.kind === 'unknown' ? [] : result.commandPath;
+	const remaining = result.kind === 'unknown' ? completedArgv : result.remainingArgv;
 	let positional = 0;
 	let afterSeparator = false;
 	let pending: FlagLookupEntry | undefined;
-	const lookup = () =>
-		buildFlagLookup(
-			command === undefined ? {} : { ...collectPropagatedFlags(path), ...command.flags },
-			schema.flagSettings,
-		);
-	for (let index = 0; index < argv.length - 1; index++) {
-		const token = argv[index];
-		if (token === undefined) continue;
+	const lookup = buildFlagLookup(
+		command === undefined ? {} : { ...collectPropagatedFlags(path), ...command.flags },
+		schema.flagSettings,
+	);
+	for (const token of remaining) {
 		if (pending !== undefined) {
 			pending = undefined;
 			continue;
@@ -62,21 +82,10 @@ function findCompletion(
 			);
 			if (builtin || (schema.version !== undefined && (token === '--version' || token === '-V')))
 				continue;
-			const match = matchFlag(token, lookup());
+			const match = matchFlag(token, lookup);
 			if (match === undefined) return undefined;
 			if (match.inline === undefined && flagExpectsValue(match.entry.schema)) pending = match.entry;
 			continue;
-		}
-		if (!afterSeparator && positional === 0) {
-			const child = children.find(
-				(candidate) => candidate.name === token || candidate.aliases.includes(token),
-			);
-			if (child !== undefined) {
-				path.push(child);
-				command = child;
-				children = child.commands;
-				continue;
-			}
 		}
 		const args = command?.args.filter((entry) => acceptsArgv(entry.schema)) ?? [];
 		if (args[positional] === undefined && !args[args.length - 1]?.schema.variadic) return undefined;
@@ -90,7 +99,7 @@ function findCompletion(
 		input = { kind: 'flag', name: pending.name };
 		handler = pending.schema.completion;
 	} else if (!afterSeparator && prefix.startsWith('-')) {
-		const match = matchFlag(prefix, lookup());
+		const match = matchFlag(prefix, lookup);
 		if (match?.inline === undefined || !flagExpectsValue(match.entry.schema)) return undefined;
 		input = { kind: 'flag', name: match.entry.name };
 		handler = match.entry.schema.completion;
@@ -137,11 +146,12 @@ function matchFlag(
 /** Status 1 lets generated scripts fall back to static completion. */
 async function completeValues(
 	schema: CLISchema,
+	compiled: CompiledCLI,
 	argv: readonly string[],
 	env: CompletionContext['env'],
 	valueOnly = false,
 ): Promise<{ readonly exitCode: number; readonly candidates: readonly string[] }> {
-	const target = findCompletion(schema, argv, env);
+	const target = findCompletion(schema, compiled, argv, env);
 	if (target === undefined) return { exitCode: 1, candidates: [] };
 	try {
 		const values = await target.handler(target.context);

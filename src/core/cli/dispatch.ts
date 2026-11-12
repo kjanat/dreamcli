@@ -40,6 +40,8 @@ interface DispatchMatch {
 
 /** Target has subcommands but no handler and no subcommand was specified/matched. */
 interface DispatchNeedsSubcommand {
+	/** Arguments after removing the matched command names. */
+	readonly remainingArgv: readonly string[];
 	/** Discriminant — command group reached without a subcommand or handler. */
 	readonly kind: 'needs-subcommand';
 	/** The group command that needs a subcommand. */
@@ -184,7 +186,12 @@ function dispatch(
 							remainingArgv: remaining,
 						};
 					}
-					return { kind: 'needs-subcommand', command: matched, commandPath: currentPath };
+					return {
+						kind: 'needs-subcommand',
+						command: matched,
+						commandPath: currentPath,
+						remainingArgv: remaining,
+					};
 				}
 
 				// Unknown token — might be a positional arg for this command.
