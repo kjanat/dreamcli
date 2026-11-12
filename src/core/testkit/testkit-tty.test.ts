@@ -3,6 +3,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { cli, resolveRenderContext } from '#internals/core/cli/index.ts';
 import { command } from '#internals/core/schema/command.ts';
 import { runCommand } from './index.ts';
 
@@ -129,5 +130,40 @@ describe('runCommand', () => {
 			const parsed = JSON.parse(result.stdout[0] ?? '');
 			expect(parsed).toEqual({ isTTY: true, jsonMode: true });
 		});
+	});
+});
+
+describe('injected color policy', () => {
+	const cmd = command('paint').action(({ out }) => out.log(out.color.red('red')));
+	const app = cli('paint').command(cmd);
+	it.each([
+		{ options: { color: true }, enabled: true },
+		{ options: { color: false, isTTY: true, env: { FORCE_COLOR: '1' } }, enabled: false },
+		{ options: { color: true, env: { NO_COLOR: '1' } }, enabled: true },
+		{ options: { isTTY: true, env: {} }, enabled: true },
+		{ options: { isTTY: true, env: { NO_COLOR: '1', FORCE_COLOR: '1' } }, enabled: false },
+		{ options: { env: { FORCE_COLOR: '1' } }, enabled: true },
+		{ options: { isTTY: true, env: { FORCE_COLOR: '0' } }, enabled: false },
+		{ options: { env: {} }, enabled: false },
+	])(
+		'uses the same color decision in execute, runCommand, and render context: $options',
+		async ({ options, enabled }) => {
+			for (const result of [
+				await app.execute(['paint'], options),
+				await runCommand(cmd, [], options),
+			]) {
+				expect(result.exitCode).toBe(0);
+				expect(result.stdout.join('').includes('\u001b[')).toBe(enabled);
+			}
+			expect(resolveRenderContext([], options).color.isColorSupported).toBe(enabled);
+		},
+	);
+
+	it('keeps automatic color off in JSON mode even when FORCE_COLOR is set', async () => {
+		const result = await app.execute(['paint', '--json'], {
+			isTTY: true,
+			env: { FORCE_COLOR: '1' },
+		});
+		expect(result.stderr).toEqual(['red\n']);
 	});
 });

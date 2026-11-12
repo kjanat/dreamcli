@@ -18,6 +18,7 @@ import { CLIError } from '#internals/core/errors/index.ts';
 import { buildRunResult, executeCommand } from '#internals/core/execution/index.ts';
 import type { HelpOptions, HelpThemeFactory } from '#internals/core/help/index.ts';
 import { formatHelp } from '#internals/core/help/index.ts';
+import { resolveExecutionColor } from '#internals/core/output/color.ts';
 import type { CapturedOutput, Verbosity } from '#internals/core/output/index.ts';
 import {
 	clearRequestedExitCode,
@@ -827,7 +828,8 @@ interface RenderContextOptions {
 	 */
 	readonly color?: boolean;
 	/**
-	 * Environment variables consulted for `NO_HYPERLINKS`/`FORCE_HYPERLINKS`
+	 * Environment variables consulted for `NO_COLOR`/`FORCE_COLOR` and
+	 * `NO_HYPERLINKS`/`FORCE_HYPERLINKS`
 	 * (e.g. `process.env`).
 	 *
 	 * @defaultValue `{}`
@@ -937,7 +939,7 @@ function resolveRenderContext(
 		jsonMode,
 		isTTY: options?.isTTY ?? false,
 		verbosity,
-		...(options?.color !== undefined ? { color: options.color } : {}),
+		color: resolveExecutionColor({ ...options, jsonMode }),
 		...hyperlinksOption(resolveHyperlinkOverride(options?.env ?? {}, argv)),
 	});
 	return new ResolvedRenderContext(out);
@@ -1001,6 +1003,7 @@ function buildCommandRunOptions(
 		...(options?.verbosity !== undefined ? { verbosity: options.verbosity } : {}),
 		...(options?.jsonMode !== undefined ? { jsonMode: options.jsonMode } : {}),
 		...(options?.isTTY !== undefined ? { isTTY: options.isTTY } : {}),
+		...(options?.color !== undefined ? { color: options.color } : {}),
 		...(options?.out !== undefined ? { out: options.out } : {}),
 		...(options?.captured !== undefined ? { captured: options.captured } : {}),
 		...(options?.flags !== undefined ? { flags: options.flags } : {}),
@@ -1811,6 +1814,7 @@ class CLIBuilder {
 				stderr: adapter.stderr,
 				jsonMode: preflight.inputs.jsonMode,
 				isTTY: preflight.inputs.isTTY,
+				color: resolveExecutionColor({ ...options, ...preflight.inputs }),
 				...(preflight.inputs.verbosity !== 'normal'
 					? { verbosity: preflight.inputs.verbosity }
 					: {}),
@@ -1862,6 +1866,7 @@ async function executeCLI(
 	);
 
 	const captureOptions = {
+		color: resolveExecutionColor({ ...options, jsonMode }),
 		...(verbosity !== undefined ? { verbosity } : {}),
 		...(jsonMode ? { jsonMode } : {}),
 		...(options?.isTTY !== undefined ? { isTTY: options.isTTY } : {}),
