@@ -136,7 +136,10 @@ describe('runCommand() executor contract', () => {
 
 		expect(result.exitCode).toBe(1);
 		expect(result.error?.code).toBe('UNEXPECTED_ERROR');
-		expect(result.activity).toEqual([{ type: 'spinner:start', text: 'Working' }]);
+		expect(result.activity).toEqual([
+			{ type: 'spinner:start', text: 'Working' },
+			{ type: 'spinner:stop' },
+		]);
 		expect(stopActive).toHaveBeenCalledTimes(1);
 	});
 

@@ -22,7 +22,9 @@ import type {
 	TableOptions,
 } from '#internals/core/schema/activity.ts';
 import { type Out, outBrand } from '#internals/core/schema/command.ts';
+import type { TerminalSize } from '#internals/runtime/adapter.ts';
 import { CaptureProgressHandle, CaptureSpinnerHandle } from './activity.ts';
+import { ActivityBlock } from './activity-block.ts';
 import { bindMethods } from './bind.ts';
 import type { OutputPolicy, Verbosity } from './contracts.ts';
 import {
@@ -73,6 +75,13 @@ interface OutputOptions {
 	readonly isTTY?: boolean;
 
 	/**
+	 * Read the terminal's current dimensions before concurrent activity redraws.
+	 * `.run()` supplies the runtime adapter's getter. Without usable dimensions,
+	 * concurrent activities emit static start and completion messages.
+	 */
+	readonly getTerminalSize?: () => TerminalSize | undefined;
+
+	/**
 	 * Verbosity level.
 	 * - `'normal'` (default) — emit all messages
 	 * - `'quiet'` — suppress `info` messages
@@ -118,8 +127,9 @@ interface OutputOptions {
 
 // --- Resolved options (all fields required, filled from defaults)
 
-/** Fully resolved output options with no optional fields. */
+/** Output options after defaults have been applied. */
 interface ResolvedOutputOptions {
+	readonly getTerminalSize?: () => TerminalSize | undefined;
 	readonly stdout: WriteFn;
 	readonly stderr: WriteFn;
 	readonly isTTY: boolean;
@@ -186,6 +196,7 @@ function resolveOptions(options?: OutputOptions): ResolvedOutputOptions {
 	const isTTY = options?.isTTY ?? false;
 	const jsonMode = options?.jsonMode ?? false;
 	return {
+		...(options?.getTerminalSize !== undefined ? { getTerminalSize: options.getTerminalSize } : {}),
 		stdout: options?.stdout ?? noopWrite,
 		stderr: options?.stderr ?? noopWrite,
 		isTTY,
@@ -254,8 +265,15 @@ class OutputChannel implements Out {
 	 */
 	readonly isHyperlinkSupported: boolean;
 
+	private readonly activityWrite: WriteFn;
+
 	constructor(options: ResolvedOutputOptions) {
-		this.options = options;
+		this.activityWrite = options.stderr;
+		this.options = {
+			...options,
+			stdout: (text) => this.writeMessage(options.stdout, text),
+			stderr: (text) => this.writeMessage(options.stderr, text),
+		};
 		this.policy = resolveOutputPolicy(options);
 		this.jsonMode = options.jsonMode;
 		this.verbosity = this.policy.verbosity;
@@ -362,35 +380,36 @@ class OutputChannel implements Out {
 		writeLine(resolveTextTableWriter(this.options, this.policy, format, tableOptions), text);
 	}
 
-	// ----- Active handle tracking -----
-	//
-	// At most one spinner or progress handle may be active at a time. When a
-	// new one is created while another is running, the previous one is
-	// implicitly stopped to avoid garbled terminal output.
+	private readonly activeCleanups = new Map<object, () => void>();
+	private concurrent = false;
+	private activityBlock: ActivityBlock | undefined;
 
-	/**
-	 * Cleanup callback for the currently active spinner/progress handle.
-	 *
-	 * Set to `undefined` when no handle is active. The callback calls the
-	 * appropriate terminal method (`.stop()` for spinners, `.done()` for
-	 * progress) on the previous handle.
-	 *
-	 * @internal
-	 */
-	private activeCleanup: (() => void) | undefined;
+	private writeMessage(writer: WriteFn, text: string): void {
+		if (this.activityBlock === undefined) writer(text);
+		else this.activityBlock.writeMessage(writer, text);
+	}
 
-	/**
-	 * Stop the currently active spinner/progress handle (if any).
-	 *
-	 * Called internally before creating a new handle to prevent overlap,
-	 * and externally after handler execution to clean up leaked timers.
-	 * Idempotent (safe to call when no handle is active).
-	 */
+	/** Stop every active spinner and progress handle. */
 	stopActive(): void {
-		if (this.activeCleanup !== undefined) {
-			this.activeCleanup();
-			this.activeCleanup = undefined;
-		}
+		for (const cleanup of [...this.activeCleanups.values()]) cleanup();
+		this.activeCleanups.clear();
+	}
+
+	protected startActivity<T>(
+		concurrent: boolean,
+		create: (onStop: () => void) => { handle: T; cleanup: (() => void) | undefined },
+	): T {
+		if (this.activeCleanups.size > 0 && (!concurrent || !this.concurrent)) this.stopActive();
+		this.concurrent = concurrent;
+		const token = {};
+		const rendered = create(() => this.activeCleanups.delete(token));
+		if (rendered.cleanup !== undefined) this.activeCleanups.set(token, rendered.cleanup);
+		return rendered.handle;
+	}
+
+	private concurrentLine(label?: string) {
+		this.activityBlock ??= new ActivityBlock(this.activityWrite, this.options.getTerminalSize);
+		return this.activityBlock.line(label);
 	}
 
 	/**
@@ -405,23 +424,25 @@ class OutputChannel implements Out {
 	 * All activity output (transient frames, terminal messages) routes to
 	 * stderr so stdout remains clean for structured data and piping.
 	 *
-	 * If another spinner or progress handle is active, it is implicitly
-	 * stopped before the new one starts.
+	 * With `concurrent: true`, activities share a block of terminal lines.
+	 * Otherwise, starting a handle stops the previous activities.
 	 *
 	 * @virtual
 	 */
 	spinner(text: string, options?: SpinnerOptions): SpinnerHandle {
 		const policy = resolveSpinnerPolicy(this.policy, options?.fallback ?? 'silent');
-		const rendered = createSpinnerHandleFromPolicy(policy, text, this.options.stderr);
-
-		if (rendered.cleanup === undefined) {
-			return rendered.handle;
+		if (policy.mode === 'noop') {
+			return createSpinnerHandleFromPolicy(policy, text, this.activityWrite).handle;
 		}
-
-		// Stop any active handle before creating a new one.
-		this.stopActive();
-		this.activeCleanup = rendered.cleanup;
-		return rendered.handle;
+		return this.startActivity(options?.concurrent ?? false, (onStop) =>
+			createSpinnerHandleFromPolicy(
+				policy,
+				text,
+				this.activityWrite,
+				onStop,
+				options?.concurrent && policy.mode === 'tty' ? this.concurrentLine(text) : undefined,
+			),
+		);
 	}
 
 	/**
@@ -436,23 +457,25 @@ class OutputChannel implements Out {
 	 * All activity output (transient frames, terminal messages) routes to
 	 * stderr so stdout remains clean for structured data and piping.
 	 *
-	 * If another spinner or progress handle is active, it is implicitly
-	 * stopped before the new one starts.
+	 * With `concurrent: true`, activities share a block of terminal lines.
+	 * Otherwise, starting a handle stops the previous activities.
 	 *
 	 * @virtual
 	 */
 	progress(opts: ProgressOptions): ProgressHandle {
 		const policy = resolveProgressPolicy(this.policy, opts.fallback ?? 'silent');
-		const rendered = createProgressHandleFromPolicy(policy, opts, this.options.stderr);
-
-		if (rendered.cleanup === undefined) {
-			return rendered.handle;
+		if (policy.mode === 'noop') {
+			return createProgressHandleFromPolicy(policy, opts, this.activityWrite).handle;
 		}
-
-		// Stop any active handle before creating a new one.
-		this.stopActive();
-		this.activeCleanup = rendered.cleanup;
-		return rendered.handle;
+		return this.startActivity(opts.concurrent ?? false, (onStop) =>
+			createProgressHandleFromPolicy(
+				policy,
+				opts,
+				this.activityWrite,
+				onStop,
+				opts.concurrent && policy.mode === 'tty' ? this.concurrentLine(opts.label) : undefined,
+			),
+		);
 	}
 }
 
@@ -479,8 +502,11 @@ class CaptureOutputChannel extends OutputChannel {
 	 * Return a {@link CaptureSpinnerHandle} that records events into the activity log.
 	 * @override
 	 */
-	override spinner(text: string, _options?: SpinnerOptions): SpinnerHandle {
-		return new CaptureSpinnerHandle(text, this.activity);
+	override spinner(text: string, options?: SpinnerOptions): SpinnerHandle {
+		return this.startActivity(options?.concurrent ?? false, (onStop) => {
+			const handle = new CaptureSpinnerHandle(text, this.activity, onStop);
+			return { handle, cleanup: handle.stop };
+		});
 	}
 
 	/**
@@ -488,7 +514,10 @@ class CaptureOutputChannel extends OutputChannel {
 	 * @override
 	 */
 	override progress(opts: ProgressOptions): ProgressHandle {
-		return new CaptureProgressHandle(opts, this.activity);
+		return this.startActivity(opts.concurrent ?? false, (onStop) => {
+			const handle = new CaptureProgressHandle(opts, this.activity, onStop);
+			return { handle, cleanup: handle.done };
+		});
 	}
 }
 
