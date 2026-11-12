@@ -287,6 +287,62 @@ describe('concurrent capture lifecycle', () => {
 });
 
 describe('concurrent activity viewport bounds', () => {
+	it('skips hidden timer redraws while retaining updates for later promotion', () => {
+		vi.useFakeTimers();
+		try {
+			const screen = terminal(40, 2);
+			const write = vi.fn(screen.write);
+			const out = createOutput({ isTTY: true, stderr: write, getTerminalSize: screen.size });
+			const handles = Array.from({ length: 20 }, (_, i) =>
+				out.spinner(`Job ${i}`, { concurrent: true }),
+			);
+			write.mockClear();
+			vi.advanceTimersByTime(80);
+			handles[19]?.update('Last job updated');
+			expect(write).not.toHaveBeenCalled();
+			expect(screen.lines()).toEqual(['20 more activities']);
+			for (const handle of handles.slice(0, 19)) handle.stop();
+			expect(screen.lines()).toEqual(['⠙ Last job updated']);
+			handles[19]?.stop();
+			expect(screen.cursor()).toBe(true);
+			expect(vi.getTimerCount()).toBe(0);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('redraws unchanged text after resizing or writing permanent output', () => {
+		const screen = terminal(40, 4);
+		const write = vi.fn(screen.write);
+		const out = createOutput({
+			isTTY: true,
+			stderr: write,
+			stdout: screen.write,
+			getTerminalSize: screen.size,
+		});
+		const progress = out.progress({ label: 'Uploading', total: 10, concurrent: true });
+		const frame = screen.lines();
+		write.mockClear();
+		progress.update(0);
+		expect(write).not.toHaveBeenCalled();
+		for (const [width, height] of [
+			[50, 4],
+			[50, 5],
+		] as const) {
+			screen.resize(width, height);
+			progress.update(0);
+			expect(write).toHaveBeenCalled();
+			expect(screen.lines()).toEqual(frame);
+			write.mockClear();
+		}
+		out.log('Permanent message');
+		expect(screen.lines()).toEqual(['Permanent message', ...frame]);
+		expect(write).toHaveBeenCalled();
+		progress.done('Uploaded');
+		expect(screen.lines()).toEqual(['Permanent message', '✓ Uploaded']);
+		expect(screen.cursor()).toBe(true);
+	});
+
 	it('retires completed children while a parent remains active', () => {
 		vi.useFakeTimers();
 		try {

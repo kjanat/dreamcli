@@ -18,6 +18,7 @@ class ActivityBlock {
 	private renderedLines = 0;
 	private cursorHidden = false;
 	private staticFallback = false;
+	private frame: { text: string; columns: number; rows: number } | undefined;
 
 	constructor(
 		private readonly write: WriteFn,
@@ -77,6 +78,7 @@ class ActivityBlock {
 	}
 
 	private clear(size: TerminalSize | undefined): void {
+		this.frame = undefined;
 		if (this.renderedLines === 0) return;
 		if (size === undefined) {
 			// Cursor position is unknown after losing dimensions. Leave the old frame once.
@@ -91,8 +93,8 @@ class ActivityBlock {
 
 	private render(permanent?: string, initial?: BlockLine): void {
 		const size = this.readSize();
-		this.clear(size);
 		if (size === undefined) {
+			this.clear(size);
 			this.showCursor();
 			if (this.lines.size > 0) this.staticFallback = true;
 			const text = permanent ?? initial?.label;
@@ -100,25 +102,37 @@ class ActivityBlock {
 			return;
 		}
 
-		if (permanent !== undefined) this.write(`${permanent}\n`);
 		const rows = [...this.lines].flatMap((line) => (line.text === undefined ? [] : [line.text]));
-		if (rows.length === 0) {
-			this.showCursor();
-			return;
-		}
-
 		const capacity = size.rows - 1;
 		const visible =
 			rows.length <= capacity
 				? rows
 				: [...rows.slice(0, capacity - 1), `${rows.length - capacity + 1} more activities`];
+		const text = visible.map((line) => `\r${line}\n`).join('');
+		if (
+			permanent === undefined &&
+			this.cursorHidden &&
+			this.renderedLines === visible.length &&
+			this.frame?.text === text &&
+			this.frame.columns === size.columns &&
+			this.frame.rows === size.rows
+		)
+			return;
+
+		this.clear(size);
+		if (permanent !== undefined) this.write(`${permanent}\n`);
+		if (visible.length === 0) {
+			this.showCursor();
+			return;
+		}
 		if (!this.cursorHidden) {
 			this.write('\x1b[?25l');
 			this.cursorHidden = true;
 		}
 		// Disable wrapping so long or wide labels still occupy one physical terminal row.
-		this.write(`\x1b[?7l${visible.map((text) => `\r${text}\n`).join('')}\r\x1b[?7h`);
+		this.write(`\x1b[?7l${text}\r\x1b[?7h`);
 		this.renderedLines = visible.length;
+		this.frame = { text, columns: size.columns, rows: size.rows };
 	}
 }
 
