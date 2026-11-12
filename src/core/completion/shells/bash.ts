@@ -24,6 +24,7 @@ import { flagValueSchema, valueEnumValues } from '#internals/core/schema/value.t
 import type { CommandNode, CompletionOptions, RootCompletionSurface } from './shared.ts';
 import {
 	getVisibleNegatedName,
+	hasDynamicCompletion,
 	programTag,
 	quoteShellArg,
 	resolveRootCompletionSurface,
@@ -79,7 +80,23 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 	lines.push('');
 	lines.push(`${funcName}() {`);
 	lines.push(`\tlocal cur prev words cword`);
-	lines.push(`\t_init_completion || return`);
+	lines.push(
+		hasDynamicCompletion(schema)
+			? '\t_init_completion -n = || return'
+			: '\t_init_completion || return',
+	);
+	if (hasDynamicCompletion(schema)) {
+		lines.push('\tlocal dynamic candidate');
+		lines.push(
+			`\tif dynamic=$(command ${quoteShellArg(schema.name)} __complete "\${words[@]:1:cword-1}" "$cur" 2>/dev/null); then`,
+		);
+		lines.push('\t\tCOMPREPLY=()');
+		lines.push('\t\twhile IFS= read -r candidate; do');
+		lines.push('\t\t\t[[ -n "$candidate" ]] && COMPREPLY+=("$candidate")');
+		lines.push('\t\tdone <<< "$dynamic"');
+		lines.push('\t\treturn');
+		lines.push('\tfi');
+	}
 	lines.push('');
 
 	// --- Subcommand dispatch ---

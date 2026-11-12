@@ -24,6 +24,7 @@ import { flagValueSchema, valueEnumValues } from '#internals/core/schema/value.t
 import type { CommandNode, CompletionOptions } from './shared.ts';
 import {
 	getVisibleNegatedName,
+	hasDynamicCompletion,
 	programTag,
 	quoteShellArg,
 	resolveRootCompletionSurface,
@@ -92,6 +93,20 @@ function generateZshCompletion(schema: CLISchema, options?: CompletionOptions): 
 
 	// --- Main function ---
 	lines.push(`${funcName}() {`);
+	if (hasDynamicCompletion(schema)) {
+		lines.push('\tlocal dynamic');
+		lines.push(
+			`\tif dynamic=$(command ${quoteShellArg(schema.name)} __complete "\${words[@]:1:$((CURRENT-2))}" "\${words[CURRENT]}" 2>/dev/null); then`,
+		);
+		lines.push('\t\tlocal -a candidates');
+		lines.push('\t\tif [[ -n "$dynamic" ]]; then');
+		// biome-ignore lint/suspicious/noTemplateCurlyInString: zsh array splitting syntax
+		lines.push('\t\t\tcandidates=("${(@f)dynamic}")');
+		lines.push('\t\t\tcompadd -a candidates');
+		lines.push('\t\tfi');
+		lines.push('\t\treturn');
+		lines.push('\tfi');
+	}
 
 	if (visibleCommands.length > 0) {
 		lines.push('\tlocal -a subcmds');

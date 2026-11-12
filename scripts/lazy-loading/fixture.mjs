@@ -53,6 +53,18 @@ const unlock = command('unlock')
 
 const scenario = process.env.DREAMCLI_SCENARIO;
 switch (scenario) {
+	case 'dynamic-completion':
+		await cli('app')
+			.config('app')
+			.manifest()
+			.command(
+				command('deploy').flag(
+					'region',
+					flag.string().complete(() => ['eu', 'us']),
+				),
+			)
+			.run({ adapter: ttyAdapter('unused') });
+		break;
 	case 'plain':
 	case 'help-json':
 		await cli('app').command(deploy).run();

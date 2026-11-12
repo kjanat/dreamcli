@@ -118,6 +118,7 @@ type FragmentKey<T> = T extends unknown ? keyof T : never;
  */
 type UnserializableField =
 	| typeof schemaBrand
+	| 'completion'
 	| 'parseFn'
 	| 'standard'
 	| 'aggregateStandard'

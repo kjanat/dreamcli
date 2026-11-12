@@ -22,6 +22,7 @@ import { flagValueSchema, valueEnumValues } from '#internals/core/schema/value.t
 import type { CommandNode, CompletionOptions, RootCompletionSurface } from './shared.ts';
 import {
 	getVisibleNegatedName,
+	hasDynamicCompletion,
 	programTag,
 	resolveRootCompletionSurface,
 	sanitizeShellIdentifier,
@@ -67,6 +68,25 @@ function generatePowerShellCompletion(schema: CLISchema, options?: CompletionOpt
 		`Register-ArgumentCompleter -Native -CommandName ${quotePowerShellString(schema.name)} -ScriptBlock {`,
 	);
 	lines.push('\tparam($wordToComplete, $commandAst, $cursorPosition)');
+	if (hasDynamicCompletion(schema)) {
+		lines.push('\t$dynamicArgs = [System.Collections.Generic.List[string]]::new()');
+		lines.push("\t$dynamicArgs.Add('__complete')");
+		lines.push('\tforeach ($element in $commandAst.CommandElements | Select-Object -Skip 1) {');
+		lines.push('\t\tif ($element.Extent.EndOffset -ge $cursorPosition) { break }');
+		lines.push(`\t\t$dynamicArgs.Add((${helperPrefix}_UnquoteToken $element.Extent.Text))`);
+		lines.push('\t}');
+		lines.push(`\t$dynamicArgs.Add((${helperPrefix}_UnquoteToken $wordToComplete))`);
+		lines.push(`\t$dynamic = & ${quotePowerShellString(schema.name)} @dynamicArgs 2>$null`);
+		lines.push('\tif ($LASTEXITCODE -eq 0) {');
+		lines.push('\t\tforeach ($candidate in $dynamic) {');
+		lines.push(`\t\t\t$text = ${helperPrefix}_FormatCompletionValue -Value $candidate`);
+		lines.push(
+			'\t\t\t[CompletionResult]::new($text, $candidate, [CompletionResultType]::ParameterValue, $candidate)',
+		);
+		lines.push('\t\t}');
+		lines.push('\t\treturn');
+		lines.push('\t}');
+	}
 	lines.push(
 		`\t$state = ${helperPrefix}_GetState -CommandAst $commandAst -CursorPosition $cursorPosition`,
 	);

@@ -23,6 +23,7 @@ import {
 	normalizeSplitPolicy,
 	validateDefault,
 } from './cardinality.ts';
+import type { CompletionHandler } from './completion.ts';
 import type { EnvOptions, IndexedEnvBinding } from './env-binding.ts';
 import { isIndexedEnvBinding, normalizeIndexedEnvBinding } from './env-binding.ts';
 import type { DefaultValueOptions } from './flag.ts';
@@ -254,6 +255,8 @@ type CustomArgValue<A> =
 interface ArgSchema<K extends ArgKind = ArgKind> {
 	/** Type-only seal produced by {@link createArgSchema}. */
 	readonly [schemaBrand]: 'arg';
+	/** Callback used to complete this input's values. */
+	readonly completion?: CompletionHandler | undefined;
 	/** What kind of value this arg accepts. */
 	readonly kind: K;
 	/** Current presence state. */
@@ -437,6 +440,8 @@ type ArgDefinitionFields = Omit<ArgSchemaFieldOverrides, 'elementSchema'> & {
 
 /** Definition fields accepted by every arg kind. */
 interface ArgDefinitionBase {
+	/** Callback used to complete this input's values. */
+	readonly completion?: CompletionHandler | undefined;
 	/**
 	 * Presence state.
 	 * @defaultValue `'required'`
@@ -732,6 +737,7 @@ function assertValidArgElementSchema(schema: ArgSchema): void {
 		['envFromName', false],
 		['configPath', undefined],
 		['prompt', undefined],
+		['completion', undefined],
 		['elementSchema', undefined],
 		['separator', undefined],
 		['split', undefined],
@@ -1215,6 +1221,20 @@ class ArgBuilder<C extends ArgConfig> {
 	}
 
 	// -- Presence modifiers --------------------------------------------------
+
+	/**
+	 * Compute value candidates when the user requests shell completion.
+	 *
+	 * The callback runs without the command action, middleware, prompts, or
+	 * config discovery. Return complete values; DreamCLI filters by prefix.
+	 * Candidates containing control characters are omitted.
+	 *
+	 * @param handler - Callback receiving the input and partial command line.
+	 * @returns A new builder with the completion callback.
+	 */
+	complete(handler: CompletionHandler): ArgBuilder<WithoutArgElementEligibility<C>> {
+		return new ArgBuilder({ ...this.schema, completion: handler });
+	}
 
 	/**
 	 * Mark the arg as required (this is the default for positional args).

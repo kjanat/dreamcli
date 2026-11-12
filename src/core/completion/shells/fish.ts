@@ -22,6 +22,7 @@ import { flagValueSchema, valueEnumValues } from '#internals/core/schema/value.t
 import type { CommandNode, CompletionOptions, RootCompletionSurface } from './shared.ts';
 import {
 	getVisibleNegatedName,
+	hasDynamicCompletion,
 	programTag,
 	quoteShellArg,
 	resolveRootCompletionSurface,
@@ -68,18 +69,52 @@ function generateFishCompletion(schema: CLISchema, options?: CompletionOptions):
 	lines.push(`complete -c ${commandName} -f`);
 	lines.push('');
 
+	if (hasDynamicCompletion(schema)) {
+		lines.push(`function ${helperPrefix}_dynamic`);
+		lines.push('\tset -l words (commandline -xpc)');
+		lines.push('\tset -l raw (commandline -ct)');
+		lines.push('\tset -l prefix (commandline --input "$raw" --tokens-expanded)');
+		lines.push(
+			`\tcommand ${commandName} __complete --value-only $words[2..-1] "$prefix" 2>/dev/null`,
+		);
+		lines.push('end');
+		lines.push(`complete -c ${commandName} -f -a '(${helperPrefix}_dynamic)'`);
+		lines.push('');
+	}
+
 	emitFishPathHelpers(lines, pathFuncName, pathIsFuncName, visibleCommands, nodes, rootSurface);
 
 	appendFishCommandCompletions(lines, commandName, pathIsFuncName, '', visibleCommands);
-	appendFishFlagCompletions(lines, commandName, pathIsFuncName, '', rootSurface.rootFlags);
+	appendFishFlagCompletions(
+		lines,
+		commandName,
+		pathIsFuncName,
+		'',
+		rootSurface.rootFlags,
+		`${helperPrefix}_dynamic`,
+	);
 	if (rootSurface.includeDefaultFlags) {
-		appendFishFlagCompletions(lines, commandName, pathIsFuncName, '', rootSurface.defaultFlags);
+		appendFishFlagCompletions(
+			lines,
+			commandName,
+			pathIsFuncName,
+			'',
+			rootSurface.defaultFlags,
+			`${helperPrefix}_dynamic`,
+		);
 	}
 
 	for (const node of nodes) {
 		const path = node.path.join(' ');
 		appendFishCommandCompletions(lines, commandName, pathIsFuncName, path, node.children);
-		appendFishFlagCompletions(lines, commandName, pathIsFuncName, path, node.mergedFlags);
+		appendFishFlagCompletions(
+			lines,
+			commandName,
+			pathIsFuncName,
+			path,
+			node.mergedFlags,
+			`${helperPrefix}_dynamic`,
+		);
 	}
 
 	return lines.join('\n');
@@ -99,7 +134,7 @@ function emitFishPathHelpers(
 	const valueFlags = collectFishValueFlagPatterns(nodes, rootSurface);
 
 	lines.push(`function ${pathFuncName}`);
-	lines.push('\tset -l words (commandline -opc)');
+	lines.push('\tset -l words (commandline -xpc)');
 	lines.push('\tif test (count $words) -gt 0');
 	lines.push('\t\tset -e words[1]');
 	lines.push('\tend');
@@ -190,6 +225,7 @@ function appendFishFlagCompletions(
 	pathIsFuncName: string,
 	path: string,
 	flags: Readonly<Record<string, FlagSchema>>,
+	dynamicFunction: string,
 ): void {
 	const condition = buildFishCondition(pathIsFuncName, path);
 	for (const [name, schema] of Object.entries(flags)) {
@@ -214,9 +250,12 @@ function appendFishFlagCompletions(
 		if (flagExpectsValue(schema)) {
 			parts.push('-r', '-f');
 		}
+		if (schema.completion !== undefined) {
+			parts.push(`-a '(${dynamicFunction})'`);
+		}
 		const values =
 			schema.kind === 'keyValue' ? undefined : valueEnumValues(flagValueSchema(schema));
-		if (values !== undefined) {
+		if (values !== undefined && schema.completion === undefined) {
 			for (const enumValue of values) {
 				lines.push([...parts, `-a ${quoteShellArg(enumValue)}`].join(' '));
 			}

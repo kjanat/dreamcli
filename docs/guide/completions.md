@@ -1,7 +1,7 @@
 # Shell Completions
 
-dreamcli generates completion scripts from the command schema —
-always in sync with your CLI definition.
+DreamCLI generates completion scripts from the command schema. Flags and arguments can also
+compute their value candidates when the user presses Tab.
 
 ## Generating Scripts
 
@@ -120,6 +120,45 @@ Completion scripts generated from schema include:
 - Flag names and aliases
 - Enum flag values (choices)
 - Argument descriptions
+
+## Dynamic values
+
+Use `.complete()` on a flag or positional argument when its candidates depend on data that changes
+while the CLI is installed.
+
+```ts twoslash
+import { arg, cli, command, flag } from '@kjanat/dreamcli';
+
+declare function listPackages(): Promise<readonly string[]>;
+declare function listBinaries(packageName?: string): Promise<readonly string[]>;
+
+const adopt = command('adopt')
+  .flag('package', flag.string().complete(() => listPackages()))
+  .arg('binary', arg.string().complete(({ env }) => listBinaries(env.PACKAGE)))
+  .action(({ flags, args, out }) => {
+    out.log(`${flags.package}: ${args.binary}`);
+  });
+
+cli('mycli').command(adopt).completions();
+```
+
+The callback receives `prefix`, `commandPath`, `input`, `argv`, and `env`. `commandPath` contains
+canonical command names. `input` identifies the flag or positional argument by its declared name.
+`argv` contains the arguments before the cursor, including the current partial token. `env` is the
+environment supplied to the execution.
+
+Return complete values, either directly or through a promise. DreamCLI keeps candidates that start
+with `prefix`, removes duplicates, and omits empty values and values containing control characters.
+Spaces, quotes, and shell metacharacters remain part of the value. A callback that throws produces
+no candidates.
+
+Generated scripts call the reserved `__complete` command. For example,
+`mycli __complete adopt --package wid` prints matching candidates, one per line. This path runs no
+command action, middleware, prompt, stdin reader, or config discovery. Load any data the callback
+needs inside the callback or close over it when constructing the command.
+
+Reinstall the generated completion script after adding callbacks. All four supported shells use
+the runtime callback for flag values and positional arguments.
 
 ## Root Completion Modes
 
