@@ -72,7 +72,23 @@ Groups can be nested arbitrarily deep.
 
 ## Command Configuration
 
-### Description and Examples
+### Description and examples
+
+Use `.description()` for the short summary in command listings. Add `.details()`
+for the longer explanation shown in the command's own help. Details support
+multiple paragraphs and wrap to the help width:
+
+```ts twoslash
+import { command } from '@kjanat/dreamcli';
+
+command('release')
+  .description('Publish a release')
+  .details('Build the binaries and publish the packages.\n\nAfter confirmation, follow each publication until it finishes.');
+```
+
+Details also accept a function that receives the help theme, such as
+`.details((theme) => 'Use ' + theme.flag('--dry-run') + ' to preview the release.')`.
+
 
 ```ts twoslash
 import { command } from '@kjanat/dreamcli';

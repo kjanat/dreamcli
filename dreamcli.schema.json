@@ -269,6 +269,10 @@
           "description": "Human-readable description for help text.",
           "type": "string"
         },
+        "details": {
+          "description": "Longer explanation shown only in this command's help, with paragraphs wrapped to its width.",
+          "type": "string"
+        },
         "examples": {
           "description": "Usage examples for help text.",
           "type": "array",
@@ -328,6 +332,10 @@
         },
         "description": {
           "description": "Human-readable description for help text.",
+          "type": "string"
+        },
+        "details": {
+          "description": "Longer explanation shown only in this command's help.",
           "type": "string"
         },
         "envPrefix": {

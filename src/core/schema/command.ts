@@ -10,6 +10,7 @@
  */
 import type { Colors } from 'ansispeck';
 import { CLIError } from '#internals/core/errors/index.ts';
+import type { HelpDescription } from '#internals/core/help/theme.ts';
 import type { Verbosity } from '#internals/core/output/contracts.ts';
 import type { Ask } from '#internals/core/prompt/definitions.ts';
 import type {
@@ -542,6 +543,8 @@ interface CommandSchema {
 	readonly name: string;
 	/** Human-readable description for help text. */
 	readonly description: string | undefined;
+	/** Longer explanation shown only in this command's help, with paragraphs wrapped to its width. */
+	readonly details?: HelpDescription | undefined;
 	/** Alternative names for this command. */
 	readonly aliases: readonly string[];
 	/** Whether this command is hidden from help listings. */
@@ -613,6 +616,8 @@ interface CommandDefinition {
 	 * @defaultValue `undefined`
 	 */
 	readonly description?: string | undefined;
+	/** Longer explanation shown only in this command's help. */
+	readonly details?: HelpDescription | undefined;
 	/**
 	 * Alternative names for this command.
 	 * @defaultValue `[]`
@@ -777,6 +782,7 @@ function buildCommandSchema(definition: CommandDefinition): CommandSchema {
 	const schema: Omit<CommandSchema, typeof schemaBrand> = {
 		name: definition.name,
 		description: definition.description,
+		details: definition.details,
 		aliases: definition.aliases ?? [],
 		hidden: definition.hidden ?? false,
 		examples: definition.examples ?? [],
@@ -1520,6 +1526,24 @@ class CommandBuilder<
 	description(text: string): CommandBuilder<F, A, C> {
 		return new CommandBuilder(
 			{ ...this.schema, description: text },
+			this.handler,
+			this._subcommands,
+			this._executionSteps,
+		);
+	}
+
+	/**
+	 * Add a longer explanation to this command's help.
+	 *
+	 * Paragraphs wrap to the help width. Parent command listings use only
+	 * `.description()`. A function receives the current help description theme.
+	 *
+	 * @param text - Literal text or a function that styles the explanation.
+	 * @returns A new builder with the explanation.
+	 */
+	details(text: HelpDescription): CommandBuilder<F, A, C> {
+		return new CommandBuilder(
+			{ ...this.schema, details: text },
 			this.handler,
 			this._subcommands,
 			this._executionSteps,

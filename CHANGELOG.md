@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `CommandBuilder.details(text)` adds wrapped explanations to a command's help while keeping parent command listings short. It accepts literal or themed text and appears as plain text in definition documents.
+
 ### Release checklist
 
 - [ ] Set the intended version in `package.json` and `deno.json`, add the dated changelog section, and update every comparison link.
