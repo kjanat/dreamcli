@@ -19,6 +19,7 @@ import type { CLISchema } from '#internals/core/cli/index.ts';
 import { flagExpectsValue } from '#internals/core/parse/index.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type { CommandSchema, FlagSchema } from '#internals/core/schema/index.ts';
+import { flagValueSchema, valueEnumValues } from '#internals/core/schema/value.ts';
 import type { CommandNode, CompletionOptions, RootCompletionSurface } from './shared.ts';
 import {
 	getVisibleNegatedName,
@@ -453,14 +454,15 @@ function collectEnumCasesFromFlags(
 ): readonly EnumCase[] {
 	const cases: EnumCase[] = [];
 	for (const [name, schema] of Object.entries(flags)) {
-		if (schema.kind !== 'enum' || schema.enumValues === undefined) continue;
+		const values = valueEnumValues(flagValueSchema(schema));
+		if (values === undefined) continue;
 		const flagForms = [
 			`--${name}`,
 			...getFlagAliasNames(schema, { includeHidden: true }).map((alias) =>
 				alias.length === 1 ? `-${alias}` : `--${alias}`,
 			),
 		].map(escapeBashCasePatternValue);
-		cases.push({ flags: flagForms.join('|'), values: schema.enumValues });
+		cases.push({ flags: flagForms.join('|'), values });
 	}
 	return cases;
 }
