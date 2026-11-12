@@ -85,9 +85,15 @@ describe('concurrent terminal activities', () => {
 			out.warn('stderr message');
 			first.update('Updated');
 			expect(screen.lines()).toEqual(['stdout message', 'stderr message', '⠋ Updated', '⠋ Second']);
+			out.json({ ready: true });
+			out.table([{ name: 'widget' }], { format: 'json' });
+			expect(screen.lines().slice(-2)).toEqual(['⠋ Updated', '⠋ Second']);
+			expect(screen.lines().join('\n')).toContain('ready');
+			expect(screen.lines().join('\n')).toContain('widget');
 			first.stop();
 			second.fail('Failed');
-			expect(screen.lines()).toEqual(['stdout message', 'stderr message', '✗ Failed']);
+			expect(screen.lines().slice(0, 2)).toEqual(['stdout message', 'stderr message']);
+			expect(screen.lines().at(-1)).toBe('✗ Failed');
 			expect(screen.cursor()).toBe(true);
 			expect(vi.getTimerCount()).toBe(0);
 		} finally {

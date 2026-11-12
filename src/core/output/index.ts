@@ -255,8 +255,15 @@ class OutputChannel implements Out {
 	 */
 	readonly isHyperlinkSupported: boolean;
 
+	private readonly activityWrite: WriteFn;
+
 	constructor(options: ResolvedOutputOptions) {
-		this.options = options;
+		this.activityWrite = options.stderr;
+		this.options = {
+			...options,
+			stdout: (text) => this.writeMessage(options.stdout, text),
+			stderr: (text) => this.writeMessage(options.stderr, text),
+		};
 		this.policy = resolveOutputPolicy(options);
 		this.jsonMode = options.jsonMode;
 		this.verbosity = this.policy.verbosity;
@@ -278,7 +285,7 @@ class OutputChannel implements Out {
 	 */
 	log(message: string): void {
 		const writer = resolveWriterForStream(this.options, resolveTextStream(this.policy));
-		this.emitLine(writer, message);
+		writeLine(writer, message);
 	}
 
 	/**
@@ -290,7 +297,7 @@ class OutputChannel implements Out {
 	info(message: string): void {
 		if (!shouldEmitInfo(this.policy)) return;
 		const writer = resolveWriterForStream(this.options, resolveTextStream(this.policy));
-		this.emitLine(writer, message);
+		writeLine(writer, message);
 	}
 
 	/**
@@ -299,17 +306,17 @@ class OutputChannel implements Out {
 	 */
 	status(message: string): void {
 		if (!shouldEmitInfo(this.policy)) return;
-		this.emitLine(this.options.stderr, message);
+		writeLine(this.options.stderr, message);
 	}
 
 	/** Warning to stderr. Always emitted. */
 	warn(message: string): void {
-		this.emitLine(this.options.stderr, message);
+		writeLine(this.options.stderr, message);
 	}
 
 	/** Error to stderr. Always emitted. */
 	error(message: string): void {
-		this.emitLine(this.options.stderr, message);
+		writeLine(this.options.stderr, message);
 	}
 
 	/** Request a successful-process exit code without writing error output. */
@@ -324,7 +331,7 @@ class OutputChannel implements Out {
 	 * regardless of JSON mode — `json()` always targets stdout.
 	 */
 	json(value: unknown): void {
-		this.emitLine(this.options.stdout, JSON.stringify(value));
+		writeLine(this.options.stdout, JSON.stringify(value));
 	}
 
 	/**
@@ -360,16 +367,16 @@ class OutputChannel implements Out {
 		const text = formatTable(rows, resolved);
 		if (text.length === 0) return;
 
-		this.emitLine(resolveTextTableWriter(this.options, this.policy, format, tableOptions), text);
+		writeLine(resolveTextTableWriter(this.options, this.policy, format, tableOptions), text);
 	}
 
 	private readonly activeCleanups = new Map<object, () => void>();
 	private concurrent = false;
 	private activityBlock: ActivityBlock | undefined;
 
-	private emitLine(writer: WriteFn, message: string): void {
-		if (this.activityBlock === undefined) writeLine(writer, message);
-		else this.activityBlock.writeMessage(writer, `${message}\n`);
+	private writeMessage(writer: WriteFn, text: string): void {
+		if (this.activityBlock === undefined) writer(text);
+		else this.activityBlock.writeMessage(writer, text);
 	}
 
 	/** Stop every active spinner and progress handle. */
@@ -391,7 +398,7 @@ class OutputChannel implements Out {
 	}
 
 	private concurrentLine() {
-		this.activityBlock ??= new ActivityBlock(this.options.stderr);
+		this.activityBlock ??= new ActivityBlock(this.activityWrite);
 		return this.activityBlock.line();
 	}
 
@@ -415,13 +422,13 @@ class OutputChannel implements Out {
 	spinner(text: string, options?: SpinnerOptions): SpinnerHandle {
 		const policy = resolveSpinnerPolicy(this.policy, options?.fallback ?? 'silent');
 		if (policy.mode === 'noop') {
-			return createSpinnerHandleFromPolicy(policy, text, this.options.stderr).handle;
+			return createSpinnerHandleFromPolicy(policy, text, this.activityWrite).handle;
 		}
 		return this.startActivity(options?.concurrent ?? false, (onStop) =>
 			createSpinnerHandleFromPolicy(
 				policy,
 				text,
-				this.options.stderr,
+				this.activityWrite,
 				onStop,
 				options?.concurrent && policy.mode === 'tty' ? this.concurrentLine() : undefined,
 			),
@@ -448,13 +455,13 @@ class OutputChannel implements Out {
 	progress(opts: ProgressOptions): ProgressHandle {
 		const policy = resolveProgressPolicy(this.policy, opts.fallback ?? 'silent');
 		if (policy.mode === 'noop') {
-			return createProgressHandleFromPolicy(policy, opts, this.options.stderr).handle;
+			return createProgressHandleFromPolicy(policy, opts, this.activityWrite).handle;
 		}
 		return this.startActivity(opts.concurrent ?? false, (onStop) =>
 			createProgressHandleFromPolicy(
 				policy,
 				opts,
-				this.options.stderr,
+				this.activityWrite,
 				onStop,
 				opts.concurrent && policy.mode === 'tty' ? this.concurrentLine() : undefined,
 			),
