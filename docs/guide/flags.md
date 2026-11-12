@@ -3,6 +3,30 @@
 Flags are the richest primitive in `dreamcli`.
 Each flag declaration configures parsing, type inference, resolution, help text, and shell completions.
 
+## Register flags together
+
+Use `.flags(record)` to add several flags while preserving their names and value types:
+
+```ts twoslash
+import { command, flag } from '@kjanat/dreamcli';
+
+const connectionFlags = {
+  host: flag.string().default('localhost'),
+  port: flag.number().default(3000),
+};
+
+command('serve')
+  .flags(connectionFlags)
+  .flag('verbose', flag.boolean())
+  .action(({ flags, out }) => {
+    out.log(`${flags.host}:${flags.port}`);
+  });
+```
+
+The record follows the same name, alias, and stdin checks as individual `.flag()` calls.
+Duplicate names are rejected at compile time when the record's keys are known, and at runtime for all records.
+Register the action after adding flags.
+
 ## Six Axes
 
 A flag declaration decides six separate things. They compose freely, and every
