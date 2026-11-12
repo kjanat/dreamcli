@@ -1,10 +1,20 @@
 import { describe, expect, it, vi } from 'vitest';
+import { cli } from '#internals/core/cli/index.ts';
 import { command } from '#internals/core/schema/command.ts';
 import { runCommand } from '#internals/core/testkit/index.ts';
+import { createTestAdapter } from '#internals/runtime/adapter.ts';
 import { createCaptureOutput, createOutput, OutputChannel } from './index.ts';
 
-function terminal(width = 80) {
+function terminal(width = 80, height = 24) {
 	const rows: string[][] = [[]];
+	const history: string[] = [];
+	const nextRow = () => {
+		if (row < height - 1) row++;
+		else {
+			history.push((rows.shift() ?? []).join(''));
+			rows.push([]);
+		}
+	};
 	let row = 0;
 	let column = 0;
 	let wrap = true;
@@ -24,20 +34,32 @@ function terminal(width = 80) {
 					rows[row] = (rows[row] ?? []).slice(0, column);
 				} else if (token === '\x1b[2K') rows[row] = [];
 				else if (token === '\r') column = 0;
-				else if (token === '\n') row++;
+				else if (token === '\n') nextRow();
 				else {
-					if (column >= width && wrap) {
-						row++;
+					const cellWidth = /[\u4e00-\u9fff]/u.test(token) ? 2 : 1;
+					if (column + cellWidth > width && wrap) {
+						nextRow();
 						column = 0;
 					}
 					const cells = rows[row] ?? [];
 					rows[row] = cells;
-					if (column < width) cells[column] = token;
-					column++;
+					if (column + cellWidth <= width) cells[column] = token;
+					column += cellWidth;
 				}
 			}
 		},
 		lines: () => rows.map((line) => line.join('')).filter((line) => line !== ''),
+		history: () => [...history],
+		size: () => ({ columns: width, rows: height }),
+		resize(nextWidth: number, nextHeight: number) {
+			width = nextWidth;
+			height = nextHeight;
+			while (row >= height) {
+				history.push((rows.shift() ?? []).join(''));
+				row--;
+			}
+			rows.length = Math.min(rows.length, height);
+		},
 		cursor: () => cursor,
 		wrap: () => wrap,
 	};
@@ -48,7 +70,12 @@ describe('concurrent terminal activities', () => {
 		vi.useFakeTimers();
 		try {
 			const screen = terminal();
-			const out = createOutput({ isTTY: true, color: false, stderr: screen.write });
+			const out = createOutput({
+				isTTY: true,
+				color: false,
+				getTerminalSize: screen.size,
+				stderr: screen.write,
+			});
 			const spinner = out.spinner('Building', { concurrent: true });
 			const progress = out.progress({ label: 'Uploading', total: 10, concurrent: true });
 			progress.update(5);
@@ -76,6 +103,7 @@ describe('concurrent terminal activities', () => {
 			const out = createOutput({
 				isTTY: true,
 				color: false,
+				getTerminalSize: screen.size,
 				stderr: screen.write,
 				stdout: screen.write,
 			});
@@ -105,7 +133,12 @@ describe('concurrent terminal activities', () => {
 		vi.useFakeTimers();
 		try {
 			const screen = terminal(12);
-			const out = createOutput({ isTTY: true, color: false, stderr: screen.write });
+			const out = createOutput({
+				isTTY: true,
+				color: false,
+				getTerminalSize: screen.size,
+				stderr: screen.write,
+			});
 			const first = out.spinner('A very long description', { concurrent: true });
 			const second = out.spinner('line\nbreak', { concurrent: true });
 			first.update('Short');
@@ -123,7 +156,12 @@ describe('concurrent terminal activities', () => {
 		vi.useFakeTimers();
 		try {
 			const screen = terminal();
-			const out = createOutput({ isTTY: true, color: false, stderr: screen.write });
+			const out = createOutput({
+				isTTY: true,
+				color: false,
+				getTerminalSize: screen.size,
+				stderr: screen.write,
+			});
 			const first = out.spinner('First', { concurrent: true });
 			const second = out.progress({ label: 'Second', concurrent: true });
 			const replacement = out.spinner('Replacement');
@@ -143,7 +181,12 @@ describe('concurrent terminal activities', () => {
 		vi.useFakeTimers();
 		try {
 			const screen = terminal();
-			const out = createOutput({ isTTY: true, color: false, stderr: screen.write });
+			const out = createOutput({
+				isTTY: true,
+				color: false,
+				getTerminalSize: screen.size,
+				stderr: screen.write,
+			});
 			await out
 				.spinner('First', { concurrent: true })
 				.wrap(Promise.resolve(12), { succeed: (n) => `Listed ${n}` });
@@ -188,6 +231,7 @@ describe('concurrent terminal activities', () => {
 				jsonMode: false,
 				verbosity: 'normal',
 				isHyperlinkSupported: false,
+				getTerminalSize: screen.size,
 				stderr: screen.write,
 				stdout: screen.write,
 			});
@@ -239,5 +283,222 @@ describe('concurrent capture lifecycle', () => {
 			{ type: 'spinner:stop' },
 			{ type: 'progress:done', text: undefined },
 		]);
+	});
+});
+
+describe('concurrent activity viewport bounds', () => {
+	it('retires completed children while a parent remains active', () => {
+		vi.useFakeTimers();
+		try {
+			const screen = terminal(40, 4);
+			const out = createOutput({ isTTY: true, stderr: screen.write, getTerminalSize: screen.size });
+			const parent = out.spinner('Parent', { concurrent: true });
+			for (let i = 0; i < 20; i++) {
+				out.spinner(`Child ${i}`, { concurrent: true }).succeed(`Finished ${i}`);
+			}
+			const historyBefore = screen.history();
+			vi.advanceTimersByTime(800);
+			expect(screen.history()).toEqual(historyBefore);
+			expect(screen.lines()).toContain('⠋ Parent');
+			parent.succeed('Parent finished');
+			const permanent = [...screen.history(), ...screen.lines()];
+			for (let i = 0; i < 20; i++) {
+				expect(permanent.filter((line) => line === `✓ Finished ${i}`)).toHaveLength(1);
+			}
+			expect(permanent.filter((line) => line === '✓ Parent finished')).toHaveLength(1);
+			expect(vi.getTimerCount()).toBe(0);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('bounds active rows and promotes hidden activities as visible ones finish', () => {
+		vi.useFakeTimers();
+		try {
+			const screen = terminal(40, 4);
+			const out = createOutput({ isTTY: true, stderr: screen.write, getTerminalSize: screen.size });
+			const handles = Array.from({ length: 10 }, (_, i) =>
+				out.spinner(`Job ${i}`, { concurrent: true }),
+			);
+			expect(screen.lines()).toEqual(['⠋ Job 0', '⠋ Job 1', '8 more activities']);
+			const historyBefore = screen.history();
+			vi.advanceTimersByTime(800);
+			expect(screen.history()).toEqual(historyBefore);
+			handles[9]?.update('Last job updated');
+			for (const handle of handles.slice(0, 8)) handle.stop();
+			expect(screen.lines()).toEqual(['⠋ Job 8', '⠋ Last job updated']);
+			for (const handle of handles) handle.stop();
+			expect(screen.cursor()).toBe(true);
+			expect(vi.getTimerCount()).toBe(0);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('bounds redraws after shrinking an occupied viewport, then expands on growth', () => {
+		vi.useFakeTimers();
+		try {
+			const screen = terminal(40, 12);
+			const out = createOutput({ isTTY: true, stderr: screen.write, getTerminalSize: screen.size });
+			const handles = Array.from({ length: 10 }, (_, i) =>
+				out.spinner(`Job ${i}`, { concurrent: true }),
+			);
+			screen.resize(40, 4);
+			vi.advanceTimersByTime(80);
+			expect(screen.lines()).toEqual(['⠙ Job 0', '⠙ Job 1', '8 more activities']);
+			const historyAfterResize = screen.history();
+			vi.advanceTimersByTime(800);
+			expect(screen.history()).toEqual(historyAfterResize);
+			screen.resize(40, 12);
+			vi.advanceTimersByTime(80);
+			expect(screen.lines()).toHaveLength(10);
+			expect(screen.lines()).toContain('⠹ Job 9');
+			for (const handle of handles) handle.stop();
+			expect(screen.cursor()).toBe(true);
+			expect(vi.getTimerCount()).toBe(0);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('uses a single overflow row in a two-row terminal', () => {
+		vi.useFakeTimers();
+		try {
+			const screen = terminal(40, 2);
+			const out = createOutput({ isTTY: true, stderr: screen.write, getTerminalSize: screen.size });
+			const handles = Array.from({ length: 4 }, (_, i) =>
+				out.spinner(`Job ${i}`, { concurrent: true }),
+			);
+			expect(screen.lines()).toEqual(['4 more activities']);
+			const historyBefore = screen.history();
+			vi.advanceTimersByTime(800);
+			expect(screen.history()).toEqual(historyBefore);
+			for (const handle of handles.slice(0, 3)) handle.stop();
+			expect(screen.lines()).toEqual(['⠋ Job 3']);
+			handles[3]?.stop();
+			expect(vi.getTimerCount()).toBe(0);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it.each([
+		undefined,
+		{ columns: 40, rows: 1 },
+		{ columns: 0, rows: 4 },
+		{ columns: 40, rows: Number.NaN },
+	])('uses static lifecycle output when dimensions are unusable: %s', (size) => {
+		vi.useFakeTimers();
+		try {
+			const output: string[] = [];
+			const out = createOutput({
+				isTTY: true,
+				stderr: (text) => output.push(text),
+				getTerminalSize: () => size,
+			});
+			const spinner = out.spinner('Loading', { concurrent: true });
+			const progress = out.progress({ label: 'Uploading', concurrent: true });
+			spinner.update('Still loading');
+			vi.advanceTimersByTime(800);
+			expect(output).toEqual(['Loading\n', 'Uploading\n']);
+			expect(vi.getTimerCount()).toBe(0);
+			spinner.succeed('Loaded');
+			progress.done('Uploaded');
+			expect(output).toEqual(['Loading\n', 'Uploading\n', '✓ Loaded\n', '✓ Uploaded\n']);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('stops animation if dimensions become unavailable and recovers on the next block', () => {
+		vi.useFakeTimers();
+		try {
+			const screen = terminal(40, 4);
+			let available = true;
+			const output: string[] = [];
+			const out = createOutput({
+				isTTY: true,
+				stderr: (text) => {
+					output.push(text);
+					screen.write(text);
+				},
+				getTerminalSize: () => (available ? screen.size() : undefined),
+			});
+			const spinner = out.spinner('Loading', { concurrent: true });
+			available = false;
+			vi.advanceTimersByTime(80);
+			expect(screen.cursor()).toBe(true);
+			expect(vi.getTimerCount()).toBe(0);
+			const before = output.join('');
+			vi.advanceTimersByTime(800);
+			expect(output.join('')).toBe(before);
+			spinner.succeed('Loaded');
+			available = true;
+			const next = out.spinner('Next', { concurrent: true });
+			expect(screen.lines()).toContain('⠋ Next');
+			expect(vi.getTimerCount()).toBe(1);
+			next.stop();
+			expect(vi.getTimerCount()).toBe(0);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+});
+
+describe('concurrent viewport integration', () => {
+	it('keeps redraws stable after wrapped wide output and width changes', () => {
+		vi.useFakeTimers();
+		try {
+			const screen = terminal(12, 4);
+			const out = createOutput({
+				isTTY: true,
+				stderr: screen.write,
+				stdout: screen.write,
+				getTerminalSize: screen.size,
+			});
+			const first = out.spinner('界'.repeat(20), { concurrent: true });
+			const second = out.spinner('Second', { concurrent: true });
+			out.log('界'.repeat(20));
+			const historyAfterMessage = screen.history();
+			vi.advanceTimersByTime(800);
+			expect(screen.history()).toEqual(historyAfterMessage);
+			screen.resize(8, 4);
+			first.update('Short');
+			const historyAfterResize = screen.history();
+			vi.advanceTimersByTime(800);
+			expect(screen.history()).toEqual(historyAfterResize);
+			expect(screen.lines().slice(-2)).toEqual(['⠋ Short', '⠋ Second']);
+			first.stop();
+			second.stop();
+			expect(screen.cursor()).toBe(true);
+			expect(vi.getTimerCount()).toBe(0);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('reads live adapter dimensions through cli.run()', async () => {
+		const screen = terminal(40, 8);
+		const observed: string[][] = [];
+		const adapter = {
+			...createTestAdapter({ isTTY: true, stderr: screen.write }),
+			getTerminalSize: screen.size,
+		};
+		const app = cli('app').default(
+			command('work').action(({ out }) => {
+				const handles = Array.from({ length: 5 }, (_, i) =>
+					out.spinner(`Job ${i}`, { concurrent: true }),
+				);
+				observed.push(screen.lines());
+				screen.resize(40, 3);
+				handles[0]?.update('Updated');
+				observed.push(screen.lines());
+				for (const handle of handles) handle.stop();
+			}),
+		);
+		await expect(app.run({ adapter })).rejects.toMatchObject({ code: 0 });
+		expect(observed[0]).toHaveLength(5);
+		expect(observed[1]).toEqual(['⠋ Updated', '4 more activities']);
+		expect(screen.cursor()).toBe(true);
 	});
 });

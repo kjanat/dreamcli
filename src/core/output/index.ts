@@ -22,6 +22,7 @@ import type {
 	TableOptions,
 } from '#internals/core/schema/activity.ts';
 import { type Out, outBrand } from '#internals/core/schema/command.ts';
+import type { TerminalSize } from '#internals/runtime/adapter.ts';
 import { CaptureProgressHandle, CaptureSpinnerHandle } from './activity.ts';
 import { ActivityBlock } from './activity-block.ts';
 import { bindMethods } from './bind.ts';
@@ -74,6 +75,13 @@ interface OutputOptions {
 	readonly isTTY?: boolean;
 
 	/**
+	 * Read the terminal's current dimensions before concurrent activity redraws.
+	 * `.run()` supplies the runtime adapter's getter. Without usable dimensions,
+	 * concurrent activities emit static start and completion messages.
+	 */
+	readonly getTerminalSize?: () => TerminalSize | undefined;
+
+	/**
 	 * Verbosity level.
 	 * - `'normal'` (default) — emit all messages
 	 * - `'quiet'` — suppress `info` messages
@@ -119,8 +127,9 @@ interface OutputOptions {
 
 // --- Resolved options (all fields required, filled from defaults)
 
-/** Fully resolved output options with no optional fields. */
+/** Output options after defaults have been applied. */
 interface ResolvedOutputOptions {
+	readonly getTerminalSize?: () => TerminalSize | undefined;
 	readonly stdout: WriteFn;
 	readonly stderr: WriteFn;
 	readonly isTTY: boolean;
@@ -187,6 +196,7 @@ function resolveOptions(options?: OutputOptions): ResolvedOutputOptions {
 	const isTTY = options?.isTTY ?? false;
 	const jsonMode = options?.jsonMode ?? false;
 	return {
+		...(options?.getTerminalSize !== undefined ? { getTerminalSize: options.getTerminalSize } : {}),
 		stdout: options?.stdout ?? noopWrite,
 		stderr: options?.stderr ?? noopWrite,
 		isTTY,
@@ -397,9 +407,9 @@ class OutputChannel implements Out {
 		return rendered.handle;
 	}
 
-	private concurrentLine() {
-		this.activityBlock ??= new ActivityBlock(this.activityWrite);
-		return this.activityBlock.line();
+	private concurrentLine(label?: string) {
+		this.activityBlock ??= new ActivityBlock(this.activityWrite, this.options.getTerminalSize);
+		return this.activityBlock.line(label);
 	}
 
 	/**
@@ -430,7 +440,7 @@ class OutputChannel implements Out {
 				text,
 				this.activityWrite,
 				onStop,
-				options?.concurrent && policy.mode === 'tty' ? this.concurrentLine() : undefined,
+				options?.concurrent && policy.mode === 'tty' ? this.concurrentLine(text) : undefined,
 			),
 		);
 	}
@@ -463,7 +473,7 @@ class OutputChannel implements Out {
 				opts,
 				this.activityWrite,
 				onStop,
-				opts.concurrent && policy.mode === 'tty' ? this.concurrentLine() : undefined,
+				opts.concurrent && policy.mode === 'tty' ? this.concurrentLine(opts.label) : undefined,
 			),
 		);
 	}

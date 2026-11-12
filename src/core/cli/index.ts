@@ -1809,6 +1809,7 @@ class CLIBuilder {
 			out: createOutput({
 				stdout: adapter.stdout,
 				stderr: adapter.stderr,
+				getTerminalSize: () => adapter.getTerminalSize(),
 				jsonMode: preflight.inputs.jsonMode,
 				isTTY: preflight.inputs.isTTY,
 				...(preflight.inputs.verbosity !== 'normal'

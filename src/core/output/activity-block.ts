@@ -4,63 +4,121 @@
  * @internal
  */
 
+import type { TerminalSize } from '#internals/runtime/adapter.ts';
 import type { ActivityLine } from './activity.ts';
 import type { WriteFn } from './writer.ts';
 
 interface BlockLine {
 	text: string | undefined;
-	active: boolean;
+	readonly label: string | undefined;
 }
 
 class ActivityBlock {
 	private readonly lines = new Set<BlockLine>();
 	private renderedLines = 0;
+	private cursorHidden = false;
+	private staticFallback = false;
 
-	constructor(private readonly write: WriteFn) {}
+	constructor(
+		private readonly write: WriteFn,
+		private readonly getTerminalSize?: () => TerminalSize | undefined,
+	) {}
 
-	line(): ActivityLine {
-		if (this.lines.size === 0) this.write('\x1b[?25l');
-		const line: BlockLine = { text: undefined, active: true };
+	line(label?: string): ActivityLine {
+		const line: BlockLine = { text: undefined, label };
 		this.lines.add(line);
+		const block = this;
 		return {
+			get animated() {
+				return !block.staticFallback;
+			},
 			update: (text) => {
-				if (!line.active) return;
+				if (!this.lines.has(line)) return;
+				const initial = line.text === undefined;
 				line.text = text.replace(/[\r\n]+/g, ' ');
-				this.render();
+				this.render(undefined, initial ? line : undefined);
 			},
 			finish: (text) => {
-				if (!line.active) return;
-				line.active = false;
-				line.text = text?.replace(/[\r\n]+/g, ' ');
-				this.render();
-				if (![...this.lines].some((entry) => entry.active)) {
-					this.lines.clear();
-					this.renderedLines = 0;
-					this.write('\x1b[?25h');
-				}
+				if (!this.lines.delete(line)) return;
+				this.render(text?.replace(/[\r\n]+/g, ' '));
+				if (this.lines.size === 0) this.staticFallback = false;
 			},
 		};
 	}
 
 	writeMessage(writer: WriteFn, text: string): void {
-		this.clear();
+		this.clear(this.readSize());
 		writer(text);
 		this.render();
 	}
 
-	private clear(): void {
+	private readSize(): TerminalSize | undefined {
+		if (this.staticFallback) return undefined;
+		try {
+			const size = this.getTerminalSize?.();
+			if (
+				size !== undefined &&
+				Number.isInteger(size.rows) &&
+				size.rows > 1 &&
+				Number.isInteger(size.columns) &&
+				size.columns > 0
+			)
+				return size;
+		} catch {
+			// An unavailable terminal size uses the same static fallback as a missing size.
+		}
+		return undefined;
+	}
+
+	private showCursor(): void {
+		if (!this.cursorHidden) return;
+		this.write('\x1b[?25h');
+		this.cursorHidden = false;
+	}
+
+	private clear(size: TerminalSize | undefined): void {
 		if (this.renderedLines === 0) return;
-		this.write(`\x1b[${this.renderedLines}A\r\x1b[J`);
+		if (size === undefined) {
+			// Cursor position is unknown after losing dimensions. Leave the old frame once.
+			this.write('\r\n');
+			this.staticFallback = true;
+		} else {
+			const visible = Math.min(this.renderedLines, size.rows - 1);
+			this.write(`\x1b[${visible}A\r\x1b[J`);
+		}
 		this.renderedLines = 0;
 	}
 
-	private render(): void {
-		this.clear();
+	private render(permanent?: string, initial?: BlockLine): void {
+		const size = this.readSize();
+		this.clear(size);
+		if (size === undefined) {
+			this.showCursor();
+			if (this.lines.size > 0) this.staticFallback = true;
+			const text = permanent ?? initial?.label;
+			if (text !== undefined) this.write(`${text}\n`);
+			return;
+		}
+
+		if (permanent !== undefined) this.write(`${permanent}\n`);
 		const rows = [...this.lines].flatMap((line) => (line.text === undefined ? [] : [line.text]));
-		if (rows.length === 0) return;
-		// Keep each activity on one physical row even when its text exceeds the terminal width.
-		this.write(`\x1b[?7l${rows.map((text) => `\r${text}\n`).join('')}\r\x1b[?7h`);
-		this.renderedLines = rows.length;
+		if (rows.length === 0) {
+			this.showCursor();
+			return;
+		}
+
+		const capacity = size.rows - 1;
+		const visible =
+			rows.length <= capacity
+				? rows
+				: [...rows.slice(0, capacity - 1), `${rows.length - capacity + 1} more activities`];
+		if (!this.cursorHidden) {
+			this.write('\x1b[?25l');
+			this.cursorHidden = true;
+		}
+		// Disable wrapping so long or wide labels still occupy one physical terminal row.
+		this.write(`\x1b[?7l${visible.map((text) => `\r${text}\n`).join('')}\r\x1b[?7h`);
+		this.renderedLines = visible.length;
 	}
 }
 

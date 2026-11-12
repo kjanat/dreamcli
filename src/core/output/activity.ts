@@ -27,6 +27,7 @@ import { writeLine } from './writer.ts';
 
 /** A line owned by a shared terminal activity block. @internal */
 interface ActivityLine {
+	readonly animated: boolean;
 	update(text: string): void;
 	finish(text?: string): void;
 }
@@ -287,10 +288,13 @@ class TTYSpinnerHandle implements SpinnerHandle {
 		this.text = text;
 		if (line === undefined) write(HIDE_CURSOR);
 		this.render();
-		this.timer = setInterval(() => {
-			this.frameIndex = (this.frameIndex + 1) % SPINNER_FRAMES.length;
-			this.render();
-		}, SPINNER_INTERVAL_MS);
+		if (line?.animated !== false) {
+			this.timer = setInterval(() => {
+				this.frameIndex = (this.frameIndex + 1) % SPINNER_FRAMES.length;
+				this.render();
+				if (this.line?.animated === false) this.cleanup();
+			}, SPINNER_INTERVAL_MS);
+		}
 		bindMethods(this);
 	}
 
@@ -417,10 +421,11 @@ class TTYProgressHandle implements ProgressHandle {
 		this.render();
 
 		// Only start animation timer for indeterminate mode.
-		if (this.total === undefined) {
+		if (this.total === undefined && line?.animated !== false) {
 			this.timer = setInterval(() => {
 				this.advancePulse();
 				this.render();
+				if (this.line?.animated === false) this.cleanup();
 			}, PULSE_INTERVAL_MS);
 		}
 		bindMethods(this);

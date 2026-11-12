@@ -334,8 +334,22 @@ upload.update(4);
 upload.done('Assets uploaded');
 ```
 
-Other output messages appear above the active block. Finished messages stay visible
-while the other activities continue. The cursor returns when the last handle finishes.
+Other output messages appear above the active block. A finished activity writes its
+final message once to permanent output and leaves the block. The cursor returns
+when the last handle finishes.
+
+The live block fits within the terminal's current height, leaving a row for the
+cursor. When more activities are active than fit, its last row shows how many are
+hidden. Hidden handles keep running and appear when space becomes available.
+The renderer checks the dimensions again on each redraw, so resizing changes how
+many activities are visible. Long labels are clipped to one terminal row.
+
+`cli.run()` supplies the adapter's live `getTerminalSize()` callback. When using
+`createOutput()` directly, pass that callback in its options. If dimensions are
+missing, invalid, or the terminal has fewer than two rows, concurrent activities
+emit static start and completion messages. Updates keep the handles' state but
+produce no animation. If dimensions become unavailable during a block, that
+block stays static until its last handle finishes. The next block checks again.
 A call without `concurrent: true` stops all active handles before starting its own.
 Starting concurrent activities also stops an existing non-concurrent handle.
 
