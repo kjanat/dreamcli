@@ -23,6 +23,7 @@ import {
 	requestsHelp,
 } from '#internals/core/parse/index.ts';
 import type { CommandMeta, CommandSchema } from '#internals/core/schema/command.ts';
+import { acceptsArgv } from '#internals/core/schema/stdin.ts';
 import type { BuiltinsConfig } from './builtins.ts';
 import { builtinEnabled } from './builtins.ts';
 import type { CompiledCLI, CompiledCommand } from './compiled.ts';
@@ -317,7 +318,7 @@ function buildPlannerMatchOutcome(
 }
 
 function canDelegateUnknownRootToDefault(command: CompiledCommand, input: string): boolean {
-	return input === '' || command.schema.args.length > 0;
+	return input === '' || command.schema.args.some((entry) => acceptsArgv(entry.schema));
 }
 
 function findUnknownFlagBeforePositional(

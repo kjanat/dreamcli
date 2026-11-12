@@ -35,7 +35,7 @@ import {
 	stringConstraintDetails,
 } from '#internals/core/schema/index.ts';
 import type { StdinBinding } from '#internals/core/schema/stdin.ts';
-import { stdinReadsOnDash } from '#internals/core/schema/stdin.ts';
+import { acceptsArgv, stdinReadsOnDash } from '#internals/core/schema/stdin.ts';
 import type { ValueFailure } from '#internals/core/schema/value.ts';
 import { argValueSchema, decodeValue, flagValueSchema } from '#internals/core/schema/value.ts';
 import type { Occurrence } from './occurrences.ts';
@@ -326,6 +326,7 @@ function buildFlagLookup(
 
 	// Pass 1: declared spellings — canonical names, aliases, negated forms.
 	for (const [name, schema] of Object.entries(flags)) {
+		if (!acceptsArgv(schema)) continue;
 		lookup.set(name, { name, schema, negated: false, parity: false });
 		for (const alias of getFlagAliasNames(schema, { includeHidden: true })) {
 			lookup.set(alias, { name, schema, negated: false, parity: false });
@@ -966,7 +967,12 @@ function parseCommand(
 
 	// Map positionals to named args
 	const errors = deferredFlagDiagnostics.get(occurrences);
-	const args = errors?.size ? {} : mapPositionals(schema.args, positionals);
+	const args = errors?.size
+		? {}
+		: mapPositionals(
+				schema.args.filter((entry) => acceptsArgv(entry.schema)),
+				positionals,
+			);
 
 	const flags = projectFlags(occurrences);
 	if (errors !== undefined) deferredFlagDiagnostics.set(flags, errors);

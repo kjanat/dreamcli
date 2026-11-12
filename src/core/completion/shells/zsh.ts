@@ -19,6 +19,7 @@ import { resolvePlainHelpDescription } from '#internals/core/help/theme.ts';
 import { flagExpectsValue } from '#internals/core/parse/index.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type { FlagSchema } from '#internals/core/schema/index.ts';
+import { acceptsArgv } from '#internals/core/schema/stdin.ts';
 import { flagValueSchema, valueEnumValues } from '#internals/core/schema/value.ts';
 import type { CommandNode, CompletionOptions } from './shared.ts';
 import {
@@ -338,6 +339,7 @@ function buildZshFlagSpecsFromFlags(
 ): readonly string[] {
 	const specs: string[] = [];
 	for (const [name, schema] of Object.entries(flags)) {
+		if (!acceptsArgv(schema)) continue;
 		const desc = escapeZshDescription(
 			schema.description === undefined ? name : resolvePlainHelpDescription(schema.description),
 		);

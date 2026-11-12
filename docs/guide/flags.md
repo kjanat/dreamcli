@@ -790,9 +790,24 @@ so `echo true` reaches `flag.boolean()` as `true`.
 It applies to a single value; a collection's terminators separate its elements
 and `.split({ stdin })` decides them.
 
+#### Inputs without a command-line form
+
+Use `.stdin({ argv: false })` when a value should never be accepted on argv:
+
+```ts
+const set = command('set')
+  .flag('value', flag.string().stdin({ argv: false, trim: true }).sensitive().required())
+  .action(({ flags }) => saveSecret(flags.value));
+```
+
+`value` still reaches the action, but `--value`, its aliases, and its case variants
+are unknown flags. Help and shell completion omit them. Tests can supply the value
+through `stdinData`. Declared environment, config, prompt, and default sources still
+work when no data is piped. `argv: false` cannot be combined with `when: 'dash'`.
+
 #### Choosing when stdin is read
 
-`.stdin()` takes `{ when, consume, trim }`:
+`.stdin()` takes `{ when, consume, trim, argv }`:
 
 ```ts twoslash
 import { flag } from '@kjanat/dreamcli';

@@ -8,6 +8,7 @@
  *
  * @module dreamcli/core/schema/command
  */
+
 import type { Colors } from 'ansispeck';
 import { CLIError } from '#internals/core/errors/index.ts';
 import type { Verbosity } from '#internals/core/output/contracts.ts';
@@ -31,6 +32,7 @@ import type { PromptConfig } from './prompt.ts';
 import type { InputSources } from './provenance.ts';
 import { stdinConsumerReference, stdinConsumers } from './source.ts';
 import type { StdinBinding } from './stdin.ts';
+import { acceptsArgv } from './stdin.ts';
 
 // --- Context type utilities
 
@@ -884,7 +886,7 @@ function validateArgEntry(
 	args: readonly CommandArgEntry[],
 ): void {
 	assertUsableArgKey(commandName, name);
-	assertVariadicIsLast(commandName, name, args);
+	if (acceptsArgv(schema)) assertVariadicIsLast(commandName, name, args);
 	assertStdinExclusivity(commandName, { kind: 'arg', name, stdin: schema.stdin }, flags, args);
 }
 
@@ -906,7 +908,7 @@ function assertVariadicIsLast(
 	name: string,
 	args: readonly CommandArgEntry[],
 ): void {
-	const greedy = args.find((entry) => entry.schema.variadic);
+	const greedy = args.find((entry) => acceptsArgv(entry.schema) && entry.schema.variadic);
 	if (greedy === undefined) return;
 
 	throw new CLIError(
@@ -1021,6 +1023,7 @@ function describeFlagForm(form: FlagForm): string {
 }
 
 function listFlagForms(name: string, schema: FlagSchema): readonly FlagForm[] {
+	if (!acceptsArgv(schema)) return [];
 	const negatedName = getFlagNegatedName(name, schema);
 	return [
 		{

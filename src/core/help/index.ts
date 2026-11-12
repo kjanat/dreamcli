@@ -27,6 +27,7 @@ import type {
 	FlagSchema,
 	StdinBinding,
 } from '#internals/core/schema/index.ts';
+import { acceptsArgv } from '#internals/core/schema/stdin.ts';
 import { padEnd, visibleWidth, wrapText } from './ansi.ts';
 import type { HelpTheme, HelpThemeFactory } from './theme.ts';
 import { extendHelpTheme, resolveHelpDescription, resolveHelpTheme } from './theme.ts';
@@ -507,7 +508,7 @@ function buildFlagEntries(
 	const entries: FlagEntry[] = [];
 	for (const name of orderFlagNames(names, flags, opts)) {
 		const schema = flags[name];
-		if (schema === undefined) continue;
+		if (schema === undefined || !acceptsArgv(schema)) continue;
 		entries.push({
 			left: formatFlagLeft(name, schema, opts.theme, reads),
 			description: formatFlagDescription(schema, opts.theme, opts.descriptionTheme, opts.envPrefix),
@@ -614,13 +615,13 @@ function formatHelpSections(schema: CommandSchema, options?: HelpOptions): reado
 	}
 
 	// ---- Arguments ----------------------------------------------------------
-	if (schema.args.length > 0) {
-		sections.push(formatArgsSection(schema.args, opts));
+	const args = schema.args.filter((entry) => acceptsArgv(entry.schema));
+	if (args.length > 0) {
+		sections.push(formatArgsSection(args, opts));
 	}
 
 	// ---- Flags --------------------------------------------------------------
-	const flagNames = Object.keys(schema.flags);
-	if (flagNames.length > 0) {
+	if (Object.values(schema.flags).some(acceptsArgv)) {
 		sections.push(formatFlagsSection(schema.flags, opts));
 	}
 
@@ -692,13 +693,13 @@ function formatUsageLine(schema: CommandSchema, opts: ResolvedHelpOptions): stri
 	}
 
 	// Flags placeholder
-	const flagNames = Object.keys(schema.flags);
-	if (flagNames.length > 0) {
+	if (Object.values(schema.flags).some(acceptsArgv)) {
 		parts.push(theme.placeholder('[flags]'));
 	}
 
 	// Positional args
 	for (const entry of schema.args) {
+		if (!acceptsArgv(entry.schema)) continue;
 		parts.push(theme.arg(formatArgUsage(entry, opts.width - 7)));
 	}
 
