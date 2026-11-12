@@ -388,10 +388,16 @@ describe('prompt sessions', () => {
 		expect(await ask(prompt.input({ message: 'Next' }))).toBe('next');
 	});
 
-	it('fails only when an unavailable session is actually asked a question', async () => {
+	it.each([
+		prompt.password({ message: 'Password' }),
+		prompt.confirm({ message: 'Continue?' }),
+		prompt.select({ message: 'Target', choices: [{ value: 'production' }] }),
+	])('gives general input guidance for an unavailable $kind prompt', async (definition) => {
 		const { ask } = createPromptSession({});
-		await expect(ask(prompt.password({ message: 'Password' }))).rejects.toMatchObject({
+		await expect(ask(definition)).rejects.toMatchObject({
 			code: 'PROMPT_UNAVAILABLE',
+			suggest:
+				'Supply input through command arguments, environment, or config, or run in an interactive terminal',
 		});
 	});
 
