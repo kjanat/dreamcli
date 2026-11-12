@@ -489,10 +489,10 @@ describe('createCaptureOutput — activity capture', () => {
 		]);
 	});
 
-	it('capture handles operate independently (no implicit stop)', () => {
+	it('concurrent capture handles operate independently', () => {
 		const [out, captured] = createCaptureOutput();
-		const s1 = out.spinner('First');
-		const s2 = out.spinner('Second'); // does NOT stop s1
+		const s1 = out.spinner('First', { concurrent: true });
+		const s2 = out.spinner('Second', { concurrent: true });
 		s1.update('First updated');
 		s2.update('Second updated');
 		s1.succeed('First done');
@@ -613,9 +613,9 @@ describe('runCommand() — activity capture', () => {
 		const result = await runCommand(cmd, []);
 		// Handler threw — runCommand catches and wraps as UNEXPECTED_ERROR
 		expect(result.exitCode).toBe(1);
-		// Spinner was started but never stopped by handler
-		expect(result.activity).toEqual([{ type: 'spinner:start', text: 'Leaked' }]);
-		// The key assertion: runCommand completed (did not hang),
-		// proving stopActive() cleaned up the capture handle.
+		expect(result.activity).toEqual([
+			{ type: 'spinner:start', text: 'Leaked' },
+			{ type: 'spinner:stop' },
+		]);
 	});
 });

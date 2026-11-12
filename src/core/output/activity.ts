@@ -25,6 +25,12 @@ import { bindMethods } from './bind.ts';
 import type { WriteFn } from './writer.ts';
 import { writeLine } from './writer.ts';
 
+/** A line owned by a shared terminal activity block. @internal */
+interface ActivityLine {
+	update(text: string): void;
+	finish(text?: string): void;
+}
+
 // --- Timer globals — minimal declarations for setInterval/clearInterval.
 //
 // The project targets ES2022 without DOM or Node lib typings. Timer APIs
@@ -89,6 +95,7 @@ class StaticSpinnerHandle implements SpinnerHandle {
 	constructor(
 		text: string,
 		private readonly write: WriteFn,
+		private readonly onStop?: () => void,
 	) {
 		writeLine(write, text);
 		bindMethods(this);
@@ -101,6 +108,7 @@ class StaticSpinnerHandle implements SpinnerHandle {
 	succeed(text?: string): void {
 		if (this.stopped) return;
 		this.stopped = true;
+		this.onStop?.();
 		if (text !== undefined) {
 			writeLine(this.write, text);
 		}
@@ -109,6 +117,7 @@ class StaticSpinnerHandle implements SpinnerHandle {
 	fail(text?: string): void {
 		if (this.stopped) return;
 		this.stopped = true;
+		this.onStop?.();
 		if (text !== undefined) {
 			writeLine(this.write, text);
 		}
@@ -117,6 +126,7 @@ class StaticSpinnerHandle implements SpinnerHandle {
 	stop(): void {
 		if (this.stopped) return;
 		this.stopped = true;
+		this.onStop?.();
 	}
 
 	async wrap<T>(
@@ -161,6 +171,7 @@ class StaticProgressHandle implements ProgressHandle {
 	constructor(
 		label: string | undefined,
 		private readonly write: WriteFn,
+		private readonly onStop?: () => void,
 	) {
 		if (label !== undefined) {
 			writeLine(write, label);
@@ -179,6 +190,7 @@ class StaticProgressHandle implements ProgressHandle {
 	done(text?: string): void {
 		if (this.stopped) return;
 		this.stopped = true;
+		this.onStop?.();
 		if (text !== undefined) {
 			writeLine(this.write, text);
 		}
@@ -187,6 +199,7 @@ class StaticProgressHandle implements ProgressHandle {
 	fail(text?: string): void {
 		if (this.stopped) return;
 		this.stopped = true;
+		this.onStop?.();
 		if (text !== undefined) {
 			writeLine(this.write, text);
 		}
@@ -268,9 +281,11 @@ class TTYSpinnerHandle implements SpinnerHandle {
 	constructor(
 		text: string,
 		private readonly write: WriteFn,
+		private readonly onStop?: () => void,
+		private readonly line?: ActivityLine,
 	) {
 		this.text = text;
-		write(HIDE_CURSOR);
+		if (line === undefined) write(HIDE_CURSOR);
 		this.render();
 		this.timer = setInterval(() => {
 			this.frameIndex = (this.frameIndex + 1) % SPINNER_FRAMES.length;
@@ -282,7 +297,9 @@ class TTYSpinnerHandle implements SpinnerHandle {
 	/** Render the current frame + text, overwriting the current line. */
 	private render(): void {
 		const frame = SPINNER_FRAMES[this.frameIndex] ?? SPINNER_FRAMES[0];
-		this.write(`\r${ERASE_LINE}${frame} ${this.text}`);
+		const text = `${frame} ${this.text}`;
+		if (this.line !== undefined) this.line.update(text);
+		else this.write(`\r${ERASE_LINE}${text}`);
 	}
 
 	/** Clear the animation timer, erase the line, and restore the cursor. */
@@ -291,7 +308,7 @@ class TTYSpinnerHandle implements SpinnerHandle {
 			clearInterval(this.timer);
 			this.timer = undefined;
 		}
-		this.write(`\r${ERASE_LINE}${SHOW_CURSOR}`);
+		if (this.line === undefined) this.write(`\r${ERASE_LINE}${SHOW_CURSOR}`);
 	}
 
 	update(text: string): void {
@@ -304,8 +321,11 @@ class TTYSpinnerHandle implements SpinnerHandle {
 	succeed(text?: string): void {
 		if (this.stopped) return;
 		this.stopped = true;
+		this.onStop?.();
 		this.cleanup();
-		if (text !== undefined) {
+		if (this.line !== undefined) {
+			this.line.finish(text === undefined ? undefined : `${CHECK} ${text}`);
+		} else if (text !== undefined) {
 			writeLine(this.write, `${CHECK} ${text}`);
 		}
 	}
@@ -313,8 +333,11 @@ class TTYSpinnerHandle implements SpinnerHandle {
 	fail(text?: string): void {
 		if (this.stopped) return;
 		this.stopped = true;
+		this.onStop?.();
 		this.cleanup();
-		if (text !== undefined) {
+		if (this.line !== undefined) {
+			this.line.finish(text === undefined ? undefined : `${CROSS} ${text}`);
+		} else if (text !== undefined) {
 			writeLine(this.write, `${CROSS} ${text}`);
 		}
 	}
@@ -322,7 +345,9 @@ class TTYSpinnerHandle implements SpinnerHandle {
 	stop(): void {
 		if (this.stopped) return;
 		this.stopped = true;
+		this.onStop?.();
 		this.cleanup();
+		this.line?.finish();
 	}
 
 	async wrap<T>(
@@ -383,10 +408,12 @@ class TTYProgressHandle implements ProgressHandle {
 	constructor(
 		opts: ProgressOptions,
 		private readonly write: WriteFn,
+		private readonly onStop?: () => void,
+		private readonly line?: ActivityLine,
 	) {
 		this.total = opts.total;
 		this.label = opts.label ?? '';
-		write(HIDE_CURSOR);
+		if (line === undefined) write(HIDE_CURSOR);
 		this.render();
 
 		// Only start animation timer for indeterminate mode.
@@ -417,7 +444,9 @@ class TTYProgressHandle implements ProgressHandle {
 		const bar =
 			this.total !== undefined ? this.renderDeterminate(this.total) : this.renderIndeterminate();
 		const suffix = this.label.length > 0 ? ` ${this.label}` : '';
-		this.write(`\r${ERASE_LINE}${bar}${suffix}`);
+		const text = `${bar}${suffix}`;
+		if (this.line !== undefined) this.line.update(text);
+		else this.write(`\r${ERASE_LINE}${text}`);
 	}
 
 	/** Render a determinate bar: `[████░░░░░░] 40%`. */
@@ -444,7 +473,7 @@ class TTYProgressHandle implements ProgressHandle {
 			clearInterval(this.timer);
 			this.timer = undefined;
 		}
-		this.write(`\r${ERASE_LINE}${SHOW_CURSOR}`);
+		if (this.line === undefined) this.write(`\r${ERASE_LINE}${SHOW_CURSOR}`);
 	}
 
 	increment(n?: number): void {
@@ -462,8 +491,11 @@ class TTYProgressHandle implements ProgressHandle {
 	done(text?: string): void {
 		if (this.stopped) return;
 		this.stopped = true;
+		this.onStop?.();
 		this.cleanup();
-		if (text !== undefined) {
+		if (this.line !== undefined) {
+			this.line.finish(text === undefined ? undefined : `${CHECK} ${text}`);
+		} else if (text !== undefined) {
 			writeLine(this.write, `${CHECK} ${text}`);
 		}
 	}
@@ -471,8 +503,11 @@ class TTYProgressHandle implements ProgressHandle {
 	fail(text?: string): void {
 		if (this.stopped) return;
 		this.stopped = true;
+		this.onStop?.();
 		this.cleanup();
-		if (text !== undefined) {
+		if (this.line !== undefined) {
+			this.line.finish(text === undefined ? undefined : `${CROSS} ${text}`);
+		} else if (text !== undefined) {
 			writeLine(this.write, `${CROSS} ${text}`);
 		}
 	}
@@ -495,6 +530,7 @@ class CaptureSpinnerHandle implements SpinnerHandle {
 	constructor(
 		text: string,
 		private readonly events: ActivityEvent[],
+		private readonly onStop?: () => void,
 	) {
 		events.push({ type: 'spinner:start', text });
 		bindMethods(this);
@@ -508,18 +544,21 @@ class CaptureSpinnerHandle implements SpinnerHandle {
 	succeed(text?: string): void {
 		if (this.stopped) return;
 		this.stopped = true;
+		this.onStop?.();
 		this.events.push({ type: 'spinner:succeed', text: text ?? '' });
 	}
 
 	fail(text?: string): void {
 		if (this.stopped) return;
 		this.stopped = true;
+		this.onStop?.();
 		this.events.push({ type: 'spinner:fail', text: text ?? '' });
 	}
 
 	stop(): void {
 		if (this.stopped) return;
 		this.stopped = true;
+		this.onStop?.();
 		this.events.push({ type: 'spinner:stop' });
 	}
 
@@ -563,6 +602,7 @@ class CaptureProgressHandle implements ProgressHandle {
 	constructor(
 		opts: ProgressOptions,
 		private readonly events: ActivityEvent[],
+		private readonly onStop?: () => void,
 	) {
 		events.push({ type: 'progress:start', label: opts.label ?? '', total: opts.total });
 		bindMethods(this);
@@ -581,17 +621,21 @@ class CaptureProgressHandle implements ProgressHandle {
 	done(text?: string): void {
 		if (this.stopped) return;
 		this.stopped = true;
+		this.onStop?.();
 		this.events.push({ type: 'progress:done', text });
 	}
 
 	fail(text?: string): void {
 		if (this.stopped) return;
 		this.stopped = true;
+		this.onStop?.();
 		this.events.push({ type: 'progress:fail', text });
 	}
 }
 
 // --- Exports
+
+export type { ActivityLine };
 
 export {
 	CaptureProgressHandle,

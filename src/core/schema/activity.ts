@@ -23,6 +23,8 @@ type Fallback = 'silent' | 'static';
 
 /** Options for {@link Out.spinner}. */
 interface SpinnerOptions {
+	/** Render alongside other concurrent activities instead of replacing them. */
+	readonly concurrent?: boolean;
 	/**
 	 * Fallback strategy when `!isTTY` or `jsonMode`.
 	 * @defaultValue `'silent'`
@@ -63,6 +65,8 @@ interface SpinnerHandle {
 
 /** Options for {@link Out.progress}. */
 interface ProgressOptions {
+	/** Render alongside other concurrent activities instead of replacing them. */
+	readonly concurrent?: boolean;
 	/**
 	 * Total units of work. When provided, the bar shows a determinate
 	 * percentage. When omitted, the bar pulses in indeterminate mode.
