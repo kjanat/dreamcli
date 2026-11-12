@@ -121,14 +121,24 @@ class StaticSpinnerHandle implements SpinnerHandle {
 
 	async wrap<T>(
 		promise: Promise<T>,
-		options?: { readonly succeed?: string; readonly fail?: string },
+		options?: {
+			readonly succeed?: string | ((value: T) => string);
+			readonly fail?: string | ((error: unknown) => string);
+		},
 	): Promise<T> {
 		try {
 			const value = await promise;
-			this.succeed(options?.succeed);
+			this.succeed(
+				typeof options?.succeed === 'function' ? options.succeed(value) : options?.succeed,
+			);
 			return value;
 		} catch (error: unknown) {
-			this.fail(options?.fail);
+			let text: string | undefined;
+			try {
+				text = typeof options?.fail === 'function' ? options.fail(error) : options?.fail;
+			} finally {
+				this.fail(text);
+			}
 			throw error;
 		}
 	}
@@ -317,14 +327,24 @@ class TTYSpinnerHandle implements SpinnerHandle {
 
 	async wrap<T>(
 		promise: Promise<T>,
-		options?: { readonly succeed?: string; readonly fail?: string },
+		options?: {
+			readonly succeed?: string | ((value: T) => string);
+			readonly fail?: string | ((error: unknown) => string);
+		},
 	): Promise<T> {
 		try {
 			const value = await promise;
-			this.succeed(options?.succeed);
+			this.succeed(
+				typeof options?.succeed === 'function' ? options.succeed(value) : options?.succeed,
+			);
 			return value;
 		} catch (error: unknown) {
-			this.fail(options?.fail);
+			let text: string | undefined;
+			try {
+				text = typeof options?.fail === 'function' ? options.fail(error) : options?.fail;
+			} finally {
+				this.fail(text);
+			}
 			throw error;
 		}
 	}
@@ -505,14 +525,24 @@ class CaptureSpinnerHandle implements SpinnerHandle {
 
 	async wrap<T>(
 		promise: Promise<T>,
-		options?: { readonly succeed?: string; readonly fail?: string },
+		options?: {
+			readonly succeed?: string | ((value: T) => string);
+			readonly fail?: string | ((error: unknown) => string);
+		},
 	): Promise<T> {
 		try {
 			const value = await promise;
-			this.succeed(options?.succeed);
+			this.succeed(
+				typeof options?.succeed === 'function' ? options.succeed(value) : options?.succeed,
+			);
 			return value;
 		} catch (error: unknown) {
-			this.fail(options?.fail);
+			let text: string | undefined;
+			try {
+				text = typeof options?.fail === 'function' ? options.fail(error) : options?.fail;
+			} finally {
+				this.fail(text);
+			}
 			throw error;
 		}
 	}
