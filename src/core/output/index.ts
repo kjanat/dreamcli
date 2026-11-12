@@ -35,6 +35,7 @@ import {
 	shouldEmitInfo,
 } from './contracts.ts';
 import { formatDisplayValue } from './display-value.ts';
+import { colorJson } from './json.ts';
 import {
 	createProgressHandleFromPolicy,
 	createSpinnerHandleFromPolicy,
@@ -323,7 +324,12 @@ class OutputChannel implements Out {
 	 * regardless of JSON mode — `json()` always targets stdout.
 	 */
 	json(value: unknown): void {
-		writeLine(this.options.stdout, JSON.stringify(value));
+		const pretty = this.isTTY && !this.jsonMode;
+		const serialized = JSON.stringify(value, null, pretty ? 2 : undefined);
+		writeLine(
+			this.options.stdout,
+			pretty && serialized !== undefined ? colorJson(serialized, this.color) : serialized,
+		);
 	}
 
 	/**
@@ -352,7 +358,7 @@ class OutputChannel implements Out {
 		const resolved = columns ?? inferColumns(rows);
 
 		if (format === 'json') {
-			this.json(projectTableRows(rows, resolved));
+			writeLine(this.options.stdout, JSON.stringify(projectTableRows(rows, resolved)));
 			return;
 		}
 

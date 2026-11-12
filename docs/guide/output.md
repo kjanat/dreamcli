@@ -24,6 +24,10 @@ const out = createOutput();
 out.json({ status: 'ok', count: 42 });
 ```
 
+In a terminal, `out.json()` indents values by two spaces and colors keys,
+strings, numbers, and literals. Disabling color keeps the indentation. Piped
+output and `--json` mode emit compact JSON without syntax colors.
+
 When the CLI is invoked with `--json`, structured payloads stay on stdout while
 plain text (`log`, `info`, `warn`, `error`) routes to stderr.
 
