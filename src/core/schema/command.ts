@@ -711,6 +711,26 @@ function assertUsableFlagRecord(commandName: string, flags: object): void {
 	);
 }
 
+/** Register one flag with the same validation for single and bulk declarations. */
+function withCommandFlag(schema: CommandSchema, name: string, flag: FlagSchema): CommandSchema {
+	assertUsableFlagKey(schema.name, name);
+
+	if (Object.hasOwn(schema.flags, name)) {
+		throw new CLIError(`Command '${schema.name}' already defines flag --${name}`, {
+			code: 'FLAG_NAME_COLLISION',
+			details: { command: schema.name, flag: name, surface: name, surfaceKind: 'canonical' },
+		});
+	}
+
+	const flagSchema = withEnvFromName(name, flag);
+	validateFlagStdinEntry(schema.name, name, flagSchema, schema.flags, schema.args);
+
+	const nextFlags = { ...schema.flags, [name]: flagSchema };
+	const nextSchema = { ...schema, flags: nextFlags, hasAction: false };
+	validateCommandFlagTree(nextSchema);
+	return nextSchema;
+}
+
 /**
  * Reject an arg name a plain record cannot carry.
  *
@@ -1687,25 +1707,44 @@ class CommandBuilder<
 		name: N & Exclude<N, keyof F>,
 		builder: B,
 	): CommandBuilder<F & Record<N, B>, A, C> {
-		assertUsableFlagKey(this.schema.name, name);
-
-		if (Object.hasOwn(this.schema.flags, name)) {
-			throw new CLIError(`Command '${this.schema.name}' already defines flag --${name}`, {
-				code: 'FLAG_NAME_COLLISION',
-				details: { command: this.schema.name, flag: name, surface: name, surfaceKind: 'canonical' },
-			});
-		}
-
-		const flagSchema = withEnvFromName(name, builder.schema);
-		validateFlagStdinEntry(this.schema.name, name, flagSchema, this.schema.flags, this.schema.args);
-
-		const nextFlags = { ...this.schema.flags, [name]: flagSchema };
-		const nextSchema = { ...this.schema, flags: nextFlags, hasAction: false };
-		validateCommandFlagTree(nextSchema);
+		const nextSchema = withCommandFlag(this.schema, name, builder.schema);
 		return new CommandBuilder(
 			nextSchema,
 			// handler is intentionally dropped — adding a flag invalidates
 			// the previous handler's type signature
+			undefined,
+			this._subcommands,
+			this._executionSteps,
+		);
+	}
+
+	/**
+	 * Register a record of flags, preserving each key and inferred value type.
+	 *
+	 * Names and aliases must not collide with existing flags or other entries.
+	 * Adding flags clears any previously registered action, like `.flag()`.
+	 *
+	 * @param record - Named flag builders to add to this command.
+	 * @returns A new builder with the added flags.
+	 *
+	 * @example
+	 * ```ts
+	 * command('serve')
+	 *   .flags({ port: flag.number().default(3000), host: flag.string() })
+	 *   .action(({ flags }) => { flags.port; flags.host; });
+	 * ```
+	 */
+	flags<const R extends Record<string, FlagBuilder<FlagConfig>>>(
+		record: R & { [K in keyof R & keyof F]: never },
+	): CommandBuilder<F & R, A, C> {
+		assertUsableFlagRecord(this.schema.name, record);
+		let schema = this.schema;
+		const builders: Readonly<Record<string, FlagBuilder<FlagConfig>>> = record;
+		for (const [name, builder] of Object.entries(builders)) {
+			schema = withCommandFlag(schema, name, builder.schema);
+		}
+		return new CommandBuilder(
+			{ ...schema, hasAction: false },
 			undefined,
 			this._subcommands,
 			this._executionSteps,
