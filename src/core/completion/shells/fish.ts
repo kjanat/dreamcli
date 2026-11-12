@@ -212,7 +212,8 @@ function appendFishFlagCompletions(
 		if (flagExpectsValue(schema)) {
 			parts.push('-r', '-f');
 		}
-		const values = valueEnumValues(flagValueSchema(schema));
+		const values =
+			schema.kind === 'keyValue' ? undefined : valueEnumValues(flagValueSchema(schema));
 		if (values !== undefined) {
 			for (const enumValue of values) {
 				lines.push([...parts, `-a ${quoteShellArg(enumValue)}`].join(' '));

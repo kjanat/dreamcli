@@ -454,7 +454,8 @@ function collectEnumCasesFromFlags(
 ): readonly EnumCase[] {
 	const cases: EnumCase[] = [];
 	for (const [name, schema] of Object.entries(flags)) {
-		const values = valueEnumValues(flagValueSchema(schema));
+		const values =
+			schema.kind === 'keyValue' ? undefined : valueEnumValues(flagValueSchema(schema));
 		if (values === undefined) continue;
 		const flagForms = [
 			`--${name}`,

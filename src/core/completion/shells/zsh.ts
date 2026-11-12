@@ -348,7 +348,8 @@ function buildZshFlagSpecsFromFlags(
 		const negatedForms = negated !== undefined ? [`--${negated}`] : [];
 		const allForms = [...shortFlags, longFlag, ...longAliases, ...negatedForms];
 
-		const values = valueEnumValues(flagValueSchema(schema));
+		const values =
+			schema.kind === 'keyValue' ? undefined : valueEnumValues(flagValueSchema(schema));
 		let valuePart = '';
 		if (!flagExpectsValue(schema)) {
 			// Boolean and count flags take no argument value

@@ -190,7 +190,7 @@ function appendPowerShellPathEntry(
 			`\t\t\t\tDescription = ${quotePowerShellString(schema.description === undefined ? name : resolvePlainHelpDescription(schema.description))}`,
 		);
 		lines.push(
-			`\t\t\t\tEnumValues = ${formatPowerShellArray(valueEnumValues(flagValueSchema(schema)) ?? [])}`,
+			`\t\t\t\tEnumValues = ${formatPowerShellArray((schema.kind === 'keyValue' ? undefined : valueEnumValues(flagValueSchema(schema))) ?? [])}`,
 		);
 		lines.push('\t\t\t}');
 	}
