@@ -19,6 +19,7 @@ import type { CLISchema } from '#internals/core/cli/index.ts';
 import { flagExpectsValue } from '#internals/core/parse/index.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type { CommandSchema, FlagSchema } from '#internals/core/schema/index.ts';
+import { acceptsArgv } from '#internals/core/schema/stdin.ts';
 import { flagValueSchema, valueEnumValues } from '#internals/core/schema/value.ts';
 import type { CommandNode, CompletionOptions, RootCompletionSurface } from './shared.ts';
 import {
@@ -385,6 +386,7 @@ function escapeBashDollarQuote(value: string): string {
 function collectFlagWords(flags: Readonly<Record<string, FlagSchema>>): string {
 	const words: string[] = [];
 	for (const [name, schema] of Object.entries(flags)) {
+		if (!acceptsArgv(schema)) continue;
 		words.push(`--${name}`);
 		for (const alias of getFlagAliasNames(schema)) {
 			words.push(alias.length === 1 ? `-${alias}` : `--${alias}`);
@@ -414,6 +416,7 @@ function collectValueFlagPattern(
 	const forms = new Set<string>();
 	const addFlags = (flags: Readonly<Record<string, FlagSchema>>): void => {
 		for (const [name, schema] of Object.entries(flags)) {
+			if (!acceptsArgv(schema)) continue;
 			if (!flagExpectsValue(schema)) continue;
 			forms.add(`--${name}`);
 			for (const alias of getFlagAliasNames(schema, { includeHidden: true })) {
@@ -454,6 +457,7 @@ function collectEnumCasesFromFlags(
 ): readonly EnumCase[] {
 	const cases: EnumCase[] = [];
 	for (const [name, schema] of Object.entries(flags)) {
+		if (!acceptsArgv(schema)) continue;
 		const values =
 			schema.kind === 'keyValue' ? undefined : valueEnumValues(flagValueSchema(schema));
 		if (values === undefined) continue;

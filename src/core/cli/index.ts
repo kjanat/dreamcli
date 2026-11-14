@@ -41,6 +41,7 @@ import { deriveEnvPrefix, normalizeEnvPrefix } from '#internals/core/schema/env-
 import type { FlagBuilder, FlagConfig } from '#internals/core/schema/flag.ts';
 import { getFlagAliasNames, getFlagNegatedName } from '#internals/core/schema/flag.ts';
 import type { InternalRunOptions, RunOptions, RunResult } from '#internals/core/schema/run.ts';
+import { acceptsArgv } from '#internals/core/schema/stdin.ts';
 import type { RuntimeAdapter } from '#internals/runtime/adapter.ts';
 import { exitAfterFlush } from '#internals/runtime/adapter.ts';
 import { createAdapter } from '#internals/runtime/auto.ts';
@@ -75,8 +76,9 @@ const COMPLETIONS_FLAG_NAME = 'completions';
  * @internal
  */
 function commandReservesCompletionsFlag(schema: CommandSchema): boolean {
-	if (Object.hasOwn(schema.flags, COMPLETIONS_FLAG_NAME)) return true;
 	for (const [flagName, flagSchema] of Object.entries(schema.flags)) {
+		if (!acceptsArgv(flagSchema)) continue;
+		if (flagName === COMPLETIONS_FLAG_NAME) return true;
 		if (
 			getFlagAliasNames(flagSchema, { kind: 'long', includeHidden: true }).includes(
 				COMPLETIONS_FLAG_NAME,

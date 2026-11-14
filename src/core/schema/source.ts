@@ -20,7 +20,7 @@ import { effectiveEnvName, effectiveIndexedEnvBinding } from './env-binding.ts';
 import type { FlagSchema } from './flag.ts';
 import type { PromptConfig } from './prompt.ts';
 import type { StdinBinding, StdinConsume, StdinWhen } from './stdin.ts';
-import { stdinReadsOnDash, stdinReadsWhenMissing } from './stdin.ts';
+import { acceptsArgv, stdinReadsOnDash, stdinReadsWhenMissing } from './stdin.ts';
 
 /**
  * Ordered resolution stages, highest precedence first.
@@ -101,8 +101,8 @@ type DecodedSourceBinding = Exclude<
 /**
  * Project a flag or arg schema onto its source axis.
  *
- * Every input accepts CLI input, so the list always opens with `'cli'`. The
- * remaining entries appear in {@link RESOLUTION_ORDER} order, and only for the
+ * The list opens with `'cli'` when the input accepts argv. The remaining
+ * entries appear in {@link RESOLUTION_ORDER} order, and only for the
  * sources the schema actually declares. The resolver walks this list, so a
  * source the list omits is a source no stage can produce.
  *
@@ -123,7 +123,9 @@ function sourceBindings(
 	envPrefix?: string,
 ): readonly SourceBinding[] {
 	const splitting = splitBindingOf(schema.separator, schema.split);
-	const bindings: SourceBinding[] = [{ stage: 'cli', split: splitting.cli }];
+	const bindings: SourceBinding[] = acceptsArgv(schema)
+		? [{ stage: 'cli', split: splitting.cli }]
+		: [];
 
 	const stdin = schema.stdin;
 	if (stdin !== undefined) {
@@ -296,14 +298,14 @@ function invocationSelectsStdin(
 	for (const [name, schema] of Object.entries(flags)) {
 		// An input named after an Object.prototype member would otherwise read
 		// that inherited method as a supplied value.
-		const present = Object.hasOwn(parsed.flags, name);
+		const present = acceptsArgv(schema) && Object.hasOwn(parsed.flags, name);
 		if (inputSelectsStdin(schema.stdin, present, present ? parsed.flags[name] : undefined)) {
 			return true;
 		}
 	}
 
 	for (const { name, schema } of args) {
-		const present = Object.hasOwn(parsed.args, name);
+		const present = acceptsArgv(schema) && Object.hasOwn(parsed.args, name);
 		const value = present ? parsed.args[name] : undefined;
 		if (inputSelectsStdin(schema.stdin, present && !argCollectedNothing(schema, value), value)) {
 			return true;
