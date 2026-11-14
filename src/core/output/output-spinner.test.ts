@@ -561,3 +561,70 @@ describe('spinner handle methods survive destructuring', () => {
 		]);
 	});
 });
+
+describe('spinner result messages', () => {
+	it.each(['static', 'tty', 'capture'] as const)(
+		'computes success and failure messages in %s mode',
+		async (mode) => {
+			vi.useFakeTimers();
+			try {
+				const output: string[] = [];
+				const events: ActivityEvent[] = [];
+				const make = () =>
+					mode === 'capture'
+						? new CaptureSpinnerHandle('Loading', events)
+						: mode === 'tty'
+							? new TTYSpinnerHandle('Loading', (text) => output.push(text))
+							: new StaticSpinnerHandle('Loading', (text) => output.push(text));
+				const result = { count: 12 };
+				expect(
+					await make().wrap(Promise.resolve(result), {
+						succeed: (value) => `Listed ${value.count} repositories`,
+					}),
+				).toBe(result);
+				const error = new Error('offline');
+				await expect(
+					make().wrap(Promise.reject(error), {
+						fail: (reason) => (reason instanceof Error ? reason.message : 'Unknown error'),
+					}),
+				).rejects.toBe(error);
+				if (mode === 'capture') {
+					expect(events).toContainEqual({
+						type: 'spinner:succeed',
+						text: 'Listed 12 repositories',
+					});
+					expect(events).toContainEqual({ type: 'spinner:fail', text: 'offline' });
+				} else {
+					expect(output.join('')).toContain('Listed 12 repositories\n');
+					expect(output.join('')).toContain('offline\n');
+				}
+				expect(vi.getTimerCount()).toBe(0);
+			} finally {
+				vi.useRealTimers();
+			}
+		},
+	);
+
+	it('cleans up the animation if a failure formatter throws', async () => {
+		vi.useFakeTimers();
+		try {
+			const spinner = new TTYSpinnerHandle('Loading', () => {});
+			await expect(
+				spinner.wrap(Promise.reject(new Error('request')), {
+					fail: () => {
+						throw new Error('formatter');
+					},
+				}),
+			).rejects.toThrow('formatter');
+			expect(vi.getTimerCount()).toBe(0);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('accepts result messages on silent handles without evaluating them', async () => {
+		const succeed = vi.fn((value: number) => String(value));
+		expect(await noopSpinnerHandle.wrap(Promise.resolve(12), { succeed })).toBe(12);
+		expect(succeed).not.toHaveBeenCalled();
+	});
+});

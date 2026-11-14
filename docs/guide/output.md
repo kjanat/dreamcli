@@ -222,6 +222,25 @@ spinner.succeed('Done');
 Spinners auto-disable when stdout is not a TTY (CI, piped output).
 In quiet and `--json` modes, spinners are suppressed entirely.
 
+Use `wrap()` to finish a spinner when a promise settles. Its `succeed` and `fail`
+options accept fixed strings or functions that receive the result or error.
+
+```ts twoslash
+import { createOutput } from '@kjanat/dreamcli';
+
+const out = createOutput();
+const repositories = await out.spinner('Listing repositories').wrap(
+  Promise.resolve(['dreamcli', 'beepboop']),
+  {
+    succeed: (items) => `Listed ${items.length} repositories`,
+    fail: (error) => error instanceof Error ? error.message : 'Listing failed',
+  },
+);
+```
+
+`wrap()` returns the original result and rethrows a rejected promise's error.
+Silent handles skip message functions because they render no output.
+
 ## Progress Bars
 
 ```ts twoslash

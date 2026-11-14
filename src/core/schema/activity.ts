@@ -53,8 +53,8 @@ interface SpinnerHandle {
 	wrap<T>(
 		promise: Promise<T>,
 		options?: {
-			readonly succeed?: string;
-			readonly fail?: string;
+			readonly succeed?: string | ((value: T) => string);
+			readonly fail?: string | ((error: unknown) => string);
 		},
 	): Promise<T>;
 }
