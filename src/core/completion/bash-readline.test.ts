@@ -134,17 +134,22 @@ describe.skipIf(prerequisites.length > 0)(
 								flag.string().complete(() => literals),
 							),
 					);
+				writeFileSync(
+					join(directory, 'fixture-data.json'),
+					JSON.stringify({ source, candidates: literals }),
+				);
 				writeFileSync(script, generateBashCompletion(app.schema));
 				writeFileSync(
 					fixture,
 					[
-						`import { cli, command, flag } from ${JSON.stringify(source)};`,
+						"import settings from './fixture-data.json' with { type: 'json' };",
+						'const { cli, command, flag } = await import(settings.source);',
 						"await cli('dcfixture')",
 						".default(command('default').flag('value-only', flag.string().complete(() => ['widget'])))",
 						".command(command('adopt')",
 						".flag('name', flag.string().alias('n').complete(({ prefix }) => [prefix.includes('sub:') ? 'tenant:sub:widget' : prefix.includes(':') ? 'tenant:widget' : 'widget']))",
 						".flag('mode', flag.enum(['fast', 'full']))",
-						`.flag('literal', flag.string().complete(() => ${JSON.stringify(literals)}))).run();`,
+						".flag('literal', flag.string().complete(() => settings.candidates))).run();",
 					].join('\n'),
 				);
 				writeFileSync(

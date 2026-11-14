@@ -42,12 +42,17 @@ describe.skipIf(prerequisites.length > 0)('native PowerShell completion', () => 
 						flag.string().complete(() => literals),
 					),
 			);
+			writeFileSync(
+				join(directory, 'fixture-data.json'),
+				JSON.stringify({ source, candidates: literals }),
+			);
 			writeFileSync(script, generatePowerShellCompletion(app.schema));
 			writeFileSync(
 				fixture,
 				[
-					`import { cli, command, flag } from ${JSON.stringify(source)};`,
-					`await cli('dcpsfixture').command(command('adopt').flag('previous', flag.string()).flag('name', flag.string().complete(() => ${JSON.stringify(literals)}))).run();`,
+					"import settings from './fixture-data.json' with { type: 'json' };",
+					'const { cli, command, flag } = await import(settings.source);',
+					"await cli('dcpsfixture').command(command('adopt').flag('previous', flag.string()).flag('name', flag.string().complete(() => settings.candidates))).run();",
 				].join('\n'),
 			);
 			writeFileSync(

@@ -147,13 +147,18 @@ describe.skipIf(prerequisites.length > 0)('Zsh interactive completion', () => {
 						flag.string().complete(() => values),
 					),
 			);
+			writeFileSync(
+				join(directory, 'fixture-data.json'),
+				JSON.stringify({ source, candidates: values }),
+			);
 			writeFileSync(script, generateZshCompletion(app.schema));
 			writeFileSync(
 				fixture,
 				[
-					`import { cli, command, flag } from ${JSON.stringify(source)};`,
+					"import settings from './fixture-data.json' with { type: 'json' };",
+					'const { cli, command, flag } = await import(settings.source);',
 					"await cli('dczfixture').command(command('adopt').flag('profile', flag.string())",
-					`.flag('name', flag.string().complete(() => ${JSON.stringify(values)}))).run();`,
+					".flag('name', flag.string().complete(() => settings.candidates))).run();",
 				].join('\n'),
 			);
 			writeFileSync(
