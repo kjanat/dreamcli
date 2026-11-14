@@ -3,6 +3,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { stripAnsi } from '#internals/core/help/ansi.ts';
 import { command } from '#internals/core/schema/command.ts';
 import { createTestAdapter, ExitError } from '#internals/runtime/adapter.ts';
 import { cli } from './index.ts';
@@ -51,7 +52,7 @@ describe('CLIBuilder.execute() — isTTY propagation', () => {
 		const result = await app.execute(['mode'], { isTTY: true });
 
 		expect(result.exitCode).toBe(0);
-		const parsed = JSON.parse(result.stdout[0] ?? '');
+		const parsed = JSON.parse(stripAnsi(result.stdout[0] ?? ''));
 		expect(parsed.isTTY).toBe(true);
 	});
 
@@ -60,7 +61,7 @@ describe('CLIBuilder.execute() — isTTY propagation', () => {
 		const result = await app.execute(['mode'], { isTTY: false });
 
 		expect(result.exitCode).toBe(0);
-		const parsed = JSON.parse(result.stdout[0] ?? '');
+		const parsed = JSON.parse(stripAnsi(result.stdout[0] ?? ''));
 		expect(parsed.isTTY).toBe(false);
 	});
 
@@ -69,7 +70,7 @@ describe('CLIBuilder.execute() — isTTY propagation', () => {
 		const result = await app.execute(['mode']);
 
 		expect(result.exitCode).toBe(0);
-		const parsed = JSON.parse(result.stdout[0] ?? '');
+		const parsed = JSON.parse(stripAnsi(result.stdout[0] ?? ''));
 		expect(parsed.isTTY).toBe(false);
 	});
 
@@ -88,7 +89,7 @@ describe('CLIBuilder.execute() — isTTY propagation', () => {
 		const result = await app.execute(['status', '--json'], { isTTY: true });
 
 		expect(result.exitCode).toBe(0);
-		const parsed = JSON.parse(result.stdout[0] ?? '');
+		const parsed = JSON.parse(stripAnsi(result.stdout[0] ?? ''));
 		expect(parsed).toEqual({ status: 'ok' });
 	});
 });
@@ -113,7 +114,7 @@ describe('CLIBuilder.run() — isTTY from adapter', () => {
 		}
 
 		expect(stdoutLines.length).toBe(1);
-		const parsed = JSON.parse(stdoutLines[0] ?? '');
+		const parsed = JSON.parse(stripAnsi(stdoutLines[0] ?? ''));
 		expect(parsed.isTTY).toBe(true);
 	});
 
@@ -134,7 +135,7 @@ describe('CLIBuilder.run() — isTTY from adapter', () => {
 		}
 
 		expect(stdoutLines.length).toBe(1);
-		const parsed = JSON.parse(stdoutLines[0] ?? '');
+		const parsed = JSON.parse(stripAnsi(stdoutLines[0] ?? ''));
 		expect(parsed.isTTY).toBe(false);
 	});
 
@@ -155,7 +156,7 @@ describe('CLIBuilder.run() — isTTY from adapter', () => {
 		}
 
 		expect(stdoutLines.length).toBe(1);
-		const parsed = JSON.parse(stdoutLines[0] ?? '');
+		const parsed = JSON.parse(stripAnsi(stdoutLines[0] ?? ''));
 		expect(parsed).toEqual({ status: 'ok' });
 	});
 
@@ -177,7 +178,7 @@ describe('CLIBuilder.run() — isTTY from adapter', () => {
 		}
 
 		expect(stdoutLines.length).toBe(1);
-		const parsed = JSON.parse(stdoutLines[0] ?? '');
+		const parsed = JSON.parse(stripAnsi(stdoutLines[0] ?? ''));
 		expect(parsed.isTTY).toBe(false);
 	});
 
