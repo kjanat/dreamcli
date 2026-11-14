@@ -42,6 +42,10 @@ const definitionMetaSchemaDescriptions = {
 				description: {
 					description: 'Human-readable description for help text.',
 				},
+				details: {
+					description:
+						"Longer explanation shown only in this command's help, with paragraphs wrapped to its width.",
+				},
 				aliases: {
 					description: 'Alternative names for this command.',
 				},
@@ -80,6 +84,9 @@ const definitionMetaSchemaDescriptions = {
 				},
 				description: {
 					description: 'Human-readable description for help text.',
+				},
+				details: {
+					description: "Longer explanation shown only in this command's help.",
 				},
 				aliases: {
 					description: 'Alternative names accepted for this command.',
