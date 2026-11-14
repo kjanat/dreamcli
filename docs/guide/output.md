@@ -315,3 +315,45 @@ For just the `--`-aware flag reads, the primitives are also exported:
 - Related examples: [JSON mode](/examples/json-mode), [Spinner and progress](/examples/spinner-progress)
 - [Errors](/guide/errors) — structured error handling
 - [Testing](/guide/testing) — capturing output in tests
+
+
+## Concurrent activities
+
+Pass `concurrent: true` to each spinner or progress bar that should remain active
+alongside the others. They share a block of terminal lines and finish independently.
+
+```ts twoslash
+import { createOutput } from '@kjanat/dreamcli';
+
+const out = createOutput();
+const build = out.spinner('Building binaries', { concurrent: true });
+const upload = out.progress({ label: 'Uploading assets', total: 4, concurrent: true });
+upload.increment();
+build.succeed('Binaries built');
+upload.update(4);
+upload.done('Assets uploaded');
+```
+
+Other output messages appear above the active block. A finished activity writes its
+final message once to permanent output and leaves the block. The cursor returns
+when the last handle finishes.
+
+The live block fits within the terminal's current height, leaving a row for the
+cursor. When more activities are active than fit, its last row shows how many are
+hidden. Hidden handles keep running and appear when space becomes available.
+The renderer checks the dimensions again on each redraw, so resizing changes how
+many activities are visible. Long labels are clipped to one terminal row.
+
+`cli.run()` supplies the adapter's live `getTerminalSize()` callback. When using
+`createOutput()` directly, pass that callback in its options. If dimensions are
+missing, invalid, or the terminal has fewer than two rows, concurrent activities
+emit static start and completion messages. Updates keep the handles' state but
+produce no animation. If dimensions become unavailable during a block, that
+block stays static until its last handle finishes. The next block checks again.
+A call without `concurrent: true` stops all active handles before starting its own.
+Starting concurrent activities also stops an existing non-concurrent handle.
+
+Quiet and JSON modes still suppress rendered activity. For piped output,
+`fallback: 'static'` emits lifecycle messages without cursor controls.
+Captured activity follows the same replacement rules. Command cleanup records
+`spinner:stop` or `progress:done` for handles the action leaves active.

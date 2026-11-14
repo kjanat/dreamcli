@@ -14,6 +14,7 @@ import type {
 	SpinnerHandle,
 } from '#internals/core/schema/activity.ts';
 import {
+	type ActivityLine,
 	noopProgressHandle,
 	noopSpinnerHandle,
 	StaticProgressHandle,
@@ -70,6 +71,8 @@ function createSpinnerHandleFromPolicy(
 	policy: ActivityPolicy,
 	text: string,
 	stderr: WriteFn,
+	onStop?: () => void,
+	line?: ActivityLine,
 ): SpinnerRenderResult {
 	if (policy.mode === 'noop') {
 		return {
@@ -79,14 +82,14 @@ function createSpinnerHandleFromPolicy(
 	}
 
 	if (policy.mode === 'tty') {
-		const handle = new TTYSpinnerHandle(text, stderr);
+		const handle = new TTYSpinnerHandle(text, stderr, onStop, line);
 		return {
 			handle,
 			cleanup: () => handle.stop(),
 		};
 	}
 
-	const handle = new StaticSpinnerHandle(text, stderr);
+	const handle = new StaticSpinnerHandle(text, stderr, onStop);
 	return {
 		handle,
 		cleanup: () => handle.stop(),
@@ -98,6 +101,8 @@ function createProgressHandleFromPolicy(
 	policy: ActivityPolicy,
 	options: ProgressOptions,
 	stderr: WriteFn,
+	onStop?: () => void,
+	line?: ActivityLine,
 ): ProgressRenderResult {
 	if (policy.mode === 'noop') {
 		return {
@@ -107,14 +112,14 @@ function createProgressHandleFromPolicy(
 	}
 
 	if (policy.mode === 'tty') {
-		const handle = new TTYProgressHandle(options, stderr);
+		const handle = new TTYProgressHandle(options, stderr, onStop, line);
 		return {
 			handle,
 			cleanup: () => handle.done(),
 		};
 	}
 
-	const handle = new StaticProgressHandle(options.label, stderr);
+	const handle = new StaticProgressHandle(options.label, stderr, onStop);
 	return {
 		handle,
 		cleanup: () => handle.done(),
