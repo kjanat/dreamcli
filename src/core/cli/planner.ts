@@ -717,4 +717,10 @@ export type {
 	RootHelpOutcome,
 	RootVersionOutcome,
 };
-export { buildCommandExecutionPlan, buildRootCommandMap, mergeCommandSchema, planInvocation };
+export {
+	buildCommandExecutionPlan,
+	buildRootCommandMap,
+	canDelegateUnknownRootToDefault,
+	mergeCommandSchema,
+	planInvocation,
+};

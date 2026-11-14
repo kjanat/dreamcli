@@ -71,6 +71,7 @@ export {
 	group,
 	resolveExampleCommand,
 } from './command.ts';
+export type { CompletionContext, CompletionHandler } from './completion.ts';
 export type {
 	EnvOptions,
 	IndexedEnvBinding,
