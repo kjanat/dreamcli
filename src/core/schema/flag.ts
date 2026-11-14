@@ -23,6 +23,7 @@ import {
 	normalizeSplitPolicy,
 	validateDefault,
 } from './cardinality.ts';
+import type { CompletionHandler } from './completion.ts';
 import type { EnvOptions, IndexedEnvBinding } from './env-binding.ts';
 import { isIndexedEnvBinding, normalizeIndexedEnvBinding } from './env-binding.ts';
 import { assertNumberConstraints, type NumberConstraints } from './number-constraints.ts';
@@ -296,6 +297,8 @@ type DuplicatePolicy = 'last' | 'first' | 'error';
 interface FlagSchema<K extends FlagKind = FlagKind> {
 	/** Type-only seal produced by {@link createFlagSchema}. */
 	readonly [schemaBrand]: 'flag';
+	/** Callback used to complete this input's values. */
+	readonly completion?: CompletionHandler | undefined;
 	/** What kind of value this flag accepts. */
 	readonly kind: K;
 	/** Current presence state. */
@@ -483,6 +486,8 @@ type FlagDefinitionFields = Omit<FlagSchemaFieldOverrides, 'elementSchema'> & {
 
 /** Definition fields accepted by every flag kind. */
 interface FlagDefinitionBase {
+	/** Callback used to complete this input's values. */
+	readonly completion?: CompletionHandler | undefined;
 	/**
 	 * Presence state.
 	 * @defaultValue `'optional'`
@@ -873,6 +878,7 @@ function assertEligibleFlagElementBuilder(schema: FlagSchema): void {
 		['duplicateKeys', 'last'],
 		['unique', false],
 		['prompt', undefined],
+		['completion', undefined],
 		['aggregateStandard', undefined],
 		['deprecated', undefined],
 		['propagate', false],
@@ -898,11 +904,14 @@ function assertEligibleFlagElementBuilder(schema: FlagSchema): void {
 
 /** Reject input-level default presentation metadata on a flag element definition. */
 function assertValidFlagElementSchema(schema: FlagSchema): void {
-	const unsupportedField = schema.sensitive
-		? 'sensitive'
-		: schema.defaultDescription !== undefined
-			? 'defaultDescription'
-			: undefined;
+	const unsupportedField =
+		schema.completion !== undefined
+			? 'completion'
+			: schema.sensitive
+				? 'sensitive'
+				: schema.defaultDescription !== undefined
+					? 'defaultDescription'
+					: undefined;
 	if (unsupportedField === undefined) return;
 
 	throw new CLIError(`Flag element schema field '${unsupportedField}' is not supported`, {
@@ -1430,6 +1439,20 @@ class FlagBuilder<C extends FlagConfig> {
 	 */
 	constructor(schema: FlagSchema) {
 		this.schema = schema;
+	}
+
+	/**
+	 * Compute value candidates when the user requests shell completion.
+	 *
+	 * The callback runs without the command action, middleware, prompts, or
+	 * config discovery. Return complete values; DreamCLI filters by prefix.
+	 * Candidates containing control characters are omitted.
+	 *
+	 * @param handler - Callback receiving the input and partial command line.
+	 * @returns A new builder with the completion callback.
+	 */
+	complete(handler: CompletionHandler): FlagBuilder<WithoutElementEligibility<C>> {
+		return new FlagBuilder({ ...this.schema, completion: handler });
 	}
 
 	// -- Presence modifiers --------------------------------------------------

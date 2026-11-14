@@ -16,6 +16,7 @@ import { collectPropagatedFlags } from '#internals/core/cli/propagate.ts';
 import { resolveRootSurface } from '#internals/core/cli/root-surface.ts';
 import { createFlagSchema, getFlagNegatedName } from '#internals/core/schema/flag.ts';
 import type { CommandSchema, FlagSchema } from '#internals/core/schema/index.ts';
+import { acceptsArgv } from '#internals/core/schema/stdin.ts';
 import { DREAMCLI_REVISION, DREAMCLI_VERSION } from '#internals/version.ts';
 
 // --- Version tag for generated script headers
@@ -317,11 +318,25 @@ function quoteShellArg(value: string): string {
 	return `'${value.replace(/'/g, "'\\''")}'`;
 }
 
+function hasDynamicCompletion(schema: CLISchema): boolean {
+	const visit = (command: CommandSchema): boolean =>
+		Object.values(command.flags).some(
+			(flag) => acceptsArgv(flag) && flag.completion !== undefined,
+		) ||
+		command.args.some((arg) => acceptsArgv(arg.schema) && arg.schema.completion !== undefined) ||
+		command.commands.some(visit);
+	return (
+		schema.commands.some(visit) ||
+		(schema.defaultCommand !== undefined && visit(schema.defaultCommand))
+	);
+}
+
 // --- Exports
 
 export type { CommandNode, CompletionOptions, RootCompletionSurface };
 export {
 	getVisibleNegatedName,
+	hasDynamicCompletion,
 	programTag,
 	quoteShellArg,
 	resolveRootCompletionSurface,

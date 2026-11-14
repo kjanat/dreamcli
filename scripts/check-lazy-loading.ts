@@ -15,6 +15,11 @@ const HOT_PATH = ['index', 'core'];
 const FEATURE_BASE = [...HOT_PATH, 'rolldown-runtime'];
 
 const SCENARIOS: readonly Scenario[] = [
+	{
+		name: 'dynamic-completion',
+		argv: ['__complete', 'deploy', '--region', 'e'],
+		exactly: [...HOT_PATH, 'dynamic'],
+	},
 	{ name: 'plain', argv: ['deploy', '--region', 'eu'], exactly: HOT_PATH },
 	{
 		name: 'help-json',

@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Flags and positional arguments accept `.complete()` callbacks for values computed at shell completion time. Bash, Zsh, Fish, and PowerShell invoke the callback without running the command action or reading stdin.
+
 - `.stdin({ argv: false })` accepts piped input without exposing a flag spelling or positional slot. Help and completion omit the input, while `stdinData` and other declared sources continue to work.
 
 ### Release checklist

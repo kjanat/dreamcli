@@ -183,6 +183,8 @@ export type {
 	CommandExample,
 	CommandMeta,
 	CommandSchema,
+	CompletionContext,
+	CompletionHandler,
 	ConfirmPromptConfig,
 	CountFlagDefinition,
 	CustomArgDefinition,

@@ -115,6 +115,11 @@ function assertNoTopLevelRouteConflict(
 	incoming: CommandSchema,
 	defaultCommand?: CommandSchema | undefined,
 ): void {
+	if (commandRoutes(incoming).includes('__complete')) {
+		throw new CLIError("Command route '__complete' is reserved for value completion", {
+			code: 'INVALID_SCHEMA',
+		});
+	}
 	const routeOwners = new Map<string, string>();
 
 	const existing = defaultCommand !== undefined ? [...commands, defaultCommand] : commands;
@@ -1762,6 +1767,19 @@ class CLIBuilder {
 	 */
 	async run(options?: CLIRunOptions): Promise<never> {
 		const adapter = options?.adapter ?? createAdapter();
+		if (adapter.argv[2] === '__complete') {
+			const { completeRequest } = await import('#internals/core/completion/dynamic.ts');
+			const result = await completeRequest(
+				options?.flags === undefined
+					? this.schema
+					: { ...this.schema, flagSettings: options.flags },
+				compiledStateOf(this),
+				adapter.argv.slice(3),
+				options?.env ?? adapter.env,
+			);
+			for (const candidate of result.candidates) adapter.stdout(`${candidate}\n`);
+			return exitAfterFlush(adapter, result.exitCode);
+		}
 		const inheritedName = this.schema.inheritName ? inferInvocationName(adapter.argv) : undefined;
 
 		const compiled = compiledStateOf(this);
@@ -1849,6 +1867,23 @@ async function executeCLI(
 	argv: readonly string[],
 	options?: InternalCLIExecuteOptions,
 ): Promise<RunResult> {
+	if (argv[0] === '__complete') {
+		const { completeRequest } = await import('#internals/core/completion/dynamic.ts');
+		const result = await completeRequest(
+			options?.flags === undefined
+				? builder.schema
+				: { ...builder.schema, flagSettings: options.flags },
+			compiledStateOf(builder),
+			argv.slice(1),
+			options?.env ?? {},
+		);
+		const captured: CapturedOutput = options?.captured ?? { stdout: [], stderr: [], activity: [] };
+		for (const candidate of result.candidates) {
+			if (options?.out !== undefined) options.out.log(candidate);
+			else captured.stdout.push(`${candidate}\n`);
+		}
+		return buildRunResult({ exitCode: result.exitCode, error: undefined }, captured);
+	}
 	// -- Detect global --json / --quiet before building output ----------------
 	const rootOutputFlags = readRootOutputFlags(argv, builder.schema.builtins);
 	const jsonMode = resolveRootJsonMode(rootOutputFlags, options?.jsonMode);
