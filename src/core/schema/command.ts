@@ -694,11 +694,18 @@ function assertUsableFlagKey(commandName: string, name: string): void {
  * @param commandName - Command the flags were declared on, for the error details.
  * @param flags - Flag record as the caller supplied it.
  * @throws {@link CLIError} `INVALID_SCHEMA` when the record's prototype is
- *   replaced.
+ *   replaced, or a flag name is a symbol.
  *
  * @internal
  */
 function assertUsableFlagRecord(commandName: string, flags: object): void {
+	if (Object.getOwnPropertySymbols(flags).length > 0) {
+		throw new CLIError(`Command '${commandName}' flag names must be strings`, {
+			code: 'INVALID_SCHEMA',
+			details: { command: commandName },
+		});
+	}
+
 	const prototype: unknown = Object.getPrototypeOf(flags);
 	if (prototype === Object.prototype || prototype === null) return;
 
@@ -711,6 +718,26 @@ function assertUsableFlagRecord(commandName: string, flags: object): void {
 				"Pass a plain object with no '__proto__' key, or a record built with Object.create(null)",
 		},
 	);
+}
+
+/** Register one flag with the same validation for single and bulk declarations. */
+function withCommandFlag(schema: CommandSchema, name: string, flag: FlagSchema): CommandSchema {
+	assertUsableFlagKey(schema.name, name);
+
+	if (Object.hasOwn(schema.flags, name)) {
+		throw new CLIError(`Command '${schema.name}' already defines flag --${name}`, {
+			code: 'FLAG_NAME_COLLISION',
+			details: { command: schema.name, flag: name, surface: name, surfaceKind: 'canonical' },
+		});
+	}
+
+	const flagSchema = withEnvFromName(name, flag);
+	validateFlagStdinEntry(schema.name, name, flagSchema, schema.flags, schema.args);
+
+	const nextFlags = { ...schema.flags, [name]: flagSchema };
+	const nextSchema = { ...schema, flags: nextFlags, hasAction: false };
+	validateCommandFlagTree(nextSchema);
+	return nextSchema;
 }
 
 /**
@@ -1229,6 +1256,19 @@ function eraseBuilder<
 
 // --- CommandBuilder — immutable builder with type-level tracking
 
+/** Retain declared flag names for duplicate checks alongside an index signature. */
+type KnownFlags<F> = {
+	[K in keyof F as string extends K ? never : number extends K ? never : K]: F[K];
+};
+
+/** Generated names can carry any registered builder, while declared names keep their types. */
+type MergeFlags<
+	F extends Record<string, FlagBuilder<FlagConfig>>,
+	R extends Record<string, FlagBuilder<FlagConfig>>,
+> = string extends keyof F | keyof R
+	? KnownFlags<F> & KnownFlags<R> & Record<string, F[keyof F] | R[keyof R]>
+	: F & R;
+
 /**
  * Immutable command schema builder.
  *
@@ -1687,28 +1727,51 @@ class CommandBuilder<
 	 *   collides with one propagated to a registered subcommand.
 	 */
 	flag<N extends string, B extends FlagBuilder<FlagConfig>>(
-		name: N & Exclude<N, keyof F>,
+		name: N & Exclude<N, keyof KnownFlags<F>>,
 		builder: B,
-	): CommandBuilder<F & Record<N, B>, A, C> {
-		assertUsableFlagKey(this.schema.name, name);
-
-		if (Object.hasOwn(this.schema.flags, name)) {
-			throw new CLIError(`Command '${this.schema.name}' already defines flag --${name}`, {
-				code: 'FLAG_NAME_COLLISION',
-				details: { command: this.schema.name, flag: name, surface: name, surfaceKind: 'canonical' },
-			});
-		}
-
-		const flagSchema = withEnvFromName(name, builder.schema);
-		validateFlagStdinEntry(this.schema.name, name, flagSchema, this.schema.flags, this.schema.args);
-
-		const nextFlags = { ...this.schema.flags, [name]: flagSchema };
-		const nextSchema = { ...this.schema, flags: nextFlags, hasAction: false };
-		validateCommandFlagTree(nextSchema);
+	): CommandBuilder<MergeFlags<F, Record<N, B>>, A, C> {
+		const nextSchema = withCommandFlag(this.schema, name, builder.schema);
 		return new CommandBuilder(
 			nextSchema,
 			// handler is intentionally dropped — adding a flag invalidates
 			// the previous handler's type signature
+			undefined,
+			this._subcommands,
+			this._executionSteps,
+		);
+	}
+
+	/**
+	 * Register a record of flags, preserving each key and inferred value type.
+	 *
+	 * Names and aliases must not collide with existing flags or other entries.
+	 * Literal names are checked by the compiler. Generated names are checked
+	 * at runtime, and their values include the registered flag value types.
+	 * Adding flags clears any previously registered action, like `.flag()`.
+	 *
+	 * @param record - Named flag builders to add to this command.
+	 * @returns A new builder with the added flags.
+	 *
+	 * @example
+	 * ```ts
+	 * command('serve')
+	 *   .flags({ port: flag.number().default(3000), host: flag.string() })
+	 *   .action(({ flags }) => { flags.port; flags.host; });
+	 * ```
+	 */
+	flags<const R extends Record<string, FlagBuilder<FlagConfig>>>(
+		record: R & {
+			[K in (keyof KnownFlags<R> & keyof KnownFlags<F>) | Extract<keyof R, symbol>]: never;
+		},
+	): CommandBuilder<MergeFlags<F, R>, A, C> {
+		assertUsableFlagRecord(this.schema.name, record);
+		let schema = this.schema;
+		const builders: Readonly<Record<string, FlagBuilder<FlagConfig>>> = record;
+		for (const [name, builder] of Object.entries(builders)) {
+			schema = withCommandFlag(schema, name, builder.schema);
+		}
+		return new CommandBuilder(
+			{ ...schema, hasAction: false },
 			undefined,
 			this._subcommands,
 			this._executionSteps,

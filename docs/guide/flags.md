@@ -3,6 +3,50 @@
 Flags are the richest primitive in `dreamcli`.
 Each flag declaration configures parsing, type inference, resolution, help text, and shell completions.
 
+## Register flags together
+
+Use `.flags(record)` to add several flags while preserving their names and value types:
+
+```ts twoslash
+import { command, flag } from '@kjanat/dreamcli';
+
+const connectionFlags = {
+  host: flag.string().default('localhost'),
+  port: flag.number().default(3000),
+};
+
+command('serve')
+  .flags(connectionFlags)
+  .flag('verbose', flag.boolean())
+  .action(({ flags, out }) => {
+    out.log(`${flags.host}:${flags.port}`);
+  });
+```
+
+The record follows the same name, alias, and stdin checks as individual `.flag()` calls.
+Duplicate names are rejected at compile time when the record's keys are known, and at runtime for all records.
+Register the action after adding flags.
+
+Generated records compose with named flags in either order.
+For records with unknown keys, arbitrary flag lookups use a union of the registered value types.
+Named flags keep their individual types.
+
+```ts twoslash
+import { command, flag } from '@kjanat/dreamcli';
+
+const generatedFlags = Object.fromEntries(
+  ['timeout', 'retries'].map((name) => [name, flag.number()]),
+);
+
+command('serve')
+  .flag('server', flag.string().default('localhost'))
+  .flags(generatedFlags)
+  .flag('verbose', flag.boolean())
+  .action(({ flags, out }) => {
+    out.log(flags.server);
+  });
+```
+
 ## Six Axes
 
 A flag declaration decides six separate things. They compose freely, and every
