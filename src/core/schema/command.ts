@@ -694,11 +694,18 @@ function assertUsableFlagKey(commandName: string, name: string): void {
  * @param commandName - Command the flags were declared on, for the error details.
  * @param flags - Flag record as the caller supplied it.
  * @throws {@link CLIError} `INVALID_SCHEMA` when the record's prototype is
- *   replaced.
+ *   replaced, or a flag name is a symbol.
  *
  * @internal
  */
 function assertUsableFlagRecord(commandName: string, flags: object): void {
+	if (Object.getOwnPropertySymbols(flags).length > 0) {
+		throw new CLIError(`Command '${commandName}' flag names must be strings`, {
+			code: 'INVALID_SCHEMA',
+			details: { command: commandName },
+		});
+	}
+
 	const prototype: unknown = Object.getPrototypeOf(flags);
 	if (prototype === Object.prototype || prototype === null) return;
 
@@ -1753,7 +1760,9 @@ class CommandBuilder<
 	 * ```
 	 */
 	flags<const R extends Record<string, FlagBuilder<FlagConfig>>>(
-		record: R & { [K in keyof KnownFlags<R> & keyof KnownFlags<F>]: never },
+		record: R & {
+			[K in (keyof KnownFlags<R> & keyof KnownFlags<F>) | Extract<keyof R, symbol>]: never;
+		},
 	): CommandBuilder<MergeFlags<F, R>, A, C> {
 		assertUsableFlagRecord(this.schema.name, record);
 		let schema = this.schema;

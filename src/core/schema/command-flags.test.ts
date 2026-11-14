@@ -2,11 +2,46 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import { cli } from '#internals/core/cli/index.ts';
 import { arg } from './arg.ts';
-import { command } from './command.ts';
+import { command, createCommandSchema } from './command.ts';
 import { flag } from './flag.ts';
 import { middleware } from './middleware.ts';
 
 describe('CommandBuilder.flags()', () => {
+	it('rejects symbol keys in symbol-only and mixed records', () => {
+		const port = Symbol('port');
+		const symbolOnly = { [port]: flag.number().required() };
+		const mixed = { host: flag.string(), [port]: flag.number().required() };
+		// @ts-expect-error Flag names must be strings.
+		expect(() => command('serve').flags(symbolOnly)).toThrowError(
+			expect.objectContaining({ code: 'INVALID_SCHEMA', details: { command: 'serve' } }),
+		);
+		// @ts-expect-error String keys cannot make a symbol flag usable.
+		expect(() => command('serve').flags(mixed)).toThrowError(
+			expect.objectContaining({ code: 'INVALID_SCHEMA', details: { command: 'serve' } }),
+		);
+	});
+
+	it('rejects symbol keys hidden by a widened type or a non-enumerable property', () => {
+		const hidden = { [Symbol('port')]: flag.number().required() };
+		const widened: Record<string, ReturnType<typeof flag.number>> = hidden;
+		expect(() => command('serve').flags(widened)).toThrow(/flag names must be strings/);
+		const generated = Object.fromEntries([[Symbol('port'), flag.number().required()]]);
+		expect(() => command('serve').flags(generated)).toThrow(/flag names must be strings/);
+		const nonEnumerable = { host: flag.string() };
+		Object.defineProperty(nonEnumerable, Symbol('port'), { value: flag.number().required() });
+		expect(() => command('serve').flags(nonEnumerable)).toThrow(/flag names must be strings/);
+	});
+
+	it('rejects symbol keys in command definitions', () => {
+		const flags = {
+			host: { kind: 'string' },
+			[Symbol('port')]: { kind: 'number', required: true },
+		} as const;
+		expect(() => createCommandSchema({ name: 'serve', flags })).toThrowError(
+			expect.objectContaining({ code: 'INVALID_SCHEMA', details: { command: 'serve' } }),
+		);
+	});
+
 	it('combines generated records and named flags in either order', async () => {
 		const generated = Object.fromEntries(['port'].map((name) => [name, flag.number().required()]));
 		const before = command('serve')
