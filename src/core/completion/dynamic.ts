@@ -15,6 +15,8 @@ import {
 } from '#internals/core/cli/planner.ts';
 import { collectPropagatedFlags } from '#internals/core/cli/propagate.ts';
 import { readRootOutputFlags } from '#internals/core/cli/root-output-flags.ts';
+import { resolveRootSurface } from '#internals/core/cli/root-surface.ts';
+import { extractConfigFlag } from '#internals/core/cli/runtime-preflight.ts';
 import type { FlagLookupEntry } from '#internals/core/parse/index.ts';
 import { buildFlagLookup, flagExpectsValue } from '#internals/core/parse/index.ts';
 import type { CompletionContext, CompletionHandler } from '#internals/core/schema/completion.ts';
@@ -34,7 +36,13 @@ function findCompletion(
 	env: CompletionContext['env'],
 ): CompletionTarget | undefined {
 	if (argv.length === 0) return undefined;
-	const completedArgv = readRootOutputFlags(argv.slice(0, -1), schema.builtins).argv;
+	const beforeCursor = argv.slice(0, -1);
+	const configuredArgv =
+		schema.configSettings === undefined
+			? beforeCursor
+			: extractConfigFlag(beforeCursor).filteredArgv;
+	const completedArgv = readRootOutputFlags(configuredArgv, schema.builtins).argv;
+	const visibleDefaultCommand = resolveRootSurface(schema).visibleDefaultCommand;
 	const commands =
 		schema.defaultCommandRouted && compiled.defaultCommand !== undefined
 			? [...compiled.commands, compiled.defaultCommand]
@@ -49,12 +57,13 @@ function findCompletion(
 	if (
 		result.kind === 'unknown' &&
 		(result.parentPath.length > 0 ||
+			visibleDefaultCommand === undefined ||
 			compiled.defaultCommand === undefined ||
 			!canDelegateUnknownRootToDefault(compiled.defaultCommand, result.input) ||
 			(result.input !== '' && findClosestCommand(result.input, result.candidates) !== undefined))
 	)
 		return undefined;
-	const command = result.kind === 'unknown' ? schema.defaultCommand : result.command.schema;
+	const command = result.kind === 'unknown' ? visibleDefaultCommand : result.command.schema;
 	const path = result.kind === 'unknown' ? [] : result.commandPath;
 	const remaining = result.kind === 'unknown' ? completedArgv : result.remainingArgv;
 	let positional = 0;

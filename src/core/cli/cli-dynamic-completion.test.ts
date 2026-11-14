@@ -312,6 +312,151 @@ describe('dynamic value completion', () => {
 		}
 	});
 
+	it.each([false, true])('hides default callbacks at the root when routed=%s', async (route) => {
+		let calls = 0;
+		const app = cli('app').default(
+			command('secret')
+				.hidden()
+				.arg(
+					'value',
+					arg.string().complete(() => {
+						calls++;
+						return ['secret-value'];
+					}),
+				)
+				.flag(
+					'name',
+					flag.string().complete(() => {
+						calls++;
+						return ['secret-value'];
+					}),
+				),
+			{ route },
+		);
+		for (const argv of [['se'], ['--name', 'se'], ['--name=se'], ['--', 'se']]) {
+			const result = await app.execute(['__complete', '--', ...argv]);
+			expect(result.exitCode).toBe(1);
+			expect(result.stdout).toEqual([]);
+		}
+		expect(calls).toBe(0);
+	});
+
+	it.each([['--config=/cfg.json'], ['--config', '/cfg.json']])(
+		'normalizes framework config arguments %j without I/O',
+		async (...configArgv) => {
+			let context: CompletionContext | undefined;
+			const app = cli('app')
+				.config('custom-app-name')
+				.command(
+					command('deploy')
+						.flag('profile', flag.string())
+						.flag(
+							'name',
+							flag.string().complete((value) => {
+								context = value;
+								return ['widget'];
+							}),
+						),
+				);
+			for (const argv of [
+				[...configArgv, 'deploy', '--name', 'wi'],
+				['deploy', ...configArgv, '--json', '--name', 'wi'],
+				['deploy', '--profile', ...configArgv, 'prod', '--name', 'wi'],
+			]) {
+				expect((await app.execute(['__complete', '--', ...argv])).stdout).toEqual(['widget\n']);
+				expect(context?.argv).toEqual(argv);
+				const stdout: string[] = [];
+				const adapter = createTestAdapter({
+					argv: ['node', 'app.ts', '__complete', '--', ...argv],
+					stdout: (value) => stdout.push(value),
+					readFile: unexpected,
+					stdin: unexpected,
+				});
+				await expect(app.run({ adapter })).rejects.toMatchObject({ code: 0 });
+				expect(stdout).toEqual(['widget\n']);
+				expect(context?.argv).toEqual(argv);
+			}
+		},
+	);
+
+	it('leaves incomplete and repeated framework config flags to normal scanning', async () => {
+		let calls = 0;
+		const app = cli('app')
+			.config('app')
+			.default(
+				command('default').arg(
+					'value',
+					arg.string().complete(() => {
+						calls++;
+						return ['widget'];
+					}),
+				),
+			);
+		for (const argv of [
+			['--config', 'wi'],
+			['--config=wi'],
+			['--config=first.json', '--config=second.json', 'wi'],
+		]) {
+			expect((await app.execute(['__complete', '--', ...argv])).exitCode).toBe(1);
+		}
+		expect(calls).toBe(0);
+	});
+
+	it('allows callbacks after an explicitly typed hidden default route', async () => {
+		const app = cli('app').default(
+			command('secret')
+				.hidden()
+				.arg(
+					'value',
+					arg.string().complete(() => ['secret-value']),
+				),
+			{ route: true },
+		);
+		expect((await app.execute(['__complete', '--', 'secret', 'se'])).stdout).toEqual([
+			'secret-value\n',
+		]);
+	});
+
+	it('preserves application config flags when framework config is disabled', async () => {
+		const app = cli('app').default(
+			command('default')
+				.flag(
+					'config',
+					flag.string().complete(() => ['config.json']),
+				)
+				.flag(
+					'name',
+					flag.string().complete(() => ['widget']),
+				),
+		);
+		expect((await app.execute(['__complete', '--', '--config=co'])).stdout).toEqual([
+			'--config=config.json\n',
+		]);
+		for (const argv of [
+			['--config=file.json', '--name', 'wi'],
+			['--config', 'file.json', '--name', 'wi'],
+		]) {
+			expect((await app.execute(['__complete', '--', ...argv])).stdout).toEqual(['widget\n']);
+		}
+	});
+
+	it('keeps literal config tokens after the application separator', async () => {
+		const app = cli('app')
+			.config('app')
+			.default(
+				command('default').arg(
+					'values',
+					arg
+						.string()
+						.variadic()
+						.complete(() => ['widget']),
+				),
+			);
+		expect(
+			(await app.execute(['__complete', '--', '--', '--config', 'file.json', 'wi'])).stdout,
+		).toEqual(['widget\n']);
+	});
+
 	it('preserves named command completion over default positional callbacks', async () => {
 		const app = cli('app')
 			.default(
