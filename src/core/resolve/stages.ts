@@ -303,7 +303,9 @@ function readCliValue(
 	value: unknown,
 	bindings: readonly SourceBinding[],
 ): CliValue {
-	if (!present || value === undefined) return { kind: 'absent' };
+	if (!present || value === undefined || !bindings.some((binding) => binding.stage === 'cli')) {
+		return { kind: 'absent' };
+	}
 	const stdin = stdinBindingOf(bindings);
 	if (value === STDIN_SENTINEL && stdin !== undefined && stdinReadsOnDash(stdin)) {
 		return { kind: 'dash' };

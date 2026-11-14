@@ -33,6 +33,7 @@ import {
 	sourceBindings,
 	withPromptBinding,
 } from '#internals/core/schema/source.ts';
+import { acceptsArgv } from '#internals/core/schema/stdin.ts';
 import { flagValueSchema, valueEnumValues } from '#internals/core/schema/value.ts';
 import {
 	coerceIndexedFlagValue,
@@ -519,16 +520,18 @@ function buildRequiredFlagSuggest(
 ): string {
 	const sources: string[] = [];
 	const takesValue = schema.kind !== 'boolean' && schema.kind !== 'count';
-	sources.push(`Provide --${name}${takesValue ? ' <value>' : ''}`);
+	if (acceptsArgv(schema)) sources.push(`Provide --${name}${takesValue ? ' <value>' : ''}`);
 
 	const stdin = schema.stdin;
 	if (stdin !== undefined) {
 		sources.push(
-			stdin.when === 'dash'
-				? `pass --${name} - to read stdin`
-				: stdin.when === 'missing'
-					? `pipe a value to stdin`
-					: `pipe a value to stdin or pass --${name} -`,
+			!acceptsArgv(schema)
+				? 'Pipe a value to stdin'
+				: stdin.when === 'dash'
+					? `pass --${name} - to read stdin`
+					: stdin.when === 'missing'
+						? `pipe a value to stdin`
+						: `pipe a value to stdin or pass --${name} -`,
 		);
 	}
 

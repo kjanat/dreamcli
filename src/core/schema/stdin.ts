@@ -40,6 +40,8 @@ type StdinConsume = (typeof STDIN_CONSUMES)[number];
 
 /** The normalized stdin axis of a flag or an arg. */
 interface StdinBinding {
+	/** False when this input has no command-line form. Omitted means true. */
+	readonly argv?: false;
 	/** When this input reads the stdin stream. */
 	readonly when: StdinWhen;
 	/** Whether this input consumes the stream alone. */
@@ -50,6 +52,13 @@ interface StdinBinding {
 
 /** Stdin settings accepted by `.stdin()` and by the schema definitions. */
 interface StdinOptions {
+	/**
+	 * Accept this input on the command line. Set false to omit its flag spellings
+	 * or positional slot from parsing, help, and completion. Other sources still apply.
+	 * Cannot be combined with `when: 'dash'`.
+	 * @defaultValue `true`
+	 */
+	readonly argv?: boolean | undefined;
 	/**
 	 * When this input reads the stdin stream.
 	 * @defaultValue `'dash-or-missing'`
@@ -84,6 +93,18 @@ const DEFAULT_STDIN_BINDING: StdinBinding = {
  * @throws {CLIError} With code `'INVALID_SCHEMA'` on an unknown mode.
  */
 function assertStdinOptions(options: StdinOptions): void {
+	if (options.argv !== undefined && typeof options.argv !== 'boolean') {
+		throw new CLIError('Stdin argv must be a boolean', {
+			code: 'INVALID_SCHEMA',
+			suggest: 'Pass argv: true or argv: false',
+		});
+	}
+	if (options.argv === false && options.when === 'dash') {
+		throw new CLIError("Stdin mode 'dash' requires a command-line form", {
+			code: 'INVALID_SCHEMA',
+			suggest: "Use when: 'missing' or omit when with argv: false",
+		});
+	}
 	if (options.when !== undefined && !STDIN_WHENS.includes(options.when)) {
 		throw new CLIError(`Unknown stdin mode '${String(options.when)}'`, {
 			code: 'INVALID_SCHEMA',
@@ -118,6 +139,7 @@ function normalizeStdinBinding(options?: StdinOptions): StdinBinding {
 	if (options === undefined) return DEFAULT_STDIN_BINDING;
 	assertStdinOptions(options);
 	return {
+		...(options.argv === false ? { argv: false as const } : {}),
 		when: options.when ?? DEFAULT_STDIN_BINDING.when,
 		consume: options.consume ?? DEFAULT_STDIN_BINDING.consume,
 		trim: options.trim ?? DEFAULT_STDIN_BINDING.trim,
@@ -144,8 +166,14 @@ function stdinReadsWhenMissing(binding: Pick<StdinBinding, 'when'>): boolean {
 	return binding.when === 'missing' || binding.when === 'dash-or-missing';
 }
 
+/** Whether an input has a flag spelling or a positional slot. @internal */
+function acceptsArgv(schema: { readonly stdin: StdinBinding | undefined }): boolean {
+	return schema.stdin?.argv !== false;
+}
+
 export type { StdinBinding, StdinConsume, StdinOptions, StdinWhen };
 export {
+	acceptsArgv,
 	assertStdinOptions,
 	DEFAULT_STDIN_BINDING,
 	normalizeStdinBinding,

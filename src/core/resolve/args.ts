@@ -21,6 +21,7 @@ import {
 	envBindingOf,
 	sourceBindings,
 } from '#internals/core/schema/source.ts';
+import { acceptsArgv } from '#internals/core/schema/stdin.ts';
 import { argValueSchema, valueEnumValues } from '#internals/core/schema/value.ts';
 import { coerceArgValue, coerceIndexedArgValue, finishCliArgValue } from './coerce.ts';
 import type { DeprecationWarning, ResolutionProvenance, SkippedPathCheck } from './contracts.ts';
@@ -285,18 +286,20 @@ function buildRequiredArgSuggest(
 	snapshot: Readonly<Record<string, string | undefined>>,
 	variadic?: boolean,
 ): string {
-	const sources: [string, ...string[]] = [
-		variadic ? `Provide at least one value for <${name}>` : `Provide a value for <${name}>`,
-	];
+	const sources: string[] = acceptsArgv(schema)
+		? [variadic ? `Provide at least one value for <${name}>` : `Provide a value for <${name}>`]
+		: [];
 
 	const stdin = schema.stdin;
 	if (stdin !== undefined) {
 		sources.push(
-			stdin.when === 'dash'
-				? `pass '-' to read stdin`
-				: stdin.when === 'missing'
-					? `pipe a value to stdin`
-					: `pipe a value to stdin or pass '-'`,
+			!acceptsArgv(schema)
+				? 'Pipe a value to stdin'
+				: stdin.when === 'dash'
+					? `pass '-' to read stdin`
+					: stdin.when === 'missing'
+						? `pipe a value to stdin`
+						: `pipe a value to stdin or pass '-'`,
 		);
 	}
 
@@ -309,7 +312,7 @@ function buildRequiredArgSuggest(
 	}
 
 	if (sources.length === 1) {
-		return sources[0];
+		return sources.join('');
 	}
 
 	if (sources.length === 2) {

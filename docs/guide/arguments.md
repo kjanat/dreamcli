@@ -592,6 +592,21 @@ $ echo ./dist | mycli clean
 Trimming applies to a single value. A collection's terminators separate its
 elements, so `.split({ stdin })` decides them and `trim` has nothing to do.
 
+#### Inputs without a positional slot
+
+`.stdin({ argv: false })` removes the argument's positional slot, help entry, and
+completion entry. It still resolves piped data and reaches the action under its
+declared name. Other arguments keep their argv order, including arguments declared
+after a stdin-only variadic input. Declared environment, config, prompt, and default
+sources remain available. Tests supply the pipe with `stdinData`.
+
+```ts
+arg.string().stdin({ argv: false, trim: true }).sensitive();
+```
+
+`argv: false` cannot be combined with `when: 'dash'` because there is no argv slot
+for the dash selector.
+
 #### Choosing when stdin is read
 
 `.stdin()` takes `{ when, consume, trim }`:

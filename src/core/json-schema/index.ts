@@ -190,13 +190,14 @@ type PromptDefinitionFragmentV1 = {
 /**
  * Stdin binding of a flag or arg fragment.
  *
- * Every field is always written, so a document states the trigger, the sharing
- * mode, and the trimming without a reader having to know the builder's defaults.
+ * The trigger, sharing mode, and trimming are always written. `argv` is written
+ * only when false, preserving the default command-line behavior of older documents.
  */
 type StdinBindingFragmentV1 = {
 	readonly when: 'dash' | 'missing' | 'dash-or-missing';
 	readonly consume: 'exclusive' | 'broadcast';
 	readonly trim: boolean;
+	readonly argv?: false;
 };
 
 /**
@@ -810,7 +811,12 @@ function serializeSplit(split: SourceSplitBinding): SourceSplitFragmentV1 {
  *   the trimming.
  */
 function serializeStdin(stdin: StdinBinding): StdinBindingFragmentV1 {
-	return { when: stdin.when, consume: stdin.consume, trim: stdin.trim };
+	return {
+		when: stdin.when,
+		consume: stdin.consume,
+		trim: stdin.trim,
+		...(stdin.argv === false ? { argv: false as const } : {}),
+	};
 }
 
 // --- Prompt serialization
@@ -1569,6 +1575,7 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 					when: { enum: ['dash', 'missing', 'dash-or-missing'] },
 					consume: { enum: ['exclusive', 'broadcast'] },
 					trim: { type: 'boolean' },
+					argv: { const: false },
 				} satisfies FragmentProperties<StdinBindingFragmentV1>,
 				required: ['when', 'consume'],
 			},

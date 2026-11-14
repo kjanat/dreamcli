@@ -942,6 +942,9 @@
         "when"
       ],
       "properties": {
+        "argv": {
+          "const": false
+        },
         "consume": {
           "description": "Whether this input consumes the stream alone.",
           "enum": [

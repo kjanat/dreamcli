@@ -17,6 +17,7 @@ import { resolvePlainHelpDescription } from '#internals/core/help/theme.ts';
 import { flagExpectsValue } from '#internals/core/parse/index.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type { FlagSchema } from '#internals/core/schema/index.ts';
+import { acceptsArgv } from '#internals/core/schema/stdin.ts';
 import { flagValueSchema, valueEnumValues } from '#internals/core/schema/value.ts';
 import type { CommandNode, CompletionOptions, RootCompletionSurface } from './shared.ts';
 import {
@@ -192,6 +193,7 @@ function appendFishFlagCompletions(
 ): void {
 	const condition = buildFishCondition(pathIsFuncName, path);
 	for (const [name, schema] of Object.entries(flags)) {
+		if (!acceptsArgv(schema)) continue;
 		const parts = [`complete -c ${commandName}`, `-n "${condition}"`];
 		for (const alias of getFlagAliasNames(schema, { kind: 'short' })) {
 			parts.push(`-s ${quoteShellArg(alias)}`);
@@ -245,6 +247,7 @@ function collectFishValueFlagPatterns(
 
 	for (const flags of flagSets) {
 		for (const [name, schema] of Object.entries(flags)) {
+			if (!acceptsArgv(schema)) continue;
 			if (!flagExpectsValue(schema)) continue;
 
 			exact.add(`--${name}`);

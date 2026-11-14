@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `.stdin({ argv: false })` accepts piped input without exposing a flag spelling or positional slot. Help and completion omit the input, while `stdinData` and other declared sources continue to work.
+
 ### Release checklist
 
 - [ ] Set the intended version in `package.json` and `deno.json`, add the dated changelog section, and update every comparison link.

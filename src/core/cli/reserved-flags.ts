@@ -18,6 +18,7 @@ import { CLIError } from '#internals/core/errors/index.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
 import type { FlagSchema } from '#internals/core/schema/flag.ts';
 import { getFlagAliasNames, getFlagNegatedName } from '#internals/core/schema/flag.ts';
+import { acceptsArgv } from '#internals/core/schema/stdin.ts';
 import type { BuiltinName, BuiltinsConfig } from './builtins.ts';
 import { BUILTIN_NAMES, builtinEnabled, builtinSpelling, builtinTokens } from './builtins.ts';
 
@@ -162,6 +163,7 @@ function findReservedCollision(
 	reserved: ReadonlyMap<string, ReservedFlag>,
 ): ReservedCollision | undefined {
 	for (const [flagName, flagSchema] of Object.entries(schema.flags)) {
+		if (!acceptsArgv(flagSchema)) continue;
 		for (const [token, origin] of flagSpellings(flagName, flagSchema)) {
 			const match = reserved.get(token);
 			if (match === undefined) continue;
