@@ -22,6 +22,7 @@ import {
 	resolveRootVerbosity,
 } from '#internals/core/cli/root-output-flags.ts';
 import { buildRunResult, executeCommand } from '#internals/core/execution/index.ts';
+import { resolveExecutionColor } from '#internals/core/output/color.ts';
 import type { CapturedOutput, Verbosity } from '#internals/core/output/index.ts';
 import { createCaptureOutput } from '#internals/core/output/index.ts';
 import { requestsHelp } from '#internals/core/parse/index.ts';
@@ -132,6 +133,7 @@ async function runCommandInternal(
 		captured = options.captured ?? { stdout: [], stderr: [], activity: [] };
 	} else {
 		const captureOptions = {
+			color: resolveExecutionColor({ ...options, jsonMode }),
 			...(verbosity !== undefined ? { verbosity } : {}),
 			...(jsonMode ? { jsonMode } : {}),
 			...(options?.isTTY !== undefined ? { isTTY: options.isTTY } : {}),

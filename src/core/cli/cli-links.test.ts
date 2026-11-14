@@ -53,7 +53,7 @@ async function runWithAdapter(
 	});
 
 	try {
-		await app.run({ adapter });
+		await app.run({ adapter, color: false });
 	} catch (e: unknown) {
 		if (e instanceof ExitError) {
 			exitCode = e.code;
@@ -108,7 +108,7 @@ describe('root help — explicit links', () => {
 			.links({ name: REPO, version: `${REPO}/releases/tag/v1.0.0` })
 			.command(deployCommand());
 
-		const result = await app.execute(['--help'], { isTTY: true });
+		const result = await app.execute(['--help'], { color: false, isTTY: true });
 
 		const output = result.stdout.join('');
 		expect(output).toContain(
@@ -122,7 +122,7 @@ describe('root help — explicit links', () => {
 			.links({ name: REPO, version: `${REPO}/releases/tag/v1.0.0` })
 			.command(deployCommand());
 
-		const result = await app.execute(['--help'], { isTTY: true });
+		const result = await app.execute(['--help'], { color: false, isTTY: true });
 
 		const output = result.stdout.join('');
 		expect(output).toContain('Usage: mytool <command> [options]');
@@ -155,7 +155,11 @@ describe('root help — explicit links', () => {
 	it('help.hyperlinks: false suppresses links on a TTY', async () => {
 		const app = cli('mytool').version('1.0.0').links({ name: REPO }).command(deployCommand());
 
-		const result = await app.execute(['--help'], { isTTY: true, help: { hyperlinks: false } });
+		const result = await app.execute(['--help'], {
+			color: false,
+			isTTY: true,
+			help: { hyperlinks: false },
+		});
 
 		const output = result.stdout.join('');
 		expect(result.exitCode).toBe(0);
@@ -180,6 +184,7 @@ describe('root help — explicit links', () => {
 		const result = await app.execute(['--help'], {
 			env: { FORCE_HYPERLINKS: '1' },
 			help: { hyperlinks: false },
+			color: false,
 			isTTY: true,
 		});
 
@@ -230,6 +235,7 @@ describe('root help — explicit links', () => {
 			const app = cli('mytool').version('1.0.0').links({ name: REPO }).command(deployCommand());
 
 			const result = await app.execute(['--help'], {
+				color: false,
 				isTTY: true,
 				env: { NO_HYPERLINKS: '1' },
 			});
@@ -251,7 +257,10 @@ describe('root help — explicit links', () => {
 		it('--no-hyperlinks in argv suppresses header links on a TTY', async () => {
 			const app = cli('mytool').version('1.0.0').links({ name: REPO }).command(deployCommand());
 
-			const result = await app.execute(['--help', '--no-hyperlinks'], { isTTY: true });
+			const result = await app.execute(['--help', '--no-hyperlinks'], {
+				color: false,
+				isTTY: true,
+			});
 
 			const output = result.stdout.join('');
 			expect(result.exitCode).toBe(0);
@@ -281,6 +290,7 @@ describe('root help — explicit links', () => {
 			const app = cli('mytool').version('1.0.0').links({ name: REPO }).command(deployCommand());
 
 			const result = await app.execute(['--help', '--no-hyperlinks'], {
+				color: false,
 				isTTY: true,
 				env: { FORCE_HYPERLINKS: '1' },
 			});
@@ -295,7 +305,7 @@ describe('root help — explicit links', () => {
 	it('links only the name when no version URL is configured', async () => {
 		const app = cli('mytool').version('1.0.0').links({ name: REPO }).command(deployCommand());
 
-		const result = await app.execute(['--help'], { isTTY: true });
+		const result = await app.execute(['--help'], { color: false, isTTY: true });
 
 		expect(result.stdout.join('')).toContain(`${osc8(REPO, 'mytool')} v1.0.0`);
 	});
@@ -306,7 +316,7 @@ describe('root help — explicit links', () => {
 			.links({ name: REPO, version: `${REPO}/releases/tag/v1.0.0` })
 			.command(deployCommand());
 
-		const result = await app.execute(['--version'], { isTTY: true });
+		const result = await app.execute(['--version'], { color: false, isTTY: true });
 
 		expect(result.stdout.join('')).toBe('1.0.0\n');
 	});
@@ -321,7 +331,7 @@ describe('root help — links derived from .manifest(data)', () => {
 			.links()
 			.command(deployCommand());
 
-		const result = await app.execute(['--help'], { isTTY: true });
+		const result = await app.execute(['--help'], { color: false, isTTY: true });
 
 		const output = result.stdout.join('');
 		expect(output).toContain(
@@ -335,7 +345,7 @@ describe('root help — links derived from .manifest(data)', () => {
 			.manifest({ version: '2.5.0', repository: REPO })
 			.command(deployCommand());
 
-		const result = await app.execute(['--help'], { isTTY: true });
+		const result = await app.execute(['--help'], { color: false, isTTY: true });
 
 		expect(result.stdout.join('')).toContain(osc8(REPO, 'mytool'));
 	});
@@ -346,7 +356,7 @@ describe('root help — links derived from .manifest(data)', () => {
 			.links()
 			.command(deployCommand());
 
-		const result = await app.execute(['--help'], { isTTY: true });
+		const result = await app.execute(['--help'], { color: false, isTTY: true });
 
 		const output = result.stdout.join('');
 		expect(output).toContain(osc8('https://mytool.dev', 'mytool'));
@@ -361,7 +371,7 @@ describe('root help — links derived from .manifest(data)', () => {
 			.links()
 			.command(deployCommand());
 
-		const result = await app.execute(['--help'], { isTTY: true });
+		const result = await app.execute(['--help'], { color: false, isTTY: true });
 
 		expect(result.stdout.join('')).toContain(osc8(`${repo}/-/releases/v1.0.0`, 'v1.0.0'));
 	});
@@ -372,7 +382,7 @@ describe('root help — links derived from .manifest(data)', () => {
 			.links({ name: 'https://docs.mytool.dev' })
 			.command(deployCommand());
 
-		const result = await app.execute(['--help'], { isTTY: true });
+		const result = await app.execute(['--help'], { color: false, isTTY: true });
 
 		const output = result.stdout.join('');
 		expect(output).toContain(osc8('https://docs.mytool.dev', 'mytool'));
@@ -386,7 +396,7 @@ describe('root help — links derived from .manifest(data)', () => {
 			.links()
 			.command(deployCommand());
 
-		const result = await app.execute(['--help'], { isTTY: true });
+		const result = await app.execute(['--help'], { color: false, isTTY: true });
 
 		expect(result.stdout.join('')).toContain(osc8(`${REPO}/releases/tag/v9.9.9`, 'v9.9.9'));
 	});
@@ -394,7 +404,7 @@ describe('root help — links derived from .manifest(data)', () => {
 	it('renders a plain header when the manifest has no link metadata', async () => {
 		const app = cli('mytool').manifest({ version: '1.0.0' }).links().command(deployCommand());
 
-		const result = await app.execute(['--help'], { isTTY: true });
+		const result = await app.execute(['--help'], { color: false, isTTY: true });
 
 		const output = result.stdout.join('');
 		expect(result.exitCode).toBe(0);
