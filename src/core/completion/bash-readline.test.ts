@@ -164,9 +164,14 @@ describe.skipIf(prerequisites.length > 0)(
 				expect(actual).toHaveLength(configurations.length * cases.length);
 				for (const [index, item] of actual.entries()) {
 					expect(item.argv, item.transcript).toEqual(cases[index % cases.length]?.argv);
-					expect(item.completion_argv).toEqual(
-						item.line.slice('dcfixture '.length).replaceAll('"', '').replaceAll("'", '').split(' '),
-					);
+					expect(item.completion_argv).toEqual([
+						'--',
+						...item.line
+							.slice('dcfixture '.length)
+							.replaceAll('"', '')
+							.replaceAll("'", '')
+							.split(' '),
+					]);
 				}
 			} finally {
 				rmSync(directory, { recursive: true, force: true });

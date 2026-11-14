@@ -129,7 +129,7 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 		lines.push('\t\tdynamic_words+=("$unquoted")');
 		lines.push('\tdone');
 		lines.push(
-			`\tif dynamic=$(command ${quoteShellArg(schema.name)} __complete "\${dynamic_words[@]}" 2>/dev/null); then`,
+			`\tif dynamic=$(command ${quoteShellArg(schema.name)} __complete -- "\${dynamic_words[@]}" 2>/dev/null); then`,
 		);
 		lines.push('\t\tcompopt -o noquote 2>/dev/null');
 		lines.push('\t\tCOMPREPLY=()');

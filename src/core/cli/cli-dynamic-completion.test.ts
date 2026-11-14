@@ -181,7 +181,7 @@ describe('dynamic value completion', () => {
 		expect((await app.execute(['--', 'deploy', '--name=widget'])).stdout).toEqual([
 			'--name=widget\n',
 		]);
-		expect((await app.execute(['__complete', ...argv])).stdout).toEqual(['--name=widget\n']);
+		expect((await app.execute(['__complete', '--', ...argv])).stdout).toEqual(['--name=widget\n']);
 	});
 
 	it('counts positionals while skipping flag operands', async () => {
@@ -312,6 +312,145 @@ describe('dynamic value completion', () => {
 		}
 	});
 
+	it('preserves named command completion over default positional callbacks', async () => {
+		const app = cli('app')
+			.default(
+				command('default').arg(
+					'value',
+					arg.string().complete(() => ['other', 'demo']),
+				),
+			)
+			.command(command('deploy').alias('publish'));
+		expect((await app.execute(['__complete', '--', 'de'])).stdout).toEqual(['deploy\n', 'demo\n']);
+		expect((await app.execute(['__complete', '--', 'pub'])).stdout).toEqual(['publish\n']);
+		expect((await app.execute(['__complete', '--', ''])).stdout).toEqual([
+			'deploy\n',
+			'publish\n',
+			'other\n',
+			'demo\n',
+		]);
+		expect((await app.execute(['__complete', '--', 'ot'])).stdout).toEqual(['other\n']);
+	});
+
+	it('preserves nested command names alongside positional completions', async () => {
+		const app = cli('app').command(
+			command('repo')
+				.arg(
+					'value',
+					arg.string().complete(() => ['detail']),
+				)
+				.action(() => {})
+				.command(command('deploy').alias('publish'))
+				.command(command('debug').hidden()),
+		);
+		expect((await app.execute(['__complete', '--', 'repo', 'de'])).stdout).toEqual([
+			'deploy\n',
+			'detail\n',
+		]);
+		expect((await app.execute(['__complete', '--', 'repo', 'pub'])).stdout).toEqual(['publish\n']);
+		expect((await app.execute(['__complete', '--', 'repo', '--', 'de'])).stdout).toEqual([
+			'detail\n',
+		]);
+	});
+
+	it.each([false, true])(
+		'includes the default command route only when routed=%s',
+		async (route) => {
+			const app = cli('app')
+				.default(
+					command('deploy')
+						.alias('push')
+						.arg(
+							'value',
+							arg.string().complete(() => ['detail']),
+						),
+					{ route },
+				)
+				.command(command('debug').hidden());
+			expect((await app.execute(['__complete', '--', 'de'])).stdout).toEqual(
+				route ? ['deploy\n', 'detail\n'] : ['detail\n'],
+			);
+			expect((await app.execute(['__complete', '--', 'pu'])).stdout).toEqual(
+				route ? ['push\n'] : [],
+			);
+		},
+	);
+
+	it('strips root output flags before consuming command operands', async () => {
+		let context: CompletionContext | undefined;
+		const app = cli('app').command(
+			command('deploy')
+				.flag('profile', flag.string())
+				.flag(
+					'name',
+					flag.string().complete((value) => {
+						context = value;
+						return ['widget'];
+					}),
+				),
+		);
+		for (const rootFlag of ['--json', '--quiet', '-q', '--json=false']) {
+			const argv = ['deploy', '--profile', rootFlag, 'prod', '--name', 'wi'];
+			expect((await app.execute(['__complete', '--', ...argv])).stdout).toEqual(['widget\n']);
+			expect(context?.argv).toEqual(argv);
+		}
+	});
+
+	it('completes inline boolean and count values without consuming following args', async () => {
+		const app = cli('app').default(
+			command('default')
+				.flag(
+					'enabled',
+					flag.boolean().complete(() => ['false']),
+				)
+				.flag(
+					'count',
+					flag.count().complete(() => ['12']),
+				)
+				.arg(
+					'value',
+					arg.string().complete(() => ['widget']),
+				),
+		);
+		expect((await app.execute(['__complete', '--', '--enabled=f'])).stdout).toEqual([
+			'--enabled=false\n',
+		]);
+		expect((await app.execute(['__complete', '--', '--count=1'])).stdout).toEqual(['--count=12\n']);
+		for (const token of ['--enabled', '--count']) {
+			expect((await app.execute(['__complete', '--', token, 'wi'])).stdout).toEqual(['widget\n']);
+		}
+	});
+
+	it.each([false, true])(
+		'separates protocol options from application flags with valueOnly=%s',
+		async (valueOnly) => {
+			const app = cli('app').default(
+				command('default').flag(
+					'value-only',
+					flag.string().complete(() => ['widget']),
+				),
+			);
+			const request = [
+				'__complete',
+				...(valueOnly ? ['--value-only'] : []),
+				'--',
+				'--value-only=wi',
+			];
+			const expected = valueOnly ? 'widget\n' : '--value-only=widget\n';
+			expect((await app.execute(request)).stdout).toEqual([expected]);
+			expect((await app.execute(['__complete', '--value-only', 'wi'])).stdout).toEqual([
+				'widget\n',
+			]);
+			const stdout: string[] = [];
+			const adapter = createTestAdapter({
+				argv: ['node', 'app.ts', ...request],
+				stdout: (text) => stdout.push(text),
+			});
+			await expect(app.run({ adapter })).rejects.toMatchObject({ code: 0 });
+			expect(stdout).toEqual([expected]);
+		},
+	);
+
 	it('keeps callback failures silent and does not fall back to unrelated candidates', async () => {
 		const app = cli('app').default(
 			command('default').arg('value', arg.string().complete(unexpected)),
@@ -380,7 +519,15 @@ describe('dynamic value completion', () => {
 	it.each(['bash', 'zsh', 'fish', 'powershell'] as const)(
 		'adds runtime dispatch to %s only when a callback exists',
 		(shell) => {
-			expect(generateCompletion(fixture().schema, shell)).toContain('__complete');
+			const script = generateCompletion(fixture().schema, shell);
+			if (shell === 'powershell') {
+				expect(script).toContain("$dynamicArgs.Add('__complete')");
+				expect(script).toContain("$dynamicArgs.Add('--')");
+			} else {
+				expect(script).toContain(
+					shell === 'fish' ? '__complete --value-only -- ' : '__complete -- ',
+				);
+			}
 			expect(
 				generateCompletion(cli('plain').command(command('ordinary')).schema, shell),
 			).not.toContain('__complete');

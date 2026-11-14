@@ -14,6 +14,7 @@ import {
 	canDelegateUnknownRootToDefault,
 } from '#internals/core/cli/planner.ts';
 import { collectPropagatedFlags } from '#internals/core/cli/propagate.ts';
+import { readRootOutputFlags } from '#internals/core/cli/root-output-flags.ts';
 import type { FlagLookupEntry } from '#internals/core/parse/index.ts';
 import { buildFlagLookup, flagExpectsValue } from '#internals/core/parse/index.ts';
 import type { CompletionContext, CompletionHandler } from '#internals/core/schema/completion.ts';
@@ -23,6 +24,7 @@ interface CompletionTarget {
 	readonly handler: CompletionHandler;
 	readonly context: CompletionContext;
 	readonly tokenPrefix: string;
+	readonly commandCandidates: readonly string[];
 }
 
 function findCompletion(
@@ -32,7 +34,7 @@ function findCompletion(
 	env: CompletionContext['env'],
 ): CompletionTarget | undefined {
 	if (argv.length === 0) return undefined;
-	const completedArgv = argv.slice(0, -1);
+	const completedArgv = readRootOutputFlags(argv.slice(0, -1), schema.builtins).argv;
 	const commands =
 		schema.defaultCommandRouted && compiled.defaultCommand !== undefined
 			? [...compiled.commands, compiled.defaultCommand]
@@ -95,12 +97,13 @@ function findCompletion(
 	let tokenPrefix = '';
 	let input: CompletionContext['input'];
 	let handler: CompletionHandler | undefined;
+	let commandCandidates: readonly string[] = [];
 	if (pending !== undefined) {
 		input = { kind: 'flag', name: pending.name };
 		handler = pending.schema.completion;
 	} else if (!afterSeparator && prefix.startsWith('-')) {
 		const match = matchFlag(prefix, lookup);
-		if (match?.inline === undefined || !flagExpectsValue(match.entry.schema)) return undefined;
+		if (match?.inline === undefined) return undefined;
 		input = { kind: 'flag', name: match.entry.name };
 		handler = match.entry.schema.completion;
 		tokenPrefix = prefix.slice(0, prefix.length - match.inline.length);
@@ -111,6 +114,15 @@ function findCompletion(
 			args[positional] ??
 			(args[args.length - 1]?.schema.variadic ? args[args.length - 1] : undefined);
 		if (entry === undefined) return undefined;
+		if (positional === 0 && !afterSeparator) {
+			const candidates =
+				result.kind === 'unknown'
+					? result.candidates
+					: [...new Set(result.command.subcommands.values())];
+			commandCandidates = candidates
+				.filter((candidate) => !candidate.schema.hidden)
+				.flatMap((candidate) => [candidate.schema.name, ...candidate.schema.aliases]);
+		}
 		input = { kind: 'arg', name: entry.name };
 		handler = entry.schema.completion;
 	}
@@ -118,6 +130,7 @@ function findCompletion(
 	return {
 		handler,
 		tokenPrefix,
+		commandCandidates,
 		context: { prefix, commandPath: path.map((item) => item.name), input, argv, env },
 	};
 }
@@ -155,7 +168,7 @@ async function completeValues(
 	if (target === undefined) return { exitCode: 1, candidates: [] };
 	try {
 		const values = await target.handler(target.context);
-		const candidates = [...new Set(values)]
+		const candidates = [...new Set([...target.commandCandidates, ...values])]
 			.filter(
 				(value) =>
 					typeof value === 'string' &&
@@ -166,8 +179,25 @@ async function completeValues(
 			.map((value) => (valueOnly ? value : target.tokenPrefix + value));
 		return { exitCode: 0, candidates };
 	} catch {
-		return { exitCode: 0, candidates: [] };
+		return {
+			exitCode: 0,
+			candidates: target.commandCandidates.filter((value) =>
+				value.startsWith(target.context.prefix),
+			),
+		};
 	}
 }
 
-export { completeValues };
+/** Parse generator options before the application argv separator. */
+async function completeRequest(
+	schema: CLISchema,
+	compiled: CompiledCLI,
+	request: readonly string[],
+	env: CompletionContext['env'],
+): ReturnType<typeof completeValues> {
+	const valueOnly = request[0] === '--value-only' && request[1] === '--';
+	const offset = valueOnly ? 2 : request[0] === '--' ? 1 : 0;
+	return completeValues(schema, compiled, request.slice(offset), env, valueOnly);
+}
+
+export { completeRequest };

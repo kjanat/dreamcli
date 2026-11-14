@@ -75,7 +75,7 @@ function generateFishCompletion(schema: CLISchema, options?: CompletionOptions):
 		lines.push('\tset -l raw (commandline -ct)');
 		lines.push('\tset -l prefix (commandline --input "$raw" --tokens-expanded)');
 		lines.push(
-			`\tcommand ${commandName} __complete --value-only $words[2..-1] "$prefix" 2>/dev/null`,
+			`\tcommand ${commandName} __complete --value-only -- $words[2..-1] "$prefix" 2>/dev/null`,
 		);
 		lines.push('end');
 		lines.push(`complete -c ${commandName} -f -a '(${helperPrefix}_dynamic)'`);

@@ -71,6 +71,7 @@ function generatePowerShellCompletion(schema: CLISchema, options?: CompletionOpt
 	if (hasDynamicCompletion(schema)) {
 		lines.push('\t$dynamicArgs = [System.Collections.Generic.List[string]]::new()');
 		lines.push("\t$dynamicArgs.Add('__complete')");
+		lines.push("\t$dynamicArgs.Add('--')");
 		lines.push('\tforeach ($element in $commandAst.CommandElements | Select-Object -Skip 1) {');
 		lines.push('\t\tif ($element.Extent.EndOffset -ge $cursorPosition) { break }');
 		lines.push(`\t\t$dynamicArgs.Add((${helperPrefix}_UnquoteToken $element.Extent.Text))`);

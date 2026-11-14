@@ -1768,15 +1768,14 @@ class CLIBuilder {
 	async run(options?: CLIRunOptions): Promise<never> {
 		const adapter = options?.adapter ?? createAdapter();
 		if (adapter.argv[2] === '__complete') {
-			const { completeValues } = await import('#internals/core/completion/dynamic.ts');
-			const result = await completeValues(
+			const { completeRequest } = await import('#internals/core/completion/dynamic.ts');
+			const result = await completeRequest(
 				options?.flags === undefined
 					? this.schema
 					: { ...this.schema, flagSettings: options.flags },
 				compiledStateOf(this),
-				adapter.argv.slice(adapter.argv[3] === '--value-only' ? 4 : 3),
+				adapter.argv.slice(3),
 				options?.env ?? adapter.env,
-				adapter.argv[3] === '--value-only',
 			);
 			for (const candidate of result.candidates) adapter.stdout(`${candidate}\n`);
 			return exitAfterFlush(adapter, result.exitCode);
@@ -1869,15 +1868,14 @@ async function executeCLI(
 	options?: InternalCLIExecuteOptions,
 ): Promise<RunResult> {
 	if (argv[0] === '__complete') {
-		const { completeValues } = await import('#internals/core/completion/dynamic.ts');
-		const result = await completeValues(
+		const { completeRequest } = await import('#internals/core/completion/dynamic.ts');
+		const result = await completeRequest(
 			options?.flags === undefined
 				? builder.schema
 				: { ...builder.schema, flagSettings: options.flags },
 			compiledStateOf(builder),
-			argv.slice(argv[1] === '--value-only' ? 2 : 1),
+			argv.slice(1),
 			options?.env ?? {},
-			argv[1] === '--value-only',
 		);
 		const captured: CapturedOutput = options?.captured ?? { stdout: [], stderr: [], activity: [] };
 		for (const candidate of result.candidates) {

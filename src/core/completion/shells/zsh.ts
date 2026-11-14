@@ -96,7 +96,7 @@ function generateZshCompletion(schema: CLISchema, options?: CompletionOptions): 
 	if (hasDynamicCompletion(schema)) {
 		lines.push('\tlocal dynamic');
 		lines.push(
-			`\tif dynamic=$(command ${quoteShellArg(schema.name)} __complete "\${words[@]:1:$((CURRENT-2))}" "\${words[CURRENT]}" 2>/dev/null); then`,
+			`\tif dynamic=$(command ${quoteShellArg(schema.name)} __complete -- "\${words[@]:1:$((CURRENT-2))}" "\${words[CURRENT]}" 2>/dev/null); then`,
 		);
 		lines.push('\t\tlocal -a candidates');
 		lines.push('\t\tif [[ -n "$dynamic" ]]; then');

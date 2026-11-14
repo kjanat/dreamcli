@@ -149,13 +149,15 @@ environment supplied to the execution.
 
 Return complete values, either directly or through a promise. DreamCLI keeps candidates that start
 with `prefix`, removes duplicates, and omits empty values and values containing control characters.
-Spaces, quotes, and shell metacharacters remain part of the value. A callback that throws produces
-no candidates.
+Spaces, quotes, and shell metacharacters remain part of the value. A callback that throws contributes
+no values. Matching visible command names and aliases remain available alongside positional values.
 
 Generated scripts call the reserved `__complete` command. For example,
-`mycli __complete adopt --package wid` prints matching candidates, one per line. This path runs no
+`mycli __complete -- adopt --package wid` prints matching candidates, one per line. This path runs no
 command action, middleware, prompt, stdin reader, or config discovery. Load any data the callback
-needs inside the callback or close over it when constructing the command.
+needs inside the callback or close over it when constructing the command. The first `--` separates
+completion protocol options from application arguments. Fish requests value-only output with
+`mycli __complete --value-only -- adopt --package wid`.
 
 Reinstall the generated completion script after adding callbacks. All four supported shells use
 the runtime callback for flag values and positional arguments.
