@@ -421,6 +421,49 @@ describe('dynamic value completion', () => {
 		}
 	});
 
+	it.each([undefined, 'disabled'])(
+		'keeps negated boolean spellings presence-only with alias=%s',
+		async (alias) => {
+			let calls = 0;
+			const app = cli('app').default(
+				command('default')
+					.flag(
+						'enabled',
+						flag
+							.boolean()
+							.alias('active')
+							.negatable(alias === undefined ? undefined : { alias })
+							.complete(() => {
+								calls++;
+								return ['false'];
+							}),
+					)
+					.arg(
+						'value',
+						arg.string().complete(() => ['widget']),
+					)
+					.action(({ flags, out }) => out.log(String(flags.enabled))),
+			);
+			for (const name of ['enabled', 'active']) {
+				expect((await app.execute([`--${name}=false`, 'widget'])).stdout).toEqual(['false\n']);
+				expect((await app.execute(['__complete', '--', `--${name}=f`])).stdout).toEqual([
+					`--${name}=false\n`,
+				]);
+			}
+			const negated = alias ?? 'no-enabled';
+			expect((await app.execute([`--${negated}=false`, 'widget'])).exitCode).not.toBe(0);
+			const callsBefore = calls;
+			expect((await app.execute(['__complete', '--', `--${negated}=f`])).exitCode).toBe(1);
+			expect((await app.execute(['__complete', '--', `--${negated}=false`, 'wi'])).exitCode).toBe(
+				1,
+			);
+			expect(calls).toBe(callsBefore);
+			expect((await app.execute(['__complete', '--', `--${negated}`, 'wi'])).stdout).toEqual([
+				'widget\n',
+			]);
+		},
+	);
+
 	it.each([false, true])(
 		'separates protocol options from application flags with valueOnly=%s',
 		async (valueOnly) => {

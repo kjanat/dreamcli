@@ -59,6 +59,8 @@ finally:
 `;
 
 const cases = [
+	{ line: 'dcfixture --value-only wi', argv: ['--value-only', 'widget'] },
+	{ line: 'dcfixture --value-only=wi', argv: ['--value-only=widget'] },
 	{ line: 'dcfixture adopt --name=wi', argv: ['adopt', '--name=widget'] },
 	{ line: 'dcfixture adopt --name=', argv: ['adopt', '--name=widget'] },
 	{ line: 'dcfixture adopt --name wi', argv: ['adopt', '--name', 'widget'] },
@@ -97,27 +99,36 @@ describe.skipIf(prerequisites.length > 0)(
 				const completionCapture = join(directory, 'completion-argv');
 				const script = join(directory, 'completion.bash');
 				const literals = ['space value', "quote'value", 'shell$(false)', 'key=value'];
-				const app = cli('dcfixture').command(
-					command('adopt')
-						.flag(
-							'name',
-							flag
-								.string()
-								.alias('n')
-								.complete(() => ['widget']),
-						)
-						.flag('mode', flag.enum(['fast', 'full']))
-						.flag(
-							'literal',
-							flag.string().complete(() => literals),
+				const app = cli('dcfixture')
+					.default(
+						command('default').flag(
+							'value-only',
+							flag.string().complete(() => ['widget']),
 						),
-				);
+					)
+					.command(
+						command('adopt')
+							.flag(
+								'name',
+								flag
+									.string()
+									.alias('n')
+									.complete(() => ['widget']),
+							)
+							.flag('mode', flag.enum(['fast', 'full']))
+							.flag(
+								'literal',
+								flag.string().complete(() => literals),
+							),
+					);
 				writeFileSync(script, generateBashCompletion(app.schema));
 				writeFileSync(
 					fixture,
 					[
 						`import { cli, command, flag } from ${JSON.stringify(source)};`,
-						"await cli('dcfixture').command(command('adopt')",
+						"await cli('dcfixture')",
+						".default(command('default').flag('value-only', flag.string().complete(() => ['widget'])))",
+						".command(command('adopt')",
 						".flag('name', flag.string().alias('n').complete(() => ['widget']))",
 						".flag('mode', flag.enum(['fast', 'full']))",
 						`.flag('literal', flag.string().complete(() => ${JSON.stringify(literals)}))).run();`,

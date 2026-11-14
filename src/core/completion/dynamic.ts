@@ -85,7 +85,8 @@ function findCompletion(
 			if (builtin || (schema.version !== undefined && (token === '--version' || token === '-V')))
 				continue;
 			const match = matchFlag(token, lookup);
-			if (match === undefined) return undefined;
+			if (match === undefined || (match.entry.negated && match.inline !== undefined))
+				return undefined;
 			if (match.inline === undefined && flagExpectsValue(match.entry.schema)) pending = match.entry;
 			continue;
 		}
@@ -103,7 +104,7 @@ function findCompletion(
 		handler = pending.schema.completion;
 	} else if (!afterSeparator && prefix.startsWith('-')) {
 		const match = matchFlag(prefix, lookup);
-		if (match?.inline === undefined) return undefined;
+		if (match?.inline === undefined || match.entry.negated) return undefined;
 		input = { kind: 'flag', name: match.entry.name };
 		handler = match.entry.schema.completion;
 		tokenPrefix = prefix.slice(0, prefix.length - match.inline.length);
