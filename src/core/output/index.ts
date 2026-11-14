@@ -12,6 +12,7 @@
  */
 
 import { type Colors, createColors, isColorSupported } from 'ansispeck';
+import { padEnd, visibleWidth } from '#internals/core/help/ansi.ts';
 import type {
 	ActivityEvent,
 	ProgressHandle,
@@ -676,25 +677,25 @@ function formatTable<T extends Record<string, unknown>>(
 
 	// Compute column widths
 	const widths: number[] = headers.map((h, i) => {
-		let max = h.length;
+		let max = visibleWidth(h);
 		for (const row of cellGrid) {
 			const cell = row[i];
-			if (cell !== undefined && cell.length > max) {
-				max = cell.length;
+			if (cell !== undefined) {
+				max = Math.max(max, visibleWidth(cell));
 			}
 		}
 		return max;
 	});
 
 	// Build header line
-	const headerLine = headers.map((h, i) => h.padEnd(widths[i] ?? 0)).join(SEPARATOR);
+	const headerLine = headers.map((h, i) => padEnd(h, widths[i] ?? 0)).join(SEPARATOR);
 
 	// Build separator line (dashes under each column)
 	const separatorLine = widths.map((w) => '-'.repeat(w)).join(SEPARATOR);
 
 	// Build data lines
 	const dataLines = cellGrid.map((row) =>
-		row.map((cell, i) => cell.padEnd(widths[i] ?? 0)).join(SEPARATOR),
+		row.map((cell, i) => padEnd(cell, widths[i] ?? 0)).join(SEPARATOR),
 	);
 
 	return [headerLine, separatorLine, ...dataLines].join('\n');

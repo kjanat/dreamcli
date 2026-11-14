@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { osc8, stripAnsi } from '#internals/core/help/ansi.ts';
 import type { TableColumn } from '#internals/core/schema/index.ts';
 import { createCaptureOutput } from './index.ts';
 
@@ -371,5 +372,33 @@ describe('table', () => {
 			const lines = output.split('\n');
 			expect(lines[2]?.trimEnd()).toBe('1');
 		});
+	});
+});
+
+describe('styled table alignment', () => {
+	it('measures colored headers and cells by their visible width', () => {
+		const [out, captured] = createCaptureOutput({ color: true });
+		const name = out.color.cyan('widget');
+		const header = out.color.bold('package');
+		out.table(
+			[{ package: name, version: '1.0.1' }],
+			[{ key: 'package', header }, { key: 'version' }],
+		);
+		expect(captured.stdout).toEqual([`${header}  version\n-------  -------\n${name}   1.0.1  \n`]);
+		expect(stripAnsi(captured.stdout.join(''))).toBe(
+			'package  version\n-------  -------\nwidget   1.0.1  \n',
+		);
+	});
+
+	it('pads linked cells without counting OSC 8 escapes', () => {
+		const [out, captured] = createCaptureOutput();
+		const linked = osc8('https://example.com', 'widget');
+		out.table([
+			{ name: linked, version: '1' },
+			{ name: 'x', version: '2' },
+		]);
+		expect(captured.stdout).toEqual([
+			`name    version\n------  -------\n${linked}  1      \nx       2      \n`,
+		]);
 	});
 });
