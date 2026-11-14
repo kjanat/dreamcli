@@ -164,6 +164,13 @@ export interface RunOptions {
 	readonly isTTY?: boolean;
 
 	/**
+	 * Explicitly enable or disable ANSI color, overriding automatic selection.
+	 * Otherwise, `env.NO_COLOR` disables color and `env.FORCE_COLOR` enables it
+	 * unless set to `'0'`. With neither set, color follows `isTTY` outside JSON mode.
+	 */
+	readonly color?: boolean;
+
+	/**
 	 * Help formatting options (width, binName).
 	 * Used when `--help` is detected.
 	 */

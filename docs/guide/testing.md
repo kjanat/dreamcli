@@ -66,6 +66,7 @@ await runCommand(deploy, ['production'], {
 | `jsonMode`  | `boolean`                             | Simulate `--json` mode                             |
 | `help`      | `HelpOptions`                         | Help formatting options                            |
 | `verbosity` | `Verbosity`                           | Output verbosity level                             |
+| `color`     | `boolean`                             | Force ANSI color on or off                         |
 | `isTTY`     | `boolean`                             | Simulate a TTY stdout connection                   |
 | `stat`      | `(path) => Promise<'file' \| 'directory' \| null>` | Filesystem probe for `flag.path()` / `arg.path()` checks |
 | `mkdir`     | `(path) => Promise<void>`             | Directory creation for `create` checks             |
@@ -250,3 +251,15 @@ declare const captured: CapturedOutput;
 - [Arguments](/guide/arguments#filesystem-checks) and [Flags](/guide/flags#filesystem-checks) —
   what `arg.path()` / `flag.path()` check
 - [Output](/guide/output) — output channel behavior
+
+
+### Color in captured output
+
+Pass `color: true` to `execute()` or `runCommand()` to capture ANSI color codes.
+Pass `color: false` to keep output plain. An explicit value takes precedence over
+TTY detection and environment variables.
+
+Without an override, color uses the supplied `env`, never the test process's
+environment. A nonempty `NO_COLOR` disables it. `FORCE_COLOR` enables it unless
+its value is `'0'`. Otherwise, color follows `isTTY`. JSON mode disables automatic
+color selection.
