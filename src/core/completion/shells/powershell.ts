@@ -72,11 +72,18 @@ function generatePowerShellCompletion(schema: CLISchema, options?: CompletionOpt
 		lines.push('\t$dynamicArgs = [System.Collections.Generic.List[string]]::new()');
 		lines.push("\t$dynamicArgs.Add('__complete')");
 		lines.push("\t$dynamicArgs.Add('--')");
+		lines.push('\t$currentText = $wordToComplete');
 		lines.push('\tforeach ($element in $commandAst.CommandElements | Select-Object -Skip 1) {');
-		lines.push('\t\tif ($element.Extent.EndOffset -ge $cursorPosition) { break }');
+		lines.push('\t\tif ($element.Extent.StartOffset -gt $cursorPosition) { break }');
+		lines.push('\t\tif ($element.Extent.EndOffset -ge $cursorPosition) {');
+		lines.push(
+			'\t\t\t$currentText = $element.Extent.Text.Substring(0, $cursorPosition - $element.Extent.StartOffset)',
+		);
+		lines.push('\t\t\tbreak');
+		lines.push('\t\t}');
 		lines.push(`\t\t$dynamicArgs.Add((${helperPrefix}_UnquoteToken $element.Extent.Text))`);
 		lines.push('\t}');
-		lines.push(`\t$dynamicArgs.Add((${helperPrefix}_UnquoteToken $wordToComplete))`);
+		lines.push(`\t$dynamicArgs.Add((${helperPrefix}_UnquoteToken $currentText))`);
 		lines.push(`\t$dynamic = & ${quotePowerShellString(schema.name)} @dynamicArgs 2>$null`);
 		lines.push('\tif ($LASTEXITCODE -eq 0) {');
 		lines.push('\t\tforeach ($candidate in $dynamic) {');
@@ -224,16 +231,64 @@ function appendPowerShellPathEntry(
 function emitPowerShellHelpers(lines: string[], helperPrefix: string, dataVarName: string): void {
 	lines.push(`function ${helperPrefix}_UnquoteToken {`);
 	lines.push('\tparam([string]$TokenText)');
-	lines.push('\tif ($TokenText.Length -lt 2) {');
-	lines.push('\t\treturn $TokenText');
-	lines.push('\t}');
-	lines.push('');
-	lines.push('\tif (($TokenText.StartsWith("\'") -and $TokenText.EndsWith("\'")) -or');
-	lines.push("\t\t($TokenText.StartsWith('\"') -and $TokenText.EndsWith('\"'))) {");
-	lines.push('\t\treturn $TokenText.Substring(1, $TokenText.Length - 2)');
-	lines.push('\t}');
-	lines.push('');
-	lines.push('\treturn $TokenText');
+	lines.push(
+		...String.raw`
+	$result = [System.Text.StringBuilder]::new()
+	$quote = [char]0
+	for ($i = 0; $i -lt $TokenText.Length; $i++) {
+		$char = $TokenText[$i]
+		if ($quote -eq "'") {
+			if ($char -eq "'") {
+				if ($i + 1 -lt $TokenText.Length -and $TokenText[$i + 1] -eq "'") {
+					[void]$result.Append("'")
+					$i++
+				} else { $quote = [char]0 }
+			} else { [void]$result.Append($char) }
+		} elseif ($char -eq [char]96) {
+			if ($i + 1 -lt $TokenText.Length) {
+				$i++
+				$escaped = $TokenText[$i]
+				$decoded = switch -CaseSensitive ($escaped) {
+					'0' { [char]0 }
+					'a' { [char]7 }
+					'b' { [char]8 }
+					'e' { [char]27 }
+					'f' { [char]12 }
+					'n' { [char]10 }
+					'r' { [char]13 }
+					't' { [char]9 }
+					'v' { [char]11 }
+					'u' {
+						$match = [regex]::Match($TokenText.Substring($i + 1), '^\{([0-9a-fA-F]{1,6})\}')
+						if ($match.Success) {
+							$codepoint = [Convert]::ToInt32($match.Groups[1].Value, 16)
+							if ($codepoint -le 0x10ffff -and ($codepoint -lt 0xd800 -or $codepoint -gt 0xdfff)) {
+								$i += $match.Length
+								[char]::ConvertFromUtf32($codepoint)
+							} else { $escaped }
+						} else { $escaped }
+					}
+					default { $escaped }
+				}
+				[void]$result.Append($decoded)
+			} else { [void]$result.Append($char) }
+		} elseif ($quote -eq '"') {
+			if ($char -eq '"') {
+				if ($i + 1 -lt $TokenText.Length -and $TokenText[$i + 1] -eq '"') {
+					[void]$result.Append('"')
+					$i++
+				} else { $quote = [char]0 }
+			} else { [void]$result.Append($char) }
+		} elseif ($char -eq "'" -or $char -eq '"') {
+			$quote = $char
+		} else { [void]$result.Append($char) }
+	}
+	return $result.ToString()
+`
+			.trimEnd()
+			.split('\n')
+			.slice(1),
+	);
 	lines.push('}');
 	lines.push('');
 	lines.push(`function ${helperPrefix}_FindCommand {`);

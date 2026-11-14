@@ -94,9 +94,20 @@ function generateZshCompletion(schema: CLISchema, options?: CompletionOptions): 
 	// --- Main function ---
 	lines.push(`${funcName}() {`);
 	if (hasDynamicCompletion(schema)) {
-		lines.push('\tlocal dynamic');
+		lines.push('\tlocal dynamic word current_prefix=$PREFIX');
+		lines.push('\tlocal -a dynamic_words=()');
+		// biome-ignore lint/suspicious/noTemplateCurlyInString: zsh array slicing syntax
+		lines.push('\tfor word in "${words[@]:1:$((CURRENT-2))}"; do');
+		// biome-ignore lint/suspicious/noTemplateCurlyInString: zsh quote removal without evaluation
+		lines.push('\t\tdynamic_words+=("${(Q)word}")');
+		lines.push('\tdone');
+		lines.push('\tif [[ $compstate[quoting] = (single|double) ]]; then');
+		lines.push('\t\tcurrent_prefix="$compstate[quote]$PREFIX$compstate[quote]"');
+		lines.push('\tfi');
+		// biome-ignore lint/suspicious/noTemplateCurlyInString: zsh quote removal without evaluation
+		lines.push('\tdynamic_words+=("${(Q)current_prefix}")');
 		lines.push(
-			`\tif dynamic=$(command ${quoteShellArg(schema.name)} __complete -- "\${words[@]:1:$((CURRENT-2))}" "\${words[CURRENT]}" 2>/dev/null); then`,
+			`\tif dynamic=$(command ${quoteShellArg(schema.name)} __complete -- "\${dynamic_words[@]}" 2>/dev/null); then`,
 		);
 		lines.push('\t\tlocal -a candidates');
 		lines.push('\t\tif [[ -n "$dynamic" ]]; then');

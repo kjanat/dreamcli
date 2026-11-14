@@ -59,6 +59,13 @@ finally:
 `;
 
 const cases = [
+	{ line: 'dcfixture adopt --name tenant:sub:wi', argv: ['adopt', '--name', 'tenant:sub:widget'] },
+	{ line: 'dcfixture adopt --name tenant:wi', argv: ['adopt', '--name', 'tenant:widget'] },
+	{ line: 'dcfixture adopt --name=tenant:wi', argv: ['adopt', '--name=tenant:widget'] },
+	{
+		line: 'dcfixture adopt --literal tenant:old --name wi',
+		argv: ['adopt', '--literal', 'tenant:old', '--name', 'widget'],
+	},
 	{ line: 'dcfixture --value-only wi', argv: ['--value-only', 'widget'] },
 	{ line: 'dcfixture --value-only=wi', argv: ['--value-only=widget'] },
 	{ line: 'dcfixture adopt --name=wi', argv: ['adopt', '--name=widget'] },
@@ -113,7 +120,13 @@ describe.skipIf(prerequisites.length > 0)(
 								flag
 									.string()
 									.alias('n')
-									.complete(() => ['widget']),
+									.complete(({ prefix }) => [
+										prefix.includes('sub:')
+											? 'tenant:sub:widget'
+											: prefix.includes(':')
+												? 'tenant:widget'
+												: 'widget',
+									]),
 							)
 							.flag('mode', flag.enum(['fast', 'full']))
 							.flag(
@@ -129,7 +142,7 @@ describe.skipIf(prerequisites.length > 0)(
 						"await cli('dcfixture')",
 						".default(command('default').flag('value-only', flag.string().complete(() => ['widget'])))",
 						".command(command('adopt')",
-						".flag('name', flag.string().alias('n').complete(() => ['widget']))",
+						".flag('name', flag.string().alias('n').complete(({ prefix }) => [prefix.includes('sub:') ? 'tenant:sub:widget' : prefix.includes(':') ? 'tenant:widget' : 'widget']))",
 						".flag('mode', flag.enum(['fast', 'full']))",
 						`.flag('literal', flag.string().complete(() => ${JSON.stringify(literals)}))).run();`,
 					].join('\n'),
@@ -151,6 +164,8 @@ describe.skipIf(prerequisites.length > 0)(
 					'COMP_WORDBREAKS=$original_wordbreaks',
 					// biome-ignore lint/suspicious/noTemplateCurlyInString: bash parameter expansion
 					'COMP_WORDBREAKS=${original_wordbreaks//=/}',
+					// biome-ignore lint/suspicious/noTemplateCurlyInString: bash parameter expansion
+					'COMP_WORDBREAKS=${original_wordbreaks//:/}',
 				];
 				const result = spawnSync('python3', ['-c', runReadline], {
 					input: JSON.stringify({

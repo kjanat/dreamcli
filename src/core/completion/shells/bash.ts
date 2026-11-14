@@ -109,12 +109,12 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 	lines.push(`\tlocal cur prev words cword`);
 	lines.push(
 		hasDynamicCompletion(schema)
-			? '\t_init_completion -n = || return'
+			? '\t_init_completion -n =: || return'
 			: '\t_init_completion || return',
 	);
 	lines.push('\tlocal readline_prefix=""');
 	lines.push('\tif [[ $# -ge 2 && "$cur" == *"$2" ]]; then');
-	// Readline replaces its own word fragment, even when _init_completion joins '=' tokens.
+	// Readline replaces its own word fragment, even when _init_completion joins '=' and ':' tokens.
 	// biome-ignore lint/suspicious/noTemplateCurlyInString: bash parameter expansion
 	lines.push('\t\treadline_prefix="${cur%"$2"}"');
 	lines.push('\tfi');
