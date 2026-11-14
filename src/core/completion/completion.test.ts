@@ -2701,3 +2701,46 @@ describe('generatePowerShellCompletion — script structure', () => {
 		expect(script).not.toMatch(/^\s*Forms = @\('--telemetry', '--no-telemetry'\)$/m);
 	});
 });
+
+describe('repeatable enum values', () => {
+	const schema = minimalSchema({
+		commands: [
+			commandSchema({
+				name: 'adopt',
+				flags: {
+					start: flagSchema({
+						kind: 'array',
+						elementSchema: flagSchema({ kind: 'enum', enumValues: ['action', 'dashboard', 'cli'] }),
+						aliases: ['s'],
+					}),
+				},
+			}),
+		],
+	});
+
+	it('offers array element choices in bash', () => {
+		const script = generateBashCompletion(schema);
+		expect(script).toContain('--start|-s)');
+		expect(script).toContain('action dashboard cli');
+	});
+
+	it('offers array element choices in zsh', () => {
+		expect(generateZshCompletion(schema)).toContain(':value:(action dashboard cli)');
+	});
+
+	it('offers array element choices in fish', () => {
+		const lines = generateFishCompletion(schema)
+			.split('\n')
+			.filter((line) => line.includes('-l start'));
+		expect(lines).toHaveLength(3);
+		for (const value of ['action', 'dashboard', 'cli']) {
+			expect(lines.some((line) => line.includes(`-a ${value}`))).toBe(true);
+		}
+	});
+
+	it('offers array element choices in powershell', () => {
+		expect(generatePowerShellCompletion(schema)).toContain(
+			"EnumValues = @('action', 'dashboard', 'cli')",
+		);
+	});
+});

@@ -17,6 +17,7 @@ import { resolvePlainHelpDescription } from '#internals/core/help/theme.ts';
 import { flagExpectsValue } from '#internals/core/parse/index.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type { FlagSchema } from '#internals/core/schema/index.ts';
+import { flagValueSchema, valueEnumValues } from '#internals/core/schema/value.ts';
 import type { CommandNode, CompletionOptions, RootCompletionSurface } from './shared.ts';
 import {
 	getVisibleNegatedName,
@@ -211,8 +212,10 @@ function appendFishFlagCompletions(
 		if (flagExpectsValue(schema)) {
 			parts.push('-r', '-f');
 		}
-		if (schema.kind === 'enum' && schema.enumValues !== undefined) {
-			for (const enumValue of schema.enumValues) {
+		const values =
+			schema.kind === 'keyValue' ? undefined : valueEnumValues(flagValueSchema(schema));
+		if (values !== undefined) {
+			for (const enumValue of values) {
 				lines.push([...parts, `-a ${quoteShellArg(enumValue)}`].join(' '));
 			}
 			continue;
