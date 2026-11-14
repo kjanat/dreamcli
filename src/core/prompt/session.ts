@@ -34,7 +34,7 @@ export function createPromptSession(options: PromptSessionOptions): PromptSessio
 			throw new CLIError('Interactive input is unavailable', {
 				code: 'PROMPT_UNAVAILABLE',
 				suggest:
-					'Supply credentials through command arguments, environment, or config, or run in an interactive terminal',
+					'Supply input through command arguments, environment, or config, or run in an interactive terminal',
 			});
 		}
 		active = true;
