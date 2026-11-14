@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { cli, resolveRenderContext } from '#internals/core/cli/index.ts';
+import { stripAnsi } from '#internals/core/help/ansi.ts';
 import { command } from '#internals/core/schema/command.ts';
 import { runCommand } from './index.ts';
 
@@ -44,7 +45,7 @@ describe('runCommand', () => {
 			const result = await runCommand(cmd, []);
 
 			expect(result.exitCode).toBe(0);
-			const parsed = JSON.parse(result.stdout[0] ?? '');
+			const parsed = JSON.parse(stripAnsi(result.stdout[0] ?? ''));
 			expect(parsed.isTTY).toBe(false);
 		});
 
@@ -53,7 +54,7 @@ describe('runCommand', () => {
 			const result = await runCommand(cmd, [], { isTTY: true });
 
 			expect(result.exitCode).toBe(0);
-			const parsed = JSON.parse(result.stdout[0] ?? '');
+			const parsed = JSON.parse(stripAnsi(result.stdout[0] ?? ''));
 			expect(parsed.isTTY).toBe(true);
 		});
 
@@ -62,7 +63,7 @@ describe('runCommand', () => {
 			const result = await runCommand(cmd, [], { isTTY: false });
 
 			expect(result.exitCode).toBe(0);
-			const parsed = JSON.parse(result.stdout[0] ?? '');
+			const parsed = JSON.parse(stripAnsi(result.stdout[0] ?? ''));
 			expect(parsed.isTTY).toBe(false);
 		});
 	});
@@ -91,7 +92,7 @@ describe('runCommand', () => {
 			const result = await runCommand(cmd, [], { isTTY: true, jsonMode: true });
 
 			expect(result.exitCode).toBe(0);
-			const parsed = JSON.parse(result.stdout[0] ?? '');
+			const parsed = JSON.parse(stripAnsi(result.stdout[0] ?? ''));
 			expect(parsed).toEqual({ status: 'ok', mode: 'json' });
 		});
 	});
@@ -103,7 +104,7 @@ describe('runCommand', () => {
 			const cmd = modeReportCommand();
 			const result = await runCommand(cmd, [], { isTTY: false, jsonMode: false });
 
-			const parsed = JSON.parse(result.stdout[0] ?? '');
+			const parsed = JSON.parse(stripAnsi(result.stdout[0] ?? ''));
 			expect(parsed).toEqual({ isTTY: false, jsonMode: false });
 		});
 
@@ -111,7 +112,7 @@ describe('runCommand', () => {
 			const cmd = modeReportCommand();
 			const result = await runCommand(cmd, [], { isTTY: true, jsonMode: false });
 
-			const parsed = JSON.parse(result.stdout[0] ?? '');
+			const parsed = JSON.parse(stripAnsi(result.stdout[0] ?? ''));
 			expect(parsed).toEqual({ isTTY: true, jsonMode: false });
 		});
 
@@ -119,7 +120,7 @@ describe('runCommand', () => {
 			const cmd = modeReportCommand();
 			const result = await runCommand(cmd, [], { isTTY: false, jsonMode: true });
 
-			const parsed = JSON.parse(result.stdout[0] ?? '');
+			const parsed = JSON.parse(stripAnsi(result.stdout[0] ?? ''));
 			expect(parsed).toEqual({ isTTY: false, jsonMode: true });
 		});
 
@@ -127,7 +128,7 @@ describe('runCommand', () => {
 			const cmd = modeReportCommand();
 			const result = await runCommand(cmd, [], { isTTY: true, jsonMode: true });
 
-			const parsed = JSON.parse(result.stdout[0] ?? '');
+			const parsed = JSON.parse(stripAnsi(result.stdout[0] ?? ''));
 			expect(parsed).toEqual({ isTTY: true, jsonMode: true });
 		});
 	});
