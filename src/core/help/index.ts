@@ -607,6 +607,16 @@ function formatHelpSections(schema: CommandSchema, options?: HelpOptions): reado
 		sections.push(schema.description);
 	}
 
+	if (schema.details !== undefined) {
+		const text = resolveHelpDescription(schema.details, opts.descriptionTheme);
+		sections.push(
+			text
+				.split(/\r?\n/)
+				.map((line) => wrapText(line, opts.width, 0))
+				.join('\n'),
+		);
+	}
+
 	// ---- Commands (subcommands) ---------------------------------------------
 	const visibleCommands = schema.commands.filter((c) => !c.hidden);
 	if (visibleCommands.length > 0) {

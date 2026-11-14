@@ -74,6 +74,7 @@ const DEF_PROPERTY_TARGETS: Readonly<Record<string, Readonly<Record<string, Node
 	command: {
 		name: { exportId: 'dreamcli:CommandSchema', property: 'name' },
 		description: { exportId: 'dreamcli:CommandSchema', property: 'description' },
+		details: { exportId: 'dreamcli:CommandSchema', property: 'details' },
 		aliases: { exportId: 'dreamcli:CommandSchema', property: 'aliases' },
 		hidden: { exportId: 'dreamcli:CommandSchema', property: 'hidden' },
 		examples: { exportId: 'dreamcli:CommandSchema', property: 'examples' },
@@ -86,6 +87,7 @@ const DEF_PROPERTY_TARGETS: Readonly<Record<string, Readonly<Record<string, Node
 		envPrefix: { exportId: 'dreamcli:CLISchema', property: 'envPrefix' },
 		name: { exportId: 'dreamcli:CommandDefinitionFragmentV1', property: 'name' },
 		description: { exportId: 'dreamcli:CommandDefinitionFragmentV1', property: 'description' },
+		details: { exportId: 'dreamcli:CommandDefinitionFragmentV1', property: 'details' },
 		aliases: { exportId: 'dreamcli:CommandDefinitionFragmentV1', property: 'aliases' },
 		hidden: { exportId: 'dreamcli:CommandDefinitionFragmentV1', property: 'hidden' },
 		examples: { exportId: 'dreamcli:CommandDefinitionFragmentV1', property: 'examples' },

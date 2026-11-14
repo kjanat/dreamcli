@@ -365,6 +365,8 @@ type CommandDefinitionFragmentV1 = {
 	readonly name: string;
 	/** Human-readable description for help text. */
 	readonly description?: string;
+	/** Longer explanation shown only in this command's help. */
+	readonly details?: string;
 	/** Alternative names accepted for this command. */
 	readonly aliases?: readonly string[];
 	/** Whether the command is omitted from help listings. */
@@ -560,6 +562,9 @@ function serializeCommand(
 		name: schema.name,
 		...(schema.description !== undefined
 			? { description: resolvePlainHelpDescription(schema.description) }
+			: {}),
+		...(schema.details !== undefined
+			? { details: resolvePlainHelpDescription(schema.details) }
 			: {}),
 		...(schema.aliases.length > 0 ? { aliases: [...schema.aliases] } : {}),
 		...(schema.hidden ? { hidden: true } : {}),
@@ -1378,6 +1383,7 @@ const ENV_PREFIX_PROPERTY = { type: 'string', minLength: 1, not: { pattern: '[={
 const commandFragmentProperties = {
 	name: { type: 'string' },
 	description: { type: 'string' },
+	details: { type: 'string' },
 	aliases: { type: 'array', items: { type: 'string' } },
 	hidden: { const: true },
 	examples: { type: 'array', items: { $ref: '#/$defs/example' } },
