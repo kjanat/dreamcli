@@ -73,4 +73,4 @@ jobs:
     timeout-minutes: 2
     steps:
       - uses: actions/checkout@v7
-      - uses: kjanat/actionlint@v1
+      - uses: kjanat/actionlint@v1.17.1
