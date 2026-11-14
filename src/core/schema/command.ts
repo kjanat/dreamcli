@@ -1249,6 +1249,19 @@ function eraseBuilder<
 
 // --- CommandBuilder — immutable builder with type-level tracking
 
+/** Retain declared flag names for duplicate checks alongside an index signature. */
+type KnownFlags<F> = {
+	[K in keyof F as string extends K ? never : number extends K ? never : K]: F[K];
+};
+
+/** Generated names can carry any registered builder, while declared names keep their types. */
+type MergeFlags<
+	F extends Record<string, FlagBuilder<FlagConfig>>,
+	R extends Record<string, FlagBuilder<FlagConfig>>,
+> = string extends keyof F | keyof R
+	? KnownFlags<F> & KnownFlags<R> & Record<string, F[keyof F] | R[keyof R]>
+	: F & R;
+
 /**
  * Immutable command schema builder.
  *
@@ -1707,9 +1720,9 @@ class CommandBuilder<
 	 *   collides with one propagated to a registered subcommand.
 	 */
 	flag<N extends string, B extends FlagBuilder<FlagConfig>>(
-		name: N & Exclude<N, keyof F>,
+		name: N & Exclude<N, keyof KnownFlags<F>>,
 		builder: B,
-	): CommandBuilder<F & Record<N, B>, A, C> {
+	): CommandBuilder<MergeFlags<F, Record<N, B>>, A, C> {
 		const nextSchema = withCommandFlag(this.schema, name, builder.schema);
 		return new CommandBuilder(
 			nextSchema,
@@ -1725,6 +1738,8 @@ class CommandBuilder<
 	 * Register a record of flags, preserving each key and inferred value type.
 	 *
 	 * Names and aliases must not collide with existing flags or other entries.
+	 * Literal names are checked by the compiler. Generated names are checked
+	 * at runtime, and their values include the registered flag value types.
 	 * Adding flags clears any previously registered action, like `.flag()`.
 	 *
 	 * @param record - Named flag builders to add to this command.
@@ -1738,8 +1753,8 @@ class CommandBuilder<
 	 * ```
 	 */
 	flags<const R extends Record<string, FlagBuilder<FlagConfig>>>(
-		record: R & { [K in keyof R & keyof F]: never },
-	): CommandBuilder<F & R, A, C> {
+		record: R & { [K in keyof KnownFlags<R> & keyof KnownFlags<F>]: never },
+	): CommandBuilder<MergeFlags<F, R>, A, C> {
 		assertUsableFlagRecord(this.schema.name, record);
 		let schema = this.schema;
 		const builders: Readonly<Record<string, FlagBuilder<FlagConfig>>> = record;

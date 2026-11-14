@@ -27,6 +27,26 @@ The record follows the same name, alias, and stdin checks as individual `.flag()
 Duplicate names are rejected at compile time when the record's keys are known, and at runtime for all records.
 Register the action after adding flags.
 
+Generated records compose with named flags in either order.
+For records with unknown keys, arbitrary flag lookups use a union of the registered value types.
+Named flags keep their individual types.
+
+```ts twoslash
+import { command, flag } from '@kjanat/dreamcli';
+
+const generatedFlags = Object.fromEntries(
+  ['timeout', 'retries'].map((name) => [name, flag.number()]),
+);
+
+command('serve')
+  .flag('server', flag.string().default('localhost'))
+  .flags(generatedFlags)
+  .flag('verbose', flag.boolean())
+  .action(({ flags, out }) => {
+    out.log(flags.server);
+  });
+```
+
 ## Six Axes
 
 A flag declaration decides six separate things. They compose freely, and every

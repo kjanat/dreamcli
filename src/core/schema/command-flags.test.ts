@@ -7,6 +7,82 @@ import { flag } from './flag.ts';
 import { middleware } from './middleware.ts';
 
 describe('CommandBuilder.flags()', () => {
+	it('combines generated records and named flags in either order', async () => {
+		const generated = Object.fromEntries(['port'].map((name) => [name, flag.number().required()]));
+		const before = command('serve')
+			.flag('server', flag.string().required())
+			.flags(generated)
+			.action(({ flags, out }) => {
+				expectTypeOf(flags.server).toEqualTypeOf<string>();
+				expectTypeOf(flags['generated']).toEqualTypeOf<string | number | undefined>();
+				out.json(flags);
+			});
+		const after = command('serve')
+			.flags(generated)
+			.flag('server', flag.string().required())
+			.action(({ flags, out }) => {
+				expectTypeOf(flags.server).toEqualTypeOf<string>();
+				expectTypeOf(flags['generated']).toEqualTypeOf<string | number | undefined>();
+				out.json(flags);
+			});
+		for (const cmd of [before, after]) {
+			const result = await cli('app').default(cmd).execute(['--port', '3000', '--server', 'local']);
+			expect(result.exitCode).toBe(0);
+			expect(JSON.parse(result.stdout.join(''))).toEqual({ port: 3000, server: 'local' });
+		}
+	});
+
+	it('keeps explicit types and duplicate checks through generated records', async () => {
+		const numbers = Object.fromEntries(['port'].map((name) => [name, flag.number().required()]));
+		const booleans = Object.fromEntries(['verbose'].map((name) => [name, flag.boolean()]));
+		const cmd = command('serve')
+			.flag('server', flag.string().required())
+			.arg('file', arg.string())
+			.middleware(middleware<{ user: string }>(async ({ next }) => next({ user: 'kaj' })))
+			.flags(numbers)
+			.flags({ region: flag.enum(['us', 'eu']).required() })
+			.flags(booleans)
+			.flag('retries', flag.number().default(3));
+		// @ts-expect-error A generated record preserves an earlier explicit name.
+		expect(() => cmd.flag('server', flag.boolean())).toThrow(/already defines flag/);
+		// @ts-expect-error A literal record preserves its name through later generated records.
+		expect(() => cmd.flags({ region: flag.string() })).toThrow(/already defines flag/);
+		// @ts-expect-error A named flag added after generated records is tracked too.
+		expect(() => cmd.flag('retries', flag.string())).toThrow(/already defines flag/);
+		const result = await cli('app')
+			.default(
+				cmd.action(({ flags, args, ctx, out }) => {
+					expectTypeOf(flags.server).toEqualTypeOf<string>();
+					expectTypeOf(flags.region).toEqualTypeOf<'us' | 'eu'>();
+					expectTypeOf(flags.retries).toEqualTypeOf<number>();
+					expectTypeOf(flags['generated']).toEqualTypeOf<string | number | boolean | undefined>();
+					expectTypeOf(args.file).toEqualTypeOf<string>();
+					expectTypeOf(ctx.user).toEqualTypeOf<string>();
+					out.json({ flags, args, user: ctx.user });
+				}),
+			)
+			.execute(['config', '--port', '3000', '--server', 'local', '--region', 'eu']);
+		expect(result.exitCode).toBe(0);
+		expect(JSON.parse(result.stdout.join(''))).toEqual({
+			flags: { port: 3000, server: 'local', region: 'eu', verbose: false, retries: 3 },
+			args: { file: 'config' },
+			user: 'kaj',
+		});
+	});
+
+	it('checks generated name collisions at runtime in either order', () => {
+		const generated = Object.fromEntries(['server'].map((name) => [name, flag.number()]));
+		expect(() => command('serve').flag('server', flag.string()).flags(generated)).toThrow(
+			/already defines flag/,
+		);
+		expect(() => command('serve').flags(generated).flag('server', flag.string())).toThrow(
+			/already defines flag/,
+		);
+		expect(() => command('serve').flags(generated).flags(generated)).toThrow(
+			/already defines flag/,
+		);
+	});
+
 	it('preserves literal keys, value types, arguments, and middleware context', async () => {
 		const inputs = {
 			port: flag.number().default(3000),
