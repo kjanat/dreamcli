@@ -147,7 +147,8 @@ jobs:
       - name: Publish version tag
         uses: kjanat/beepboop/actions/publish-refs@v1
         with: { token: "${{ steps.token.outputs.token }}" }
-        env: ${{ fromJSON(steps.token.outputs.gitId) }}
+        env:
+          ${{ insert }}: ${{ fromJSON(steps.token.outputs.gitId || '{}') }}
       - uses: kjanat/beepboop/actions/publish-release@v1
         with: { execution-id: "${{ needs.meta.outputs.execution-id }}" }
 
