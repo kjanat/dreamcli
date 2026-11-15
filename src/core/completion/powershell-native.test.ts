@@ -1,6 +1,6 @@
 /** Native PowerShell completion must decode literal partial shell tokens. */
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -121,39 +121,50 @@ describe.skipIf(prerequisites.length > 0)('native PowerShell completion', () => 
 					value: 'widget',
 				},
 			];
-			for (const item of cases) {
+			const inputs = cases.map((item) => {
 				const line = `dcpsfixture adopt ${item.suffix}`;
 				const cursor =
 					'cursorBefore' in item ? line.indexOf(String(item.cursorBefore)) : line.length;
-				const result = spawnSync(
-					'pwsh',
+				return { line, cursor };
+			});
+			const inputFile = join(directory, 'cases.json');
+			writeFileSync(inputFile, JSON.stringify(inputs));
+			const result = spawnSync(
+				'pwsh',
+				[
+					'-NoProfile',
+					'-NonInteractive',
+					'-Command',
 					[
-						'-NoProfile',
-						'-NonInteractive',
-						'-Command',
-						[
-							`$env:PATH = ${quote(directory)} + [IO.Path]::PathSeparator + $env:PATH`,
-							`. ${quote(script)}`,
-							`$line = ${quote(line)}`,
-							`$result = [System.Management.Automation.CommandCompletion]::CompleteInput($line, ${cursor}, $null)`,
-							'ConvertTo-Json -Compress -InputObject @($result.CompletionMatches | ForEach-Object { $_.ListItemText })',
-						].join('\n'),
-					],
-					{ encoding: 'utf8', timeout: 10_000 },
-				);
-				expect(result.status, result.stderr).toBe(0);
-				expect(readFileSync(capture, 'utf8').split('\0').slice(0, -1), line).toEqual([
-					'__complete',
-					'--',
-					'adopt',
-					...item.argv,
-				]);
-				expect(JSON.parse(result.stdout), line).toEqual(
-					Array.isArray(item.value) ? item.value : [item.value],
-				);
+						"$ErrorActionPreference = 'Stop'",
+						`$env:PATH = ${quote(directory)} + [IO.Path]::PathSeparator + $env:PATH`,
+						`. ${quote(script)}`,
+						`$cases = Get-Content -Raw -LiteralPath ${quote(inputFile)} | ConvertFrom-Json`,
+						'$results = @(foreach ($case in $cases) {',
+						`  if (Test-Path -LiteralPath ${quote(capture)}) { Remove-Item -LiteralPath ${quote(capture)} }`,
+						'  $completion = [System.Management.Automation.CommandCompletion]::CompleteInput($case.line, $case.cursor, $null)',
+						`  $captured = [IO.File]::ReadAllText(${quote(capture)})`,
+						'  [pscustomobject]@{',
+						'    argv = @($captured.Substring(0, $captured.Length - 1).Split([char]0))',
+						'    values = @($completion.CompletionMatches | ForEach-Object { $_.ListItemText })',
+						'  }',
+						'})',
+						'ConvertTo-Json -Compress -Depth 5 -InputObject $results',
+					].join('\n'),
+				],
+				{ encoding: 'utf8', timeout: 20_000 },
+			);
+			expect(result.status, result.error?.message ?? result.stderr).toBe(0);
+			const results = JSON.parse(result.stdout);
+			expect(results).toHaveLength(cases.length);
+			for (const [index, item] of cases.entries()) {
+				expect(results[index], inputs[index]?.line).toEqual({
+					argv: ['__complete', '--', 'adopt', ...item.argv],
+					values: Array.isArray(item.value) ? item.value : [item.value],
+				});
 			}
 		} finally {
 			rmSync(directory, { recursive: true, force: true });
 		}
-	}, 30_000);
+	}, 60_000);
 });
