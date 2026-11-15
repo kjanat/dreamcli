@@ -141,7 +141,10 @@ jobs:
         uses: kjanat/beepboop/actions/publish-refs@v1
         with: { token: "${{ steps.token.outputs.token }}" }
         env:
-          ${{ insert }}: ${{ fromJSON(steps.token.outputs.gitId || '{}') }}
+          GIT_AUTHOR_NAME: ${{ steps.token.outputs.bot-login }}
+          GIT_AUTHOR_EMAIL: ${{ steps.token.outputs.bot-email }}
+          GIT_COMMITTER_NAME: ${{ steps.token.outputs.bot-login }}
+          GIT_COMMITTER_EMAIL: ${{ steps.token.outputs.bot-email }}
       - uses: kjanat/beepboop/actions/publish-release@v1
         with: { execution-id: "${{ needs.meta.outputs.execution-id }}" }
 
