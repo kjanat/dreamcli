@@ -49,7 +49,14 @@ jobs:
     outputs: { tarball: "${{ steps.pack.outputs.tarball }}" }
     steps:
       - uses: actions/checkout@v7
-        with: { ref: "${{ needs.meta.outputs.source-sha }}", persist-credentials: false }
+        with: { fetch-depth: 0, persist-credentials: false }
+      - name: Verify and check out release commit
+        env: { RELEASE_SHA: "${{ needs.meta.outputs.source-sha }}" }
+        run: |
+          [[ "${GITHUB_REF}" == refs/heads/master ]]
+          [[ "${RELEASE_SHA}" =~ ^[0-9a-f]{40}$ ]]
+          git merge-base --is-ancestor "${RELEASE_SHA}" HEAD
+          git checkout --detach "${RELEASE_SHA}"
       - uses: $/.github/actions/setup
       - run: runner install --frozen
       - run: run -s schema:emit version:check ci smoke
