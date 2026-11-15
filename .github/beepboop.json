@@ -1,24 +1,18 @@
 {
-  "$schema": "https://beepboop.kjanat.dev/schema/v1.json",
-  "streams": {
-    "dreamcli": {
-      "packages": ["pkg:jsr/%40kjanat/dreamcli", "pkg:npm/%40kjanat/dreamcli"],
-      "versionScope": "one-for-stream",
-      "mustPublish": [
-        "pkg:jsr/%40kjanat/dreamcli",
-        "pkg:npm/%40kjanat/dreamcli"
-      ],
-      "workflows": {
-        "publish": {
-          "file": "publish.yml",
-          "mode": "observe",
-          "publications": [
-            "pkg:jsr/%40kjanat/dreamcli",
-            "pkg:npm/%40kjanat/dreamcli"
-          ]
-        }
-      }
-    }
-  },
-  "managers": ["jsr", "npm", "workflow"]
+	"$schema": "https://beepboop.kjanat.dev/schema/v1.json",
+	"streams": {
+		"dreamcli": {
+			"packages": ["pkg:jsr/%40kjanat/dreamcli", "pkg:npm/%40kjanat/dreamcli"],
+			"versionScope": "one-for-stream",
+			"mustPublish": ["pkg:jsr/%40kjanat/dreamcli", "pkg:npm/%40kjanat/dreamcli"],
+			"workflows": {
+				"publish": {
+					"file": "publish.yml",
+					"mode": "observe",
+					"publications": ["pkg:jsr/%40kjanat/dreamcli", "pkg:npm/%40kjanat/dreamcli"]
+				}
+			}
+		}
+	},
+	"managers": ["jsr", "npm", "workflow"]
 }
