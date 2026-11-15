@@ -5,14 +5,40 @@
 			"packages": ["pkg:jsr/%40kjanat/dreamcli", "pkg:npm/%40kjanat/dreamcli"],
 			"versionScope": "one-for-stream",
 			"mustPublish": ["pkg:jsr/%40kjanat/dreamcli", "pkg:npm/%40kjanat/dreamcli"],
-			"workflows": {
-				"publish": {
+			"prepare": {
+				"strategy": "managed",
+				"workflow": {
+					"file": "prepare-release.yml",
+					"ref": "master"
+				},
+				"versionLands": "via-version-pr",
+				"versionPrMerge": "manual"
+			},
+			"promote": {
+				"publishWhen": "version-pr-merged",
+				"workflow": {
 					"file": "publish.yml",
-					"mode": "observe",
-					"publications": ["pkg:jsr/%40kjanat/dreamcli", "pkg:npm/%40kjanat/dreamcli"]
+					"ref": "master",
+					"publications": [
+						"pkg:jsr/%40kjanat/dreamcli",
+						"pkg:npm/%40kjanat/dreamcli",
+						"github-release:kjanat/dreamcli"
+					],
+					"refs": {
+						"phase": "version",
+						"prefix": "v"
+					}
 				}
-			}
+			},
+			"startFrom": [
+				{
+					"via": "cli"
+				},
+				{
+					"via": "dashboard"
+				}
+			]
 		}
 	},
-	"managers": ["jsr", "npm", "workflow"]
+	"managers": ["github-release", "jsr", "npm", "workflow"]
 }

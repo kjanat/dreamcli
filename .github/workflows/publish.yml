@@ -1,9 +1,16 @@
 name: Publish
-run-name: Publish ${{ github.ref_name }}
+run-name: ${{ inputs.beepboop_title || github.workflow }}
 
 on:
-  # Publish registries first; create the GitHub release after this workflow succeeds.
   workflow_dispatch:
+    inputs:
+      beepboop_execution_id:
+        description: Beepboop execution ID
+        required: true
+        type: string
+      beepboop_title:
+        description: Release title
+        type: string
 
 permissions: { contents: read }
 env: { RUNNER_PM: bun }
@@ -13,14 +20,26 @@ jobs:
     name: Resolve Release Metadata
     if: github.repository == 'kjanat/dreamcli'
     runs-on: ubuntu-latest
+    permissions: { contents: read, id-token: write }
     outputs:
+      source-sha: ${{ fromJSON(steps.beepboop.outputs.context).sourceSha }}
+      execution-id: ${{ steps.beepboop.outputs.execution-id }}
       npm: ${{ steps.npm.outputs.meta }}
       jsr: ${{ steps.jsr.outputs.meta }}
-    steps: [
-      { uses: actions/checkout@v7, with: { sparse-checkout: "package.json\ndeno.json\nscripts/release-meta.sh" } },
-      { id: npm, run: bash scripts/release-meta.sh npm },
-      { id: jsr, run: bash scripts/release-meta.sh jsr },
-    ]
+    steps:
+      - uses: kjanat/beepboop/actions/begin@v1
+        id: beepboop
+        with:
+          execution-id: ${{ inputs.beepboop_execution_id }}
+          stream: dreamcli
+          operation: publish
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ fromJSON(steps.beepboop.outputs.context).sourceSha }}
+          persist-credentials: false
+          sparse-checkout: "package.json\ndeno.json\nscripts/release-meta.sh"
+      - { id: npm, run: bash scripts/release-meta.sh npm }
+      - { id: jsr, run: bash scripts/release-meta.sh jsr }
 
   checks:
     name: Pre-Publish Checks
@@ -30,6 +49,7 @@ jobs:
     outputs: { tarball: "${{ steps.pack.outputs.tarball }}" }
     steps:
       - uses: actions/checkout@v7
+        with: { ref: "${{ needs.meta.outputs.source-sha }}", persist-credentials: false }
       - uses: $/.github/actions/setup
       - run: runner install --frozen
       - run: run -s schema:emit version:check ci smoke
@@ -48,10 +68,11 @@ jobs:
     permissions: { contents: read, id-token: write }
     steps:
       - uses: actions/checkout@v7
-        with: { sparse-checkout: ".node-version\npackage.json" }
+        with: { ref: "${{ needs.meta.outputs.source-sha }}", persist-credentials: false, sparse-checkout: ".node-version\npackage.json" }
       - { uses: actions/setup-node@v7, with: { node-version-file: .node-version, registry-url: https://registry.npmjs.org/, package-manager-cache: false } }
       - { uses: actions/download-artifact@v8, with: { name: tarball } }
       - name: Publish to npm
+        id: publish
         env:
           VERSION: ${{ fromJSON(needs.meta.outputs.npm).version }}
           NPM_CONFIG_PROVENANCE: ${{ vars.NPM_CONFIG_PROVENANCE || 'true' }}
@@ -68,17 +89,61 @@ jobs:
           echo "Publishing ${VERSION} under dist-tag '${dist_tag}'"
           npm publish "${TARBALL}" --access public --tag "${dist_tag}"
 
+      - name: Report npm publication
+        if: ${{ !cancelled() }}
+        uses: kjanat/beepboop/actions/report@v1
+        with:
+          execution-id: ${{ needs.meta.outputs.execution-id }}
+          publications: >-
+            [{"id":"pkg:npm/%40kjanat/dreamcli","manager":"npm","name":"@kjanat/dreamcli",
+            "version":"${{ fromJSON(needs.meta.outputs.npm).version }}","required":true,
+            "outcome":"${{ steps.publish.outcome == 'success' && 'succeeded' || 'failed' }}"}]
+
   publish-jsr:
     name: Publish to JSR
     needs: [meta, checks]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: { name: jsr, url: "${{ fromJSON(needs.meta.outputs.jsr).url }}" }
-    permissions: { id-token: write }
+    permissions: { contents: read, id-token: write }
     steps:
       - uses: actions/checkout@v7
+        with: { ref: "${{ needs.meta.outputs.source-sha }}", persist-credentials: false }
       - uses: $/.github/actions/setup
-      - run: runner install -fK build jsr:publish
+      - id: publish
+        run: runner install -fK build jsr:publish
+      - name: Report jsr publication
+        if: ${{ !cancelled() }}
+        uses: kjanat/beepboop/actions/report@v1
+        with:
+          execution-id: ${{ needs.meta.outputs.execution-id }}
+          publications: >-
+            [{"id":"pkg:jsr/%40kjanat/dreamcli","manager":"jsr","name":"@kjanat/dreamcli",
+            "version":"${{ fromJSON(needs.meta.outputs.jsr).version }}","required":true,
+            "outcome":"${{ steps.publish.outcome == 'success' && 'succeeded' || 'failed' }}"}]
+
+  github-release:
+    name: Publish GitHub Release
+    needs: [meta, publish-npm, publish-jsr]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: { contents: read, id-token: write }
+    env: { BEEPBOOP_EXECUTION_ID: "${{ needs.meta.outputs.execution-id }}" }
+    steps:
+      - uses: actions/checkout@v7
+        with: { ref: "${{ needs.meta.outputs.source-sha }}", persist-credentials: false }
+      - uses: kjanat/beepboop/actions/token@v1
+        id: token
+        with:
+          execution-id: ${{ needs.meta.outputs.execution-id }}
+          permission-contents: write
+      - name: Publish version tag
+        uses: kjanat/beepboop/actions/publish-refs@v1
+        with: { token: "${{ steps.token.outputs.token }}" }
+        env:
+          ${{ insert }}: ${{ fromJSON(steps.token.outputs.gitId || '{}') }}
+      - uses: kjanat/beepboop/actions/publish-release@v1
+        with: { execution-id: "${{ needs.meta.outputs.execution-id }}" }
 
   deploy-site:
     name: Deploy Site
