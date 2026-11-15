@@ -94,7 +94,7 @@ jobs:
             *) dist_tag=latest ;;
           esac
           echo "Publishing ${VERSION} under dist-tag '${dist_tag}'"
-          npm publish "${TARBALL}" --access public --tag "${dist_tag}"
+          npm publish "./${TARBALL}" --access public --tag "${dist_tag}"
 
       - name: Report npm publication
         if: ${{ !cancelled() }}
@@ -147,8 +147,7 @@ jobs:
       - name: Publish version tag
         uses: kjanat/beepboop/actions/publish-refs@v1
         with: { token: "${{ steps.token.outputs.token }}" }
-        env:
-          ${{ insert }}: ${{ fromJSON(steps.token.outputs.gitId || '{}') }}
+        env: { "${{ insert }}": "${{ fromJSON(steps.token.outputs.gitId || '{}') }}" }
       - uses: kjanat/beepboop/actions/publish-release@v1
         with: { execution-id: "${{ needs.meta.outputs.execution-id }}" }
 
