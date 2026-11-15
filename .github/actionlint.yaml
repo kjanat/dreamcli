@@ -1,5 +1,0 @@
-paths:
-  .github/workflows/publish.yml:
-    # actionlint 1.17.1 does not recognize GitHub's env insertion syntax.
-    ignore:
-      - '^undefined variable "insert"\.'
