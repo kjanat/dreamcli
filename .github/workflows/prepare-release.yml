@@ -1,0 +1,42 @@
+name: Prepare Release
+run-name: ${{ inputs.beepboop_title || github.workflow }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      beepboop_execution_id:
+        description: Beepboop execution ID
+        required: true
+        type: string
+      beepboop_title:
+        description: Release title
+        type: string
+
+permissions: { contents: read }
+env: { RUNNER_PM: bun }
+
+jobs:
+  prepare:
+    name: Prepare Version PR
+    if: github.repository == 'kjanat/dreamcli'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions: { contents: read, id-token: write }
+    steps:
+      - uses: kjanat/beepboop/actions/begin@v1
+        id: beepboop
+        with:
+          execution-id: ${{ inputs.beepboop_execution_id }}
+          stream: dreamcli
+          operation: prepare
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ fromJSON(steps.beepboop.outputs.context).sourceSha }}
+          persist-credentials: false
+      - uses: $/.github/actions/setup
+      - uses: kjanat/beepboop/actions/prepare@v1
+        with: { mode: apply, context: "${{ steps.beepboop.outputs.context }}" }
+      - run: runner install
+      - run: run -s schema:emit version:check ci smoke
+      - uses: kjanat/beepboop/actions/prepare@v1
+        with: { mode: submit, context: "${{ steps.beepboop.outputs.context }}" }

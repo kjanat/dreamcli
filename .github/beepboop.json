@@ -1,0 +1,44 @@
+{
+	"$schema": "https://beepboop.kjanat.dev/schema/v1.json",
+	"streams": {
+		"dreamcli": {
+			"packages": ["pkg:jsr/%40kjanat/dreamcli", "pkg:npm/%40kjanat/dreamcli"],
+			"versionScope": "one-for-stream",
+			"mustPublish": ["pkg:jsr/%40kjanat/dreamcli", "pkg:npm/%40kjanat/dreamcli"],
+			"prepare": {
+				"strategy": "managed",
+				"workflow": {
+					"file": "prepare-release.yml",
+					"ref": "master"
+				},
+				"versionLands": "via-version-pr",
+				"versionPrMerge": "manual"
+			},
+			"promote": {
+				"publishWhen": "version-pr-merged",
+				"workflow": {
+					"file": "publish.yml",
+					"ref": "master",
+					"publications": [
+						"pkg:jsr/%40kjanat/dreamcli",
+						"pkg:npm/%40kjanat/dreamcli",
+						"github-release:kjanat/dreamcli"
+					],
+					"refs": {
+						"phase": "version",
+						"prefix": "v"
+					}
+				}
+			},
+			"startFrom": [
+				{
+					"via": "cli"
+				},
+				{
+					"via": "dashboard"
+				}
+			]
+		}
+	},
+	"managers": ["github-release", "jsr", "npm", "workflow"]
+}

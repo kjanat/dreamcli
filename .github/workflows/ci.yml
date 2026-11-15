@@ -73,4 +73,5 @@ jobs:
     timeout-minutes: 2
     steps:
       - uses: actions/checkout@v7
-      - uses: kjanat/actionlint@v1.17.1
+      - uses: oven-sh/setup-bun@v2
+      - run: bunx x@https://pkg.pr.new/kjanat/actionlint/@kjanat/actionlint@4a57c72 check --experimental --strict --ignore unpinned-reference
