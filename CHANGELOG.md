@@ -6,26 +6,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-### Added
-
-- Flags and positional arguments accept `.complete()` callbacks for values computed at shell completion time. Bash, Zsh, Fish, and PowerShell invoke the callback without running the command action or reading stdin.
-
-- `.stdin({ argv: false })` accepts piped input without exposing a flag spelling or positional slot. Help and completion omit the input, while `stdinData` and other declared sources continue to work.
-
-- `CommandBuilder.flags(record)` registers several flags while preserving their inferred names and value types, with the same collision checks as `.flag()`.
-
-- `CommandBuilder.details(text)` adds wrapped explanations to a command's help while keeping parent command listings short. It accepts literal or themed text and appears as plain text in definition documents.
-
 ### Release checklist
 
-- [ ] Set the intended version in `package.json` and `deno.json`, add the dated changelog section, and update every comparison link.
-- [ ] Update first-party DreamCLI pins in documentation and import-map configuration; do not rewrite versions that belong to transitive lockfile metadata.
+- [ ] Start the intended version through Beepboop and review its version PR.
+- [ ] Confirm `package.json` and `deno.json` agree, add the dated changelog section, and update the comparison links.
+- [ ] Update first-party DreamCLI pins in documentation and regenerate the import map; preserve historical examples and transitive dependency versions.
 - [ ] Run `runner run -s schema:emit version:check ci smoke`.
 - [ ] Pack with `bun pm pack --quiet --ignore-scripts` and inspect the tarball's files and version.
-- [ ] Confirm generators and formatters leave no unexpected worktree changes.
-- [ ] Commit and push the release preparation, then verify the target commit is signed, `master` matches the remote, and every required check is green.
-- [ ] Confirm the exact `v<version>` tag does not already exist and npm and JSR do not already contain that version before dispatching the Publish workflow.
-- [ ] Dispatch Publish for the signed tag, confirm npm and JSR publication, then publish the GitHub release.
+- [ ] Confirm generators and formatters leave no unexpected worktree changes, then commit and push the preparation changes.
+- [ ] Verify the version PR's latest commit is signed and all required checks pass before merging. Merging starts publication automatically, with no further approval.
+- [ ] Follow Beepboop's release execution through npm and JSR publication, the version tag and GitHub Release, and the docs deployment.
+
+## [5.1.0] - 2026-11-15
+
+### Added
+
+- Add `.complete()` callbacks to flags and positional arguments for values computed at shell completion time. Bash, Zsh, Fish, and PowerShell invoke the callback without running the command action, middleware, prompts, config discovery, or stdin reads. ([#220](https://github.com/kjanat/dreamcli/pull/220))
+- Add `.stdin({ argv: false })` for piped input without a flag spelling or positional slot. Help and completion omit the input, while `stdinData` and other declared sources continue to work. ([#217](https://github.com/kjanat/dreamcli/pull/217))
+- Add `CommandBuilder.flags(record)` to register several flags with inferred names and value types. Generated records compose with existing and subsequent flags, with runtime collision checks for names the compiler cannot determine. ([#214](https://github.com/kjanat/dreamcli/pull/214))
+- Add `CommandBuilder.details(text)` for wrapped explanations in a command's help without expanding parent command listings. It accepts literal or themed text and appears as plain text in definition documents. ([#218](https://github.com/kjanat/dreamcli/pull/218))
+- Accept callbacks for spinner success and failure messages, using the resolved value or caught error. Existing string messages remain supported. ([#213](https://github.com/kjanat/dreamcli/pull/213))
+- Add `concurrent: true` to spinners and progress handles so multiple activities can render and finish independently. Fall back to static output when terminal dimensions are unavailable. ([#219](https://github.com/kjanat/dreamcli/pull/219))
+- Add a per-execution `color` option to `.execute()` and `runCommand()`. Automatic color selection respects the supplied environment, including `NO_COLOR` and `FORCE_COLOR`. ([#215](https://github.com/kjanat/dreamcli/pull/215))
+
+### Changed
+
+- Pretty-print and color `out.json()` in terminals. Piped output and JSON mode remain compact and uncolored; tables explicitly requested as JSON also remain compact. ([#216](https://github.com/kjanat/dreamcli/pull/216))
+- Prepare version PRs and publish releases through Beepboop. Merging a version PR starts npm and JSR publication, followed by the version tag and GitHub Release, without another approval. Maintenance fixes now arrive through pull requests. ([#225](https://github.com/kjanat/dreamcli/pull/225), [#226](https://github.com/kjanat/dreamcli/pull/226))
+
+### Fixed
+
+- Align table headers and cells by visible width, preserving ANSI styles and hyperlinks. ([#211](https://github.com/kjanat/dreamcli/pull/211))
+- Offer enum values for repeatable flags in Bash, Zsh, Fish, and PowerShell completions. ([#212](https://github.com/kjanat/dreamcli/pull/212))
+- Use general input guidance when a prompt cannot run, including password, confirmation, and selection prompts. ([#210](https://github.com/kjanat/dreamcli/pull/210))
 
 ## [5.0.0] - 2026-10-25
 
@@ -1167,7 +1180,8 @@ The stable 3.0.0 release. It ships the code of 3.0.0-rc.20 plus the fix and docu
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v5.0.0...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v5.1.0...HEAD
+[5.1.0]: https://github.com/kjanat/dreamcli/compare/v5.0.0...v5.1.0
 [5.0.0]: https://github.com/kjanat/dreamcli/compare/v4.2.0...v5.0.0
 [4.2.0]: https://github.com/kjanat/dreamcli/compare/v4.1.0...v4.2.0
 [4.1.0]: https://github.com/kjanat/dreamcli/compare/v4.0.0...v4.1.0
