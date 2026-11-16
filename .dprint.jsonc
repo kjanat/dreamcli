@@ -70,7 +70,7 @@
 		"npm:@dprint/ruff@0.12.2",
 		"npm:@dprint/json@0.26.0",
 		"npm:dprint-plugin-malva@0.16.1",
-		"npm:dprint-plugin-markup@0.27.6",
+		"npm:dprint-plugin-markup@0.28.0",
 		"npm:dprint-plugin-yaml@0.6.0",
 		"npm:@dprint/exec@0.9.0/plugin.json@d4f708dc00798b51013ca4e7c26a86656bfb31e7255cdcde28a487f86813e34d",
 		"npm:@dprint/prettier@0.70.0/plugin.json@97c0dccf54ed5b7343e7a3f6418e77bd80afcd2b74beed3a632689d47e392ddc",
