@@ -1815,17 +1815,9 @@ class CLIBuilder {
 			preflight.schema === this.schema
 				? this
 				: rebuild(this, sealCLISchema({ ...this.schema, ...preflight.schema }));
-		const terminalSize = adapter.getTerminalSize();
-		const runtimeHelpWidth =
-			options?.help?.width === undefined && preflight.schema.helpConfig?.width === undefined
-				? terminalSize?.columns
-				: undefined;
-		const runtimeHelpOptions =
-			runtimeHelpWidth !== undefined
-				? { ...options?.help, width: runtimeHelpWidth }
-				: options?.help;
+		const terminalSize = options?.terminalSize ?? adapter.getTerminalSize();
 		const hyperlinkOverride = resolveEffectiveHyperlinkOverride(
-			runtimeHelpOptions,
+			options?.help,
 			effectiveBuilder.schema.helpConfig,
 			adapter.env,
 			adapter.argv,
@@ -1833,10 +1825,10 @@ class CLIBuilder {
 		const executeOptions: InternalCLIExecuteOptions = {
 			...options,
 			...preflight.inputs,
-			...(runtimeHelpOptions !== undefined ? { help: runtimeHelpOptions } : {}),
 			out: createOutput({
 				stdout: adapter.stdout,
 				stderr: adapter.stderr,
+				...(terminalSize !== undefined ? { terminalSize } : {}),
 				getTerminalSize: () => adapter.getTerminalSize(),
 				jsonMode: preflight.inputs.jsonMode,
 				isTTY: preflight.inputs.isTTY,
@@ -1913,6 +1905,7 @@ async function executeCLI(
 		...(verbosity !== undefined ? { verbosity } : {}),
 		...(jsonMode ? { jsonMode } : {}),
 		...(options?.isTTY !== undefined ? { isTTY: options.isTTY } : {}),
+		...(options?.terminalSize !== undefined ? { terminalSize: options.terminalSize } : {}),
 		...hyperlinksOption(hyperlinkOverride),
 	};
 	let out: Out;
@@ -1935,9 +1928,12 @@ async function executeCLI(
 	const resolvedVersion = options?.help?.version ?? builder.schema.version;
 	const envPrefix = options?.envPrefix ?? builder.schema.envPrefix;
 	const flagSettings = options?.flags ?? builder.schema.flagSettings;
+	const width =
+		options?.help?.width ?? builder.schema.helpConfig?.width ?? out.terminalSize?.columns;
 	const helpOptions: HelpOptions = {
 		...builder.schema.helpConfig,
 		...options?.help,
+		...(width !== undefined ? { width } : {}),
 		...(envPrefix !== undefined ? { envPrefix } : {}),
 		// Help spells flags the way the parser accepts them.
 		...(flagSettings?.caseParity !== undefined ? { caseParity: flagSettings.caseParity } : {}),

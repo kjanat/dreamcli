@@ -9,6 +9,19 @@ import { describe, expect, it } from 'vitest';
 import type { Out } from '#internals/core/schema/command.ts';
 import { createCaptureOutput, createOutput, OutputChannel } from './index.ts';
 
+describe('Out.terminalSize', () => {
+	it('is undefined when no dimensions are supplied', () => {
+		expect(createOutput().terminalSize).toBeUndefined();
+	});
+
+	it('captures the supplied dimensions when creating output', () => {
+		const terminalSize = { columns: 100, rows: 30 };
+		const out = createOutput({ terminalSize });
+		terminalSize.columns = 120;
+		expect(out.terminalSize).toEqual({ columns: 100, rows: 30 });
+	});
+});
+
 // --- isTTY on Out interface
 
 describe('Out.isTTY', () => {

@@ -131,8 +131,10 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 			// reaches the annotations unless the help options already carry one,
 			// and help spells flags the way this run's parser accepts them.
 			const caseParity = options?.flags?.caseParity ?? options?.help?.caseParity;
+			const width = options?.help?.width ?? out.terminalSize?.columns;
 			const help = {
 				...options?.help,
+				...(width !== undefined ? { width } : {}),
 				...(helpMode === 'all' ? { showAdvanced: true } : {}),
 				...(options?.envPrefix !== undefined && options.help?.envPrefix === undefined
 					? { envPrefix: options.envPrefix }

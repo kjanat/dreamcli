@@ -279,6 +279,16 @@ The output channel automatically adjusts behavior:
 
 One code path, correct output everywhere.
 
+## Terminal dimensions
+
+`out.terminalSize` gives action handlers the terminal's `columns` and `rows`.
+`.run()` captures them from its runtime adapter, and the value is `undefined`
+when dimensions are unavailable. For a width fallback, use
+`out.terminalSize?.columns ?? 80`.
+
+Pass `terminalSize: { columns: 100, rows: 30 }` to `.execute()`,
+`runCommand()`, or `createOutput()` to supply deterministic dimensions.
+
 ## Pre-run Render Context
 
 Inside a handler, `out` answers every rendering question: `out.jsonMode`,
