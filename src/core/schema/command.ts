@@ -26,6 +26,13 @@ import type {
 import type { ArgBuilder, ArgConfig, ArgDefinition, ArgSchema, InferArgs } from './arg.ts';
 import { createArgSchema } from './arg.ts';
 import type { schemaBrand } from './brand.ts';
+import type {
+	CommandConstraint,
+	CommandValidationOptions,
+	CommandValidator,
+	ConstraintBuilder,
+} from './constraints.ts';
+import { checkCommandConstraints, constraintBuilder } from './constraints.ts';
 import { deriveEnvName } from './env-binding.ts';
 import type { FlagBuilder, FlagConfig, FlagDefinition, FlagSchema, InferFlags } from './flag.ts';
 import { createFlagSchema, getFlagNegatedName } from './flag.ts';
@@ -33,6 +40,8 @@ import type { ErasedMiddlewareHandler, Middleware } from './middleware.ts';
 import type { PromptConfig } from './prompt.ts';
 import type { InputSources } from './provenance.ts';
 import { stdinConsumerReference, stdinConsumers } from './source.ts';
+import type { StandardSchemaV1 } from './standard.ts';
+import { isStandardSchemaV1 } from './standard.ts';
 import type { StdinBinding } from './stdin.ts';
 import { acceptsArgv } from './stdin.ts';
 
@@ -563,6 +572,10 @@ interface CommandSchema {
 	readonly flagDeclarationOrder?: readonly string[] | undefined;
 	/** Ordered positional arg entries (name + schema). */
 	readonly args: readonly CommandArgEntry[];
+	/** Relationships checked after input resolution. */
+	readonly constraints?: readonly CommandConstraint[] | undefined;
+	/** Object validators run after resolution. @internal */
+	readonly validators?: readonly CommandValidator[] | undefined;
 	/** Whether an action handler has been registered. */
 	readonly hasAction: boolean;
 	/**
@@ -653,6 +666,10 @@ interface CommandDefinition {
 	 * @defaultValue `[]`
 	 */
 	readonly args?: readonly CommandArgEntryDefinition[] | undefined;
+	/** Relationships checked after input resolution. */
+	readonly constraints?: readonly CommandConstraint[] | undefined;
+	/** Object validators run after resolution. @internal */
+	readonly validators?: readonly CommandValidator[] | undefined;
 	/**
 	 * Whether an action handler has been registered.
 	 * @defaultValue `false`
@@ -854,11 +871,14 @@ function buildCommandSchema(definition: CommandDefinition): CommandSchema {
 		flags,
 		...(order !== undefined ? { flagDeclarationOrder: order } : {}),
 		args,
+		...(definition.constraints?.length ? { constraints: definition.constraints } : {}),
+		...(definition.validators?.length ? { validators: definition.validators } : {}),
 		hasAction: definition.hasAction ?? false,
 		interactive: definition.interactive,
 		commands: (definition.commands ?? []).map((child) => buildCommandSchema(child)),
 	};
 
+	checkCommandConstraints(schema);
 	return schema as CommandSchema;
 }
 
@@ -1392,6 +1412,52 @@ class CommandBuilder<
 		this.handler = handler;
 		this._subcommands = subcommands ?? [];
 		this._executionSteps = executionSteps ?? [];
+	}
+
+	/**
+	 * Declare typed relationships between already-resolved flags and arguments.
+	 * A bare name selects a flag when both kinds use the same name.
+	 */
+	constrain(
+		build: (
+			builder: ConstraintBuilder<Extract<keyof F, string>, Extract<keyof A, string>>,
+		) => readonly CommandConstraint[],
+	): CommandBuilder<F, A, C> {
+		const constraints = [
+			...(this.schema.constraints ?? []),
+			...build(constraintBuilder(this.schema)),
+		];
+		if (constraints.length === 0) return this;
+		const schema = { ...this.schema, constraints };
+		checkCommandConstraints(schema);
+		return new CommandBuilder(schema, this.handler, this._subcommands, this._executionSteps);
+	}
+
+	/**
+	 * Validate the resolved flags using Standard Schema. Pass `{ input: 'resolved' }`
+	 * to validate an object containing flags, arguments, and their provenance.
+	 * The validator's output is discarded.
+	 */
+	validate(
+		validator: StandardSchemaV1,
+		options?: CommandValidationOptions,
+	): CommandBuilder<F, A, C> {
+		if (!isStandardSchemaV1(validator)) {
+			throw new CLIError('Command validation requires a Standard Schema v1 validator', {
+				code: 'INVALID_SCHEMA',
+				details: { command: this.schema.name },
+			});
+		}
+		const validators = [
+			...(this.schema.validators ?? []),
+			{ schema: validator, input: options?.input ?? 'flags' },
+		];
+		return new CommandBuilder(
+			{ ...this.schema, validators },
+			this.handler,
+			this._subcommands,
+			this._executionSteps,
+		);
 	}
 
 	// -- Interactive resolver ------------------------------------------------

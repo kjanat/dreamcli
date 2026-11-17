@@ -813,6 +813,11 @@ function getFlagNegatedName(name: string, schema: FlagSchema): string | undefine
 	return schema.negation.alias ?? `no-${name}`;
 }
 
+/** Visible negated spelling, without the `--` prefix. @internal */
+function getVisibleNegatedName(name: string, schema: FlagSchema): string | undefined {
+	return schema.negation?.hidden ? undefined : getFlagNegatedName(name, schema);
+}
+
 /** Every runtime key carried by a normalized {@link FlagSchema}. */
 const NORMALIZED_FLAG_SCHEMA_KEYS: readonly (keyof FlagSchema)[] = [
 	'kind',
@@ -2900,6 +2905,7 @@ export {
 	flag,
 	getFlagAliasNames,
 	getFlagNegatedName,
+	getVisibleNegatedName,
 	normalizeFlagAlias,
 	normalizeFlagAliases,
 };

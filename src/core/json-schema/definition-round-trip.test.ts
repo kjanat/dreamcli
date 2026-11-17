@@ -166,6 +166,7 @@ function commandDefinitionOf(fragment: CommandDefinitionFragmentV1): CommandDefi
 			? { flagDeclarationOrder: fragment.flagDeclarationOrder }
 			: {}),
 		args: fragment.args.map(argEntryOf),
+		...(fragment.constraints !== undefined ? { constraints: fragment.constraints } : {}),
 		commands: fragment.commands.map(commandDefinitionOf),
 		hasAction: true,
 	};
@@ -303,6 +304,15 @@ function maximalDefinition(): CLIDefinition {
 						prompt: { kind: 'confirm', message: 'Sure?' },
 					},
 				},
+				constraints: [
+					{
+						kind: 'requires',
+						inputs: [
+							{ kind: 'flag', name: 'force' },
+							{ kind: 'arg', name: 'target' },
+						],
+					},
+				],
 				args: [
 					{
 						name: 'target',

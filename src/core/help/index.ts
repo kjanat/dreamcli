@@ -12,6 +12,7 @@ import type { Colors } from 'ansispeck';
 import { formatDisplayValue } from '#internals/core/output/display-value.ts';
 import { buildFlagLookup, camelToKebab } from '#internals/core/parse/index.ts';
 import { declaredFlagNames, resolveExampleCommand } from '#internals/core/schema/command.ts';
+import { describeConstraint } from '#internals/core/schema/constraints.ts';
 import {
 	effectiveEnvName,
 	effectiveIndexedEnvBinding,
@@ -695,6 +696,22 @@ function formatHelpSections(schema: CommandSchema, options?: HelpOptions): reado
 
 	// ---- Flags --------------------------------------------------------------
 	sections.push(...formatFlagSections(schema, opts));
+
+	const constraints = schema.constraints?.filter((constraint) =>
+		constraint.inputs.every(
+			(input) => input.kind === 'arg' || opts.showAdvanced || !schema.flags[input.name]?.advanced,
+		),
+	);
+	if (constraints?.length) {
+		sections.push(
+			[
+				opts.theme.sectionTitle('Constraints:'),
+				...constraints.map(
+					(constraint) => `  ${wrapText(describeConstraint(constraint), opts.width, 2)}`,
+				),
+			].join('\n'),
+		);
+	}
 
 	// ---- Examples -----------------------------------------------------------
 	if (schema.examples.length > 0) {

@@ -14,7 +14,8 @@ import { builtinEnabled } from '#internals/core/cli/builtins.ts';
 import type { CLISchema } from '#internals/core/cli/index.ts';
 import { collectPropagatedFlags } from '#internals/core/cli/propagate.ts';
 import { resolveRootSurface } from '#internals/core/cli/root-surface.ts';
-import { createFlagSchema, getFlagNegatedName } from '#internals/core/schema/flag.ts';
+import { excludesOtherInputs } from '#internals/core/schema/constraints.ts';
+import { createFlagSchema } from '#internals/core/schema/flag.ts';
 import type { CommandSchema, FlagSchema } from '#internals/core/schema/index.ts';
 import { acceptsArgv } from '#internals/core/schema/stdin.ts';
 import { DREAMCLI_REVISION, DREAMCLI_VERSION } from '#internals/version.ts';
@@ -256,23 +257,6 @@ function walkCommandTree(
 	return nodes;
 }
 
-// --- Negation — shared visibility filter
-
-/**
- * Effective negated long-form spelling for user-facing suggestion lists.
- *
- * Returns the negated spelling without the `--` prefix (e.g. `no-verbose`)
- * when the flag is negatable and the negation is not hidden; `undefined`
- * otherwise. Negated spellings are long-only and take no value, so they only
- * belong in suggestion lists — never in value-flag (operand-skip) patterns.
- *
- * @internal
- */
-function getVisibleNegatedName(name: string, schema: FlagSchema): string | undefined {
-	if (schema.negation === undefined || schema.negation.hidden) return undefined;
-	return getFlagNegatedName(name, schema);
-}
-
 // --- Shell escaping utilities
 
 /**
@@ -320,6 +304,7 @@ function quoteShellArg(value: string): string {
 
 function hasDynamicCompletion(schema: CLISchema): boolean {
 	const visit = (command: CommandSchema): boolean =>
+		command.constraints?.some(excludesOtherInputs) ||
 		Object.values(command.flags).some(
 			(flag) => acceptsArgv(flag) && flag.completion !== undefined,
 		) ||
@@ -331,11 +316,22 @@ function hasDynamicCompletion(schema: CLISchema): boolean {
 	);
 }
 
+/** Whether generated scripts need to consult the command's conflict rules. */
+function hasCompletionConflicts(schema: CLISchema): boolean {
+	const visit = (command: CommandSchema): boolean =>
+		(command.constraints?.some(excludesOtherInputs) ?? false) || command.commands.some(visit);
+	return (
+		schema.commands.some(visit) ||
+		(schema.defaultCommand !== undefined && visit(schema.defaultCommand))
+	);
+}
+
 // --- Exports
 
+export { getVisibleNegatedName } from '#internals/core/schema/flag.ts';
 export type { CommandNode, CompletionOptions, RootCompletionSurface };
 export {
-	getVisibleNegatedName,
+	hasCompletionConflicts,
 	hasDynamicCompletion,
 	programTag,
 	quoteShellArg,
