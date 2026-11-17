@@ -284,6 +284,14 @@
             "$ref": "#/$defs/example"
           }
         },
+        "flagDeclarationOrder": {
+          "description": "Flag declaration order when it differs from the flag record's key order.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
         "flags": {
           "description": "Named flag schemas, keyed by flag name.",
           "type": "object",
@@ -355,6 +363,14 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/example"
+          }
+        },
+        "flagDeclarationOrder": {
+          "description": "Flag declaration order when it differs from the flag record's key order.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
           }
         },
         "flags": {

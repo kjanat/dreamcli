@@ -11,7 +11,7 @@
 import type { Colors } from 'ansispeck';
 import { formatDisplayValue } from '#internals/core/output/display-value.ts';
 import { buildFlagLookup, camelToKebab } from '#internals/core/parse/index.ts';
-import { resolveExampleCommand } from '#internals/core/schema/command.ts';
+import { declaredFlagNames, resolveExampleCommand } from '#internals/core/schema/command.ts';
 import {
 	effectiveEnvName,
 	effectiveIndexedEnvBinding,
@@ -668,7 +668,7 @@ function formatHelpSections(schema: CommandSchema, options?: HelpOptions): reado
 	}
 
 	// ---- Flags --------------------------------------------------------------
-	sections.push(...formatFlagSections(schema.flags, opts));
+	sections.push(...formatFlagSections(schema, opts));
 
 	// ---- Examples -----------------------------------------------------------
 	if (schema.examples.length > 0) {
@@ -813,16 +813,13 @@ function formatArgsSection(
 /**
  * Render the help sections for visible flags.
  *
- * @param flags - Map of flag names to {@link FlagSchema} definitions.
+ * @param schema - Command whose flag groups are rendered.
  * @param opts - Resolved help options for line-width wrapping.
  * @returns Multi-line flag sections.
  */
-function formatFlagSections(
-	flags: Readonly<Record<string, FlagSchema>>,
-	opts: ResolvedHelpOptions,
-): readonly string[] {
-	const allNames = Object.keys(flags);
-	const names = allNames.filter((name) => {
+function formatFlagSections(schema: CommandSchema, opts: ResolvedHelpOptions): readonly string[] {
+	const { flags } = schema;
+	const names = declaredFlagNames(schema).filter((name) => {
 		const flag = flags[name];
 		return flag !== undefined && acceptsArgv(flag);
 	});
@@ -834,7 +831,7 @@ function formatFlagSections(
 	return Array.from(groups, ([group, members]) =>
 		formatFlagEntriesBlock(
 			opts.theme.sectionTitle(group === undefined ? 'Flags:' : `${group} options:`),
-			buildFlagEntries(flat ? allNames : members, flags, opts, reads),
+			buildFlagEntries(flat ? Object.keys(flags) : members, flags, opts, reads),
 			opts.width,
 		),
 	);

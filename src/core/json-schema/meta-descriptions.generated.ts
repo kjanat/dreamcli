@@ -61,6 +61,9 @@ const definitionMetaSchemaDescriptions = {
 				flags: {
 					description: 'Named flag schemas, keyed by flag name.',
 				},
+				flagDeclarationOrder: {
+					description: "Flag declaration order when it differs from the flag record's key order.",
+				},
 				args: {
 					description: 'Ordered positional arg entries (name + schema).',
 				},
@@ -105,6 +108,9 @@ const definitionMetaSchemaDescriptions = {
 				},
 				flags: {
 					description: 'Named flag definitions keyed by flag name.',
+				},
+				flagDeclarationOrder: {
+					description: "Flag declaration order when it differs from the flag record's key order.",
 				},
 				args: {
 					description: 'Positional argument definitions in CLI order.',

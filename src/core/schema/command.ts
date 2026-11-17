@@ -555,6 +555,8 @@ interface CommandSchema {
 	readonly examples: readonly CommandExample[];
 	/** Named flag schemas, keyed by flag name. */
 	readonly flags: Readonly<Record<string, FlagSchema>>;
+	/** Flag declaration order when it differs from the flag record's key order. */
+	readonly flagDeclarationOrder?: readonly string[] | undefined;
 	/** Ordered positional arg entries (name + schema). */
 	readonly args: readonly CommandArgEntry[];
 	/** Whether an action handler has been registered. */
@@ -640,6 +642,8 @@ interface CommandDefinition {
 	 * @defaultValue `{}`
 	 */
 	readonly flags?: Readonly<Record<string, FlagDefinition | FlagSchema>> | undefined;
+	/** Explicit declaration order for named flags. Unlisted flags follow in record order. */
+	readonly flagDeclarationOrder?: readonly string[] | undefined;
 	/**
 	 * Ordered positional arg entries.
 	 * @defaultValue `[]`
@@ -725,6 +729,19 @@ function assertUsableFlagRecord(commandName: string, flags: object): void {
 	);
 }
 
+/** Read flags in declaration order, including integer-like keys. @internal */
+function declaredFlagNames(schema: CommandSchema): readonly string[] {
+	return schema.flagDeclarationOrder ?? Object.keys(schema.flags);
+}
+
+/** Retain an explicit order only when the flag record cannot represent it. @internal */
+function flagOrderOverride(
+	flags: CommandSchema['flags'],
+	order: readonly string[],
+): readonly string[] | undefined {
+	return Object.keys(flags).some((name, index) => name !== order[index]) ? order : undefined;
+}
+
 /** Register one flag with the same validation for single and bulk declarations. */
 function withCommandFlag(schema: CommandSchema, name: string, flag: FlagSchema): CommandSchema {
 	assertUsableFlagKey(schema.name, name);
@@ -740,7 +757,13 @@ function withCommandFlag(schema: CommandSchema, name: string, flag: FlagSchema):
 	validateFlagStdinEntry(schema.name, name, flagSchema, schema.flags, schema.args);
 
 	const nextFlags = { ...schema.flags, [name]: flagSchema };
-	const nextSchema = { ...schema, flags: nextFlags, hasAction: false };
+	const order = flagOrderOverride(nextFlags, [...declaredFlagNames(schema), name]);
+	const nextSchema = {
+		...schema,
+		flags: nextFlags,
+		...(order !== undefined ? { flagDeclarationOrder: order } : {}),
+		hasAction: false,
+	};
 	validateCommandFlagTree(nextSchema);
 	return nextSchema;
 }
@@ -808,6 +831,15 @@ function buildCommandSchema(definition: CommandDefinition): CommandSchema {
 		args.push({ name: entry.name, schema });
 	}
 
+	const order =
+		definition.flagDeclarationOrder === undefined
+			? undefined
+			: flagOrderOverride(flags, [
+					...new Set([
+						...definition.flagDeclarationOrder.filter((name) => Object.hasOwn(flags, name)),
+						...Object.keys(flags),
+					]),
+				]);
 	const schema: Omit<CommandSchema, typeof schemaBrand> = {
 		name: definition.name,
 		description: definition.description,
@@ -816,6 +848,7 @@ function buildCommandSchema(definition: CommandDefinition): CommandSchema {
 		hidden: definition.hidden ?? false,
 		examples: definition.examples ?? [],
 		flags,
+		...(order !== undefined ? { flagDeclarationOrder: order } : {}),
 		args,
 		hasAction: definition.hasAction ?? false,
 		interactive: definition.interactive,
@@ -2052,4 +2085,13 @@ export type {
 	WidenContext,
 	WidenDerivedContext,
 };
-export { CommandBuilder, command, createCommandSchema, group, outBrand, resolveExampleCommand };
+export {
+	CommandBuilder,
+	command,
+	createCommandSchema,
+	declaredFlagNames,
+	flagOrderOverride,
+	group,
+	outBrand,
+	resolveExampleCommand,
+};

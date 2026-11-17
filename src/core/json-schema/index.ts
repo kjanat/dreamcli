@@ -386,6 +386,8 @@ type CommandDefinitionFragmentV1 = {
 	readonly examples?: readonly ExampleDefinitionFragmentV1[];
 	/** Named flag definitions keyed by flag name. */
 	readonly flags: Readonly<Record<string, FlagDefinitionFragmentV1>>;
+	/** Flag declaration order when it differs from the flag record's key order. */
+	readonly flagDeclarationOrder?: readonly string[];
 	/** Positional argument definitions in CLI order. */
 	readonly args: readonly ArgDefinitionFragmentV1[];
 	/** Nested subcommand definitions. */
@@ -590,6 +592,9 @@ function serializeCommand(
 			? { examples: schema.examples.map((example) => serializeExample(example, meta)) }
 			: {}),
 		flags,
+		...(schema.flagDeclarationOrder !== undefined
+			? { flagDeclarationOrder: [...schema.flagDeclarationOrder] }
+			: {}),
 		// Args — always present (positional order matters)
 		args: schema.args.map((entry) => serializeArgEntry(entry, opts)),
 		// Subcommands — always present
@@ -1414,6 +1419,7 @@ const commandFragmentProperties = {
 	hidden: { const: true },
 	examples: { type: 'array', items: { $ref: '#/$defs/example' } },
 	flags: { type: 'object', additionalProperties: { $ref: '#/$defs/flag' } },
+	flagDeclarationOrder: { type: 'array', items: { type: 'string' }, uniqueItems: true },
 	args: { type: 'array', items: { $ref: '#/$defs/arg' } },
 	commands: { type: 'array', items: { $ref: '#/$defs/command' } },
 } as const satisfies FragmentProperties<CommandDefinitionFragmentV1>;

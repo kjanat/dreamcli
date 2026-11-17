@@ -162,6 +162,9 @@ function commandDefinitionOf(fragment: CommandDefinitionFragmentV1): CommandDefi
 		...(fragment.hidden !== undefined ? { hidden: fragment.hidden } : {}),
 		...(fragment.examples !== undefined ? { examples: fragment.examples } : {}),
 		flags,
+		...(fragment.flagDeclarationOrder !== undefined
+			? { flagDeclarationOrder: fragment.flagDeclarationOrder }
+			: {}),
 		args: fragment.args.map(argEntryOf),
 		commands: fragment.commands.map(commandDefinitionOf),
 		hasAction: true,

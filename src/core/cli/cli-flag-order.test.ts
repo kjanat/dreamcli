@@ -50,6 +50,30 @@ describe('flag ordering — end to end', () => {
 });
 
 describe('input groups in help', () => {
+	it('keeps declaration order for numeric flag names, including inherited flags', async () => {
+		const parent = command('parent')
+			.flag('20', flag.boolean().group('First').propagate())
+			.flag('10', flag.boolean().group('Second').propagate())
+			.command(
+				command('child')
+					.flag('1', flag.boolean().group('Third'))
+					.action(() => {}),
+			);
+		const app = cli('mycli').command(parent);
+		const text = await app.execute(['parent', 'child', '--help']);
+		expect(text.stdout.join('').match(/^.* options:$/gm)).toEqual([
+			'First options:',
+			'Second options:',
+			'Third options:',
+		]);
+		const json = await app.execute(['parent', 'child', '--help', '--json']);
+		expect(JSON.parse(json.stdout.join(''))).toHaveProperty('flagDeclarationOrder', [
+			'20',
+			'10',
+			'1',
+		]);
+	});
+
 	function groupedCommand() {
 		return command('render')
 			.arg('source', arg.string().group('Input'))
