@@ -146,7 +146,7 @@
 		"@typescript/native": "catalog:",
 		"@vitest/coverage-v8": "5.1.0",
 		"biome": "npm:@biomejs/biome@^2.6.8",
-		"dprint": "0.64.3",
+		"dprint": "0.65.0",
 		"importmapify": "1.7.0",
 		"knip": "^6.45.1",
 		"publint": "^0.3.25",
