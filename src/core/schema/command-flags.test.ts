@@ -32,6 +32,27 @@ describe('CommandBuilder.flags()', () => {
 		expect(() => command('serve').flags(nonEnumerable)).toThrow(/flag names must be strings/);
 	});
 
+	it('registers a required flag from a non-enumerable own string key', async () => {
+		const record = { port: flag.number().required() };
+		Object.defineProperty(record, 'port', { enumerable: false });
+		const app = cli('app').default(
+			command('serve')
+				.flags(record)
+				.action(({ flags, out }) => {
+					expectTypeOf(flags.port).toEqualTypeOf<number>();
+					out.json(flags);
+				}),
+		);
+
+		const missing = await app.execute([]);
+		expect(missing.exitCode).not.toBe(0);
+		expect(missing.stderr.join('')).toContain('--port');
+
+		const result = await app.execute(['--port', '3000']);
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout.join('')).toBe('{"port":3000}\n');
+	});
+
 	it('rejects symbol keys in command definitions', () => {
 		const flags = {
 			host: { kind: 'string' },

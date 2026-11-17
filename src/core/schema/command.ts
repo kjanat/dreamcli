@@ -1869,7 +1869,7 @@ class CommandBuilder<
 	}
 
 	/**
-	 * Register a record of flags, preserving each key and inferred value type.
+	 * Register a record of flags, preserving each own string key and inferred value type.
 	 *
 	 * Names and aliases must not collide with existing flags or other entries.
 	 * Literal names are checked by the compiler. Generated names are checked
@@ -1894,7 +1894,14 @@ class CommandBuilder<
 		assertUsableFlagRecord(this.schema.name, record);
 		let schema = this.schema;
 		const builders: Readonly<Record<string, FlagBuilder<FlagConfig>>> = record;
-		for (const [name, builder] of Object.entries(builders)) {
+		for (const name of Object.getOwnPropertyNames(builders)) {
+			const builder = builders[name];
+			if (builder === undefined) {
+				throw new CLIError(`Command '${schema.name}' flag --${name} requires a flag builder`, {
+					code: 'INVALID_SCHEMA',
+					details: { command: schema.name, flag: name },
+				});
+			}
 			schema = withCommandFlag(schema, name, builder.schema);
 		}
 		return new CommandBuilder(
