@@ -891,6 +891,22 @@ describe('readFlags() root-owned spellings', () => {
 // === Built-in help
 
 describe('readFlags() built-in help', () => {
+	it.each([
+		{ token: '--help', showAdvanced: false },
+		{ token: '--help=all', showAdvanced: true },
+	])('renders advanced flags according to $token', async ({ token, showAdvanced }) => {
+		const written: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', 'build.ts', token],
+			stdout: (line) => written.push(line),
+		});
+		const error = await thrownBy(() =>
+			readFlags({ debug: flag.boolean().advanced() }, { adapter }),
+		);
+		expect(error instanceof ExitError && error.code).toBe(0);
+		expect(written.join('').includes('--debug')).toBe(showAdvanced);
+	});
+
 	it('renders help to stdout and exits 0 for --help', async () => {
 		const written: string[] = [];
 		const adapter = createTestAdapter({
