@@ -37,6 +37,18 @@ function modeReportCommand() {
 // === runCommand
 
 describe('runCommand', () => {
+	it('passes injected terminal dimensions to the handler', async () => {
+		const cmd = command('size').action(({ out }) => out.json(out.terminalSize ?? null));
+		const terminalSize = { columns: 96, rows: 24 };
+		const standalone = await runCommand(cmd, [], { terminalSize });
+		const dispatched = await cli('demo').command(cmd).execute(['size'], { terminalSize });
+		const unknown = await runCommand(cmd, []);
+
+		expect(JSON.parse(standalone.stdout.join(''))).toEqual(terminalSize);
+		expect(JSON.parse(dispatched.stdout.join(''))).toEqual(terminalSize);
+		expect(unknown.stdout).toEqual(['null\n']);
+	});
+
 	// --- isTTY
 
 	describe('isTTY', () => {

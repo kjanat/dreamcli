@@ -137,6 +137,7 @@ async function runCommandInternal(
 			...(verbosity !== undefined ? { verbosity } : {}),
 			...(jsonMode ? { jsonMode } : {}),
 			...(options?.isTTY !== undefined ? { isTTY: options.isTTY } : {}),
+			...(options?.terminalSize !== undefined ? { terminalSize: options.terminalSize } : {}),
 		};
 		[out, captured] = createCaptureOutput(
 			Object.keys(captureOptions).length > 0 ? captureOptions : undefined,

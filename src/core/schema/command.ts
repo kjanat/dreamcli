@@ -14,6 +14,7 @@ import { CLIError } from '#internals/core/errors/index.ts';
 import type { HelpDescription } from '#internals/core/help/theme.ts';
 import type { Verbosity } from '#internals/core/output/contracts.ts';
 import type { Ask } from '#internals/core/prompt/definitions.ts';
+import type { TerminalSize } from '#internals/runtime/adapter.ts';
 import type {
 	ProgressHandle,
 	ProgressOptions,
@@ -217,6 +218,9 @@ interface Out {
 	 * decorative output should be suppressed regardless of `isTTY`.
 	 */
 	readonly isTTY: boolean;
+
+	/** Terminal dimensions captured when the output channel was created, if available. */
+	readonly terminalSize: TerminalSize | undefined;
 
 	/**
 	 * Context-aware ANSI color palette (powered by `ansispeck`).

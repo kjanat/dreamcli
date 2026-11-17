@@ -423,6 +423,21 @@ describe('CLIBuilder.run — terminal help width', () => {
 			out.log('inspect');
 		});
 
+	it('shares the active adapter snapshot with action handlers', async () => {
+		const stdout: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', 'cli.js', 'size'],
+			terminalSize: { columns: 92, rows: 28 },
+			stdout: (line) => stdout.push(line),
+		});
+		const app = cli('mycli').command(
+			command('size').action(({ out }) => out.json(out.terminalSize ?? null)),
+		);
+
+		await expect(app.run({ adapter })).rejects.toMatchObject({ code: 0 });
+		expect(JSON.parse(stdout.join(''))).toEqual({ columns: 92, rows: 28 });
+	});
+
 	it('uses adapter terminal width for root help', async () => {
 		const stdoutLines: string[] = [];
 		const adapter = createTestAdapter({

@@ -76,6 +76,9 @@ interface OutputOptions {
 	 */
 	readonly isTTY?: boolean;
 
+	/** Terminal dimensions captured on the output channel for custom rendering. */
+	readonly terminalSize?: TerminalSize;
+
 	/**
 	 * Read the terminal's current dimensions before concurrent activity redraws.
 	 * `.run()` supplies the runtime adapter's getter. Without usable dimensions,
@@ -132,6 +135,7 @@ interface OutputOptions {
 /** Output options after defaults have been applied. */
 interface ResolvedOutputOptions {
 	readonly getTerminalSize?: () => TerminalSize | undefined;
+	readonly terminalSize?: TerminalSize;
 	readonly stdout: WriteFn;
 	readonly stderr: WriteFn;
 	readonly isTTY: boolean;
@@ -197,8 +201,11 @@ function resolveHyperlinkOverride(
 function resolveOptions(options?: OutputOptions): ResolvedOutputOptions {
 	const isTTY = options?.isTTY ?? false;
 	const jsonMode = options?.jsonMode ?? false;
+	const terminalSize =
+		options?.terminalSize === undefined ? undefined : { ...options.terminalSize };
 	return {
 		...(options?.getTerminalSize !== undefined ? { getTerminalSize: options.getTerminalSize } : {}),
+		...(terminalSize !== undefined ? { terminalSize } : {}),
 		stdout: options?.stdout ?? noopWrite,
 		stderr: options?.stderr ?? noopWrite,
 		isTTY,
@@ -251,6 +258,9 @@ class OutputChannel implements Out {
 	 */
 	readonly isTTY: boolean;
 
+	/** Terminal dimensions available when this channel was created. */
+	readonly terminalSize: TerminalSize | undefined;
+
 	/**
 	 * Context-aware ANSI color palette.
 	 *
@@ -280,6 +290,7 @@ class OutputChannel implements Out {
 		this.jsonMode = options.jsonMode;
 		this.verbosity = this.policy.verbosity;
 		this.isTTY = options.isTTY;
+		this.terminalSize = options.terminalSize;
 		this.color = createColors(options.color);
 		this.isHyperlinkSupported = options.isHyperlinkSupported;
 

@@ -19,6 +19,7 @@ import type { ParseOptions } from '#internals/core/parse/index.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import type { TestAnswer } from '#internals/core/prompt/test-prompter.ts';
 import type { SkippedPathCheck } from '#internals/core/resolve/contracts.ts';
+import type { TerminalSize } from '#internals/runtime/adapter.ts';
 import type { ActivityEvent } from './activity.ts';
 import type { CommandMeta, CommandSchema, Out } from './command.ts';
 
@@ -162,6 +163,9 @@ export interface RunOptions {
 	 * @defaultValue `false`
 	 */
 	readonly isTTY?: boolean;
+
+	/** Terminal dimensions to expose on the output channel. `.run()` defaults to the adapter size. */
+	readonly terminalSize?: TerminalSize;
 
 	/**
 	 * Explicitly enable or disable ANSI color, overriding automatic selection.
