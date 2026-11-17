@@ -148,17 +148,35 @@ function includesBeforeSeparator(argv: readonly string[], token: string): boolea
 }
 
 /**
- * Whether argv asks for help before the `--` end-of-options separator.
+ * Read the help mode requested by an exact built-in flag spelling.
+ */
+function helpFlagMode(token: string): 'short' | 'all' | undefined {
+	if (token === '--help=all') return 'all';
+	if (token === '--help' || token === '-h') return 'short';
+	return undefined;
+}
+
+/**
+ * Read the first help request before the end-of-options separator.
  *
  * Help renders ahead of flag validation everywhere: a command short-circuits to
  * its help text before `parse()` runs, and the root does the same before
  * dispatch, so a malformed flag value never hides the text explaining the flags.
  *
  * @param argv - Raw argument strings.
- * @returns `true` if `--help` or `-h` occurs before any `--` separator.
+ * @returns The requested mode, or `undefined` when no help flag occurs.
  */
+function requestedHelpMode(argv: readonly string[]): ReturnType<typeof helpFlagMode> {
+	for (const token of argv) {
+		if (token === '--') break;
+		const mode = helpFlagMode(token);
+		if (mode !== undefined) return mode;
+	}
+	return undefined;
+}
+
 function requestsHelp(argv: readonly string[]): boolean {
-	return includesBeforeSeparator(argv, '--help') || includesBeforeSeparator(argv, '-h');
+	return requestedHelpMode(argv) !== undefined;
 }
 
 /**
@@ -1380,9 +1398,11 @@ export {
 	camelToKebab,
 	coerceFlagValue,
 	flagExpectsValue,
+	helpFlagMode,
 	includesBeforeSeparator,
 	kebabToCamel,
 	parse,
+	requestedHelpMode,
 	requestsHelp,
 	stripBeforeSeparator,
 	tokenize,

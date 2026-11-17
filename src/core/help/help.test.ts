@@ -19,6 +19,27 @@ import { formatHelp } from './index.ts';
 // --- Basic command (no flags, no args)
 
 describe('formatHelp', () => {
+	it('keeps long flag labels from widening the description column', () => {
+		const cmd = command('check')
+			.flag('output', flag.string().describe('Choose the report format'))
+			.flag(
+				'service',
+				flag
+					.enum(['github.com', 'github-data-residency', 'ghes', 'unknown'])
+					.describe('Select the workflow execution service'),
+			)
+			.flag(
+				'runner',
+				flag.boolean().alias('run-on-another-workflow-provider').describe('Run elsewhere'),
+			);
+		const help = formatHelp(cmd.schema, { width: 60 });
+		expect(help).toMatch(/--output <string> +Choose the report format/u);
+		expect(help).toContain('--service <value>');
+		expect(help).toMatch(/Choices: github\.com, github-data-residency, ghes,\s+unknown/u);
+		expect(help).toContain('--runner, --run-on-another-workflow-provider\n    Run elsewhere');
+		expect(help.split('\n').every((line) => visibleWidth(line) <= 60)).toBe(true);
+	});
+
 	describe('minimal command', () => {
 		const cmd = command('greet');
 

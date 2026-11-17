@@ -92,7 +92,8 @@ function formatRootHelp(schema: CLISchemaLike, options?: HelpOptions): string {
 	// surface still gives a discoverable path, so `inlineDefault: false` is honored.)
 	const defaultIsSoleSurface =
 		!surface.hasVisibleSubcommands && schema.completionsFlag === undefined;
-	const renderDefaultInline = inlineDefault || defaultIsSoleSurface;
+	const renderDefaultInline =
+		inlineDefault || defaultIsSoleSurface || options?.showAdvanced === true;
 	const inlineDefaultCommand = renderDefaultInline ? defaultCommand : undefined;
 	const surfaceCommand = resolveSurfaceCommand(schema, inlineDefaultCommand);
 	const inline = surfaceCommand !== undefined;

@@ -16,7 +16,7 @@ import { CLIError, ParseError } from '#internals/core/errors/index.ts';
 import type { HelpThemeFactory } from '#internals/core/help/index.ts';
 import type { Verbosity } from '#internals/core/output/index.ts';
 import type { ParseOptions } from '#internals/core/parse/index.ts';
-import { parse } from '#internals/core/parse/index.ts';
+import { parse, requestsHelp } from '#internals/core/parse/index.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import type { TestAnswer } from '#internals/core/prompt/test-prompter.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
@@ -284,7 +284,7 @@ function commandInvocationNeedsStdin(
 	flagSettings?: ParseOptions,
 	builtins?: BuiltinsConfig,
 ): boolean {
-	if (builtinEnabled(builtins, 'help') && (argv.includes('--help') || argv.includes('-h'))) {
+	if (builtinEnabled(builtins, 'help') && requestsHelp(argv)) {
 		return false;
 	}
 

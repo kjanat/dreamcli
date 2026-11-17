@@ -1200,6 +1200,7 @@ describe('generateSchema — definition metadata', () => {
 				configPath: 'release.region',
 				description: 'Release region',
 				group: 'Deployment',
+				advanced: true,
 				enumValues: ['us', 'eu'],
 				valueHint: 'region',
 				prompt: { kind: 'input', message: 'Region?', placeholder: 'us' },
@@ -1287,7 +1288,7 @@ describe('generateSchema — definition metadata', () => {
 		expect(Object.keys(flagElementMetaProperties).sort()).toEqual(
 			Object.keys(flagMetaProperties)
 				.filter(
-					(field) => field !== 'defaultDescription' && field !== 'sensitive' && field !== 'group',
+					(field) => !['defaultDescription', 'sensitive', 'group', 'advanced'].includes(field),
 				)
 				.sort(),
 		);

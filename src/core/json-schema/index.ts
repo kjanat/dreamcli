@@ -307,6 +307,8 @@ type FlagDefinitionFragmentV1 = FlagElementFragmentV1 & {
 	readonly sensitive?: true;
 	/** Named options section in command help. */
 	readonly group?: string;
+	/** Whether the flag is shown only in full text help. */
+	readonly advanced?: true;
 };
 
 /**
@@ -646,6 +648,7 @@ function serializeFlag(
 			? { description: resolvePlainHelpDescription(schema.description) }
 			: {}),
 		...(schema.group !== undefined ? { group: schema.group } : {}),
+		...(schema.advanced ? { advanced: true } : {}),
 		...(schema.enumValues !== undefined ? { enumValues: [...schema.enumValues] } : {}),
 		...(schema.numberConstraints !== undefined
 			? { numberConstraints: { ...schema.numberConstraints } }
@@ -1504,6 +1507,7 @@ const flagFragmentProperties = {
 	defaultDescription: { oneOf: [{ type: 'string' }, { const: false }] },
 	sensitive: { const: true },
 	group: { type: 'string' },
+	advanced: { const: true },
 } as const satisfies FragmentProperties<FlagDefinitionFragmentV1> &
 	Record<SerializedFlagField, Record<string, unknown>>;
 

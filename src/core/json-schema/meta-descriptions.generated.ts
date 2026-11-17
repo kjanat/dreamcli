@@ -186,6 +186,9 @@ const definitionMetaSchemaDescriptions = {
 				group: {
 					description: 'Named section in command help.',
 				},
+				advanced: {
+					description: 'Whether the flag is shown only in full text help.',
+				},
 				defaultDescription: {
 					description:
 						'Human-readable replacement for the default value in help, or `false` to\nomit the default annotation.',

@@ -18,7 +18,7 @@ import { CLIError } from '#internals/core/errors/index.ts';
 import { formatHelp } from '#internals/core/help/index.ts';
 import type { CapturedOutput } from '#internals/core/output/index.ts';
 import { clearRequestedExitCode, getRequestedExitCode } from '#internals/core/output/index.ts';
-import { parse, parseForResolution, requestsHelp } from '#internals/core/parse/index.ts';
+import { parse, parseForResolution, requestedHelpMode } from '#internals/core/parse/index.ts';
 import type { Ask } from '#internals/core/prompt/definitions.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import type { PromptSession } from '#internals/core/prompt/session.ts';
@@ -104,7 +104,10 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 	let skippedPathChecks: readonly SkippedPathCheck[] = [];
 
 	try {
-		if (builtinEnabled(options?.builtins, 'help') && requestsHelp(argv)) {
+		const helpMode = builtinEnabled(options?.builtins, 'help')
+			? requestedHelpMode(argv)
+			: undefined;
+		if (helpMode !== undefined) {
 			// `options.jsonMode` carries the resolved JSON mode from the CLI/testkit
 			// layer (root `--json` is stripped from argv pre-dispatch) — an injected
 			// `out` may predate it, so the channel flag alone is not authoritative.
@@ -130,6 +133,7 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 			const caseParity = options?.flags?.caseParity ?? options?.help?.caseParity;
 			const help = {
 				...options?.help,
+				...(helpMode === 'all' ? { showAdvanced: true } : {}),
 				...(options?.envPrefix !== undefined && options.help?.envPrefix === undefined
 					? { envPrefix: options.envPrefix }
 					: {}),
