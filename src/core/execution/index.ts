@@ -113,7 +113,7 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 				out.json(
 					generateCommandSchema(
 						schema,
-						options?.envPrefix !== undefined ? { envPrefix: options.envPrefix } : undefined,
+						{ envPrefix: options?.envPrefix, groupOrder: options?.help?.groupOrder },
 						{
 							name: options?.help?.binName ?? schema.name,
 							version: options?.help?.version,

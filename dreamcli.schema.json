@@ -74,6 +74,10 @@
           "description": "Environment variable name for env resolution.\n\nWhen set and the CLI value is absent, the resolver reads this env var\nand coerces the string to the arg's declared kind.",
           "type": "string"
         },
+        "group": {
+          "description": "Named section in command help.",
+          "type": "string"
+        },
         "kind": {
           "description": "What kind of value this arg accepts.",
           "enum": [
@@ -280,6 +284,14 @@
             "$ref": "#/$defs/example"
           }
         },
+        "flagDeclarationOrder": {
+          "description": "Flag declaration order when it differs from the flag record's key order.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
         "flags": {
           "description": "Named flag schemas, keyed by flag name.",
           "type": "object",
@@ -353,11 +365,26 @@
             "$ref": "#/$defs/example"
           }
         },
+        "flagDeclarationOrder": {
+          "description": "Flag declaration order when it differs from the flag record's key order.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
         "flags": {
           "description": "Named flag definitions keyed by flag name.",
           "type": "object",
           "additionalProperties": {
             "$ref": "#/$defs/flag"
+          }
+        },
+        "groupOrder": {
+          "description": "Named help groups to display first, in order.",
+          "type": "array",
+          "items": {
+            "type": "string"
           }
         },
         "hidden": {
@@ -553,6 +580,10 @@
         },
         "envVar": {
           "description": "Environment variable name for v0.2+ resolution.",
+          "type": "string"
+        },
+        "group": {
+          "description": "Named section in command help.",
           "type": "string"
         },
         "kind": {
@@ -1043,6 +1074,13 @@
       "minLength": 1,
       "not": {
         "pattern": "[={}]"
+      }
+    },
+    "groupOrder": {
+      "description": "Named help groups to display first, in order.",
+      "type": "array",
+      "items": {
+        "type": "string"
       }
     },
     "name": {

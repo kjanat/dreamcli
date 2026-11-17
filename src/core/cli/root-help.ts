@@ -13,7 +13,7 @@ import type { FlagEntry, HelpOptions, HelpTheme } from '#internals/core/help/ind
 import { formatFlagEntriesBlock, formatHelpSections } from '#internals/core/help/index.ts';
 import { resolveHelpTheme } from '#internals/core/help/theme.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
-import { command } from '#internals/core/schema/command.ts';
+import { command, declaredFlagNames, flagOrderOverride } from '#internals/core/schema/command.ts';
 import type { FlagSchema } from '#internals/core/schema/flag.ts';
 import { createFlagSchema } from '#internals/core/schema/flag.ts';
 import type { BuiltinName, BuiltinsConfig } from './builtins.ts';
@@ -215,9 +215,14 @@ function resolveSurfaceCommand(
 ): CommandSchema | undefined {
 	if (schema.completionsFlag === undefined) return defaultCommand;
 	const base = defaultCommand ?? command(schema.name).schema;
+	const flags = {
+		completions: completionsFlagSchema(schema.completionsFlag.shells),
+		...base.flags,
+	};
 	return {
 		...base,
-		flags: { completions: completionsFlagSchema(schema.completionsFlag.shells), ...base.flags },
+		flags,
+		flagDeclarationOrder: flagOrderOverride(flags, ['completions', ...declaredFlagNames(base)]),
 	};
 }
 

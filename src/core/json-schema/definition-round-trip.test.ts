@@ -162,6 +162,9 @@ function commandDefinitionOf(fragment: CommandDefinitionFragmentV1): CommandDefi
 		...(fragment.hidden !== undefined ? { hidden: fragment.hidden } : {}),
 		...(fragment.examples !== undefined ? { examples: fragment.examples } : {}),
 		flags,
+		...(fragment.flagDeclarationOrder !== undefined
+			? { flagDeclarationOrder: fragment.flagDeclarationOrder }
+			: {}),
 		args: fragment.args.map(argEntryOf),
 		commands: fragment.commands.map(commandDefinitionOf),
 		hasAction: true,
@@ -175,6 +178,9 @@ function cliDefinitionOf(document: DefinitionDocumentV1): CLIDefinition {
 		...(document.version !== undefined ? { version: document.version } : {}),
 		...(document.description !== undefined ? { description: document.description } : {}),
 		...(document.envPrefix !== undefined ? { envPrefix: document.envPrefix } : {}),
+		...(document.groupOrder !== undefined
+			? { helpConfig: { groupOrder: document.groupOrder } }
+			: {}),
 		...(document.defaultCommand !== undefined
 			? { defaultCommand: commandDefinitionOf(document.defaultCommand) }
 			: {}),
@@ -191,6 +197,7 @@ function maximalDefinition(): CLIDefinition {
 		version: '4.0.0',
 		description: 'Every field a V1 document carries',
 		envPrefix: 'MAXIMAL_',
+		helpConfig: { groupOrder: ['Deployment'] },
 		defaultCommand: {
 			name: 'root',
 			description: 'The default command',
@@ -218,6 +225,7 @@ function maximalDefinition(): CLIDefinition {
 						envVar: 'REGION',
 						configPath: 'deploy.region',
 						description: 'Target region',
+						group: 'Deployment',
 						defaultDescription: 'United States',
 						prompt: {
 							kind: 'select',
@@ -303,6 +311,7 @@ function maximalDefinition(): CLIDefinition {
 							presence: 'required',
 							enumValues: ['prod', 'staging'],
 							description: 'Where to ship',
+							group: 'Deployment',
 							envVar: 'TARGET',
 							configPath: 'deploy.target',
 							deprecated: true,
@@ -391,6 +400,7 @@ describe('a maximal definition document', () => {
 				'envVar',
 				'configPath',
 				'description',
+				'group',
 				'enumValues',
 				'prompt',
 				'deprecated',

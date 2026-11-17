@@ -378,7 +378,7 @@ interface HelpConfig {
 	/** Emit OSC 8 hyperlinks in the header when supported. */
 	readonly hyperlinks?: boolean;
 	/**
-	 * Order of flags in the `Flags:` table.
+	 * Order of flags within each help section.
 	 *
 	 * - `'alphabetical'` — short-aliased flags first, then alphabetical by name.
 	 * - `'declaration'` — the order `.flag()` was called.
@@ -389,12 +389,17 @@ interface HelpConfig {
 	 */
 	readonly flagOrder?: 'alphabetical' | 'declaration';
 	/**
-	 * Custom comparator over flag long names for the `Flags:` table. When set,
+	 * Custom comparator over flag long names within each help section. When set,
 	 * it wins over {@link HelpConfig.flagOrder}.
 	 *
 	 * @defaultValue `undefined` (use `flagOrder`)
 	 */
 	readonly sortFlags?: (a: string, b: string) => number;
+	/**
+	 * Named argument and flag groups to show first, in order. Remaining named
+	 * groups follow declaration order within each input kind.
+	 */
+	readonly groupOrder?: readonly string[];
 	/**
 	 * Spelling of long flag names, aliases, and negations in the `Flags:` table.
 	 *
@@ -2008,10 +2013,17 @@ async function executeCLI(
 			if (jsonMode) {
 				const { generateSchema } = await import('#internals/core/json-schema/index.ts');
 				out.json(
-					generateSchema(builder.schema, envPrefix !== undefined ? { envPrefix } : undefined, {
-						name: planned.help.binName ?? builder.schema.name,
-						version: planned.help.version ?? builder.schema.version,
-					}),
+					generateSchema(
+						builder.schema,
+						{
+							envPrefix,
+							groupOrder: planned.help.groupOrder,
+						},
+						{
+							name: planned.help.binName ?? builder.schema.name,
+							version: planned.help.version ?? builder.schema.version,
+						},
+					),
 				);
 			} else {
 				const helpText = formatRootHelp(resolveHelpLinksSchema(builder.schema), planned.help);
@@ -2038,7 +2050,7 @@ async function executeCLI(
 				out.json(
 					generateCommandSchema(
 						planned.command.schema,
-						envPrefix !== undefined ? { envPrefix } : undefined,
+						{ envPrefix, groupOrder: planned.help.groupOrder },
 						{
 							name: planned.help.binName ?? planned.command.schema.name,
 							version: planned.help.version,

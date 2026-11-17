@@ -11,7 +11,7 @@
 import type { Colors } from 'ansispeck';
 import { formatDisplayValue } from '#internals/core/output/display-value.ts';
 import { buildFlagLookup, camelToKebab } from '#internals/core/parse/index.ts';
-import { resolveExampleCommand } from '#internals/core/schema/command.ts';
+import { declaredFlagNames, resolveExampleCommand } from '#internals/core/schema/command.ts';
 import {
 	effectiveEnvName,
 	effectiveIndexedEnvBinding,
@@ -43,7 +43,7 @@ interface HelpOptions {
 	/** Program version passed to function-form examples as `meta.version`. */
 	readonly version?: string;
 	/**
-	 * Order of flags in the `Flags:` table.
+	 * Order of flags within each help section.
 	 *
 	 * - `'alphabetical'` — short-aliased flags first, then alphabetical by name.
 	 * - `'declaration'` — the order `.flag()` was called.
@@ -54,12 +54,17 @@ interface HelpOptions {
 	 */
 	readonly flagOrder?: 'alphabetical' | 'declaration';
 	/**
-	 * Custom comparator over flag long names for the `Flags:` table. When set,
+	 * Custom comparator over flag long names within each help section. When set,
 	 * it wins over {@link HelpOptions.flagOrder}.
 	 *
 	 * @defaultValue `undefined` (use `flagOrder`)
 	 */
 	readonly sortFlags?: (a: string, b: string) => number;
+	/**
+	 * Named argument and flag groups to show first, in order. Remaining named
+	 * groups follow declaration order within each input kind.
+	 */
+	readonly groupOrder?: readonly string[];
 	/**
 	 * Spelling of long flag names, aliases, and negations in the `Flags:` table.
 	 *
@@ -157,6 +162,7 @@ interface ResolvedHelpOptions {
 	readonly version: string | undefined;
 	readonly flagOrder: 'alphabetical' | 'declaration';
 	readonly sortFlags: ((a: string, b: string) => number) | undefined;
+	readonly groupOrder: readonly string[];
 	readonly flagSpelling: 'declared' | 'kebab';
 	readonly caseParity: boolean;
 	readonly isDefaultHelp: boolean;
@@ -181,6 +187,7 @@ function resolveOptions(options?: HelpOptions): ResolvedHelpOptions {
 		version: options?.version,
 		flagOrder: options?.flagOrder ?? 'alphabetical',
 		sortFlags: options?.sortFlags,
+		groupOrder: options?.groupOrder ?? [],
 		flagSpelling: options?.flagSpelling ?? 'declared',
 		caseParity: options?.caseParity ?? true,
 		isDefaultHelp: options?.isDefaultHelp ?? false,
@@ -493,18 +500,18 @@ function orderFlagNames(
 /**
  * Build the flag entries in the configured order.
  *
- * @param flags - Map of flag names to {@link FlagSchema} definitions.
+ * @param names - Flag names in this section, in declaration order.
+ * @param flags - Full map of flag names to {@link FlagSchema} definitions.
  * @param opts - Resolved help options (theme + flag ordering).
+ * @param reads - Spelling check against the full command flag lookup.
  * @returns Array of {@link FlagEntry} objects for the flags table.
  */
 function buildFlagEntries(
+	names: readonly string[],
 	flags: Readonly<Record<string, FlagSchema>>,
 	opts: ResolvedHelpOptions,
+	reads: SpellingCheck | undefined,
 ): readonly FlagEntry[] {
-	const names = Object.keys(flags);
-	if (names.length === 0) return [];
-
-	const reads = spellingCheck(flags, opts);
 	const entries: FlagEntry[] = [];
 	for (const name of orderFlagNames(names, flags, opts)) {
 		const schema = flags[name];
@@ -515,6 +522,31 @@ function buildFlagEntries(
 		});
 	}
 	return entries;
+}
+
+/** Group entries in declaration order, with explicitly named groups first. */
+function groupEntries<T>(
+	entries: readonly T[],
+	groupOf: (entry: T) => string | undefined,
+	order: readonly string[],
+): ReadonlyMap<string | undefined, readonly T[]> {
+	const groups = new Map<string | undefined, T[]>();
+	for (const entry of entries) {
+		const name = groupOf(entry);
+		const group = groups.get(name);
+		if (group === undefined) groups.set(name, [entry]);
+		else group.push(entry);
+	}
+
+	const ordered = new Map<string | undefined, readonly T[]>();
+	for (const name of [...order, ...groups.keys()]) {
+		if (name === undefined) continue;
+		const group = groups.get(name);
+		if (group !== undefined) ordered.set(name, group);
+	}
+	const ungrouped = groups.get(undefined);
+	if (ungrouped !== undefined) ordered.set(undefined, ungrouped);
+	return ordered;
 }
 
 // --- Arg formatting
@@ -626,14 +658,17 @@ function formatHelpSections(schema: CommandSchema, options?: HelpOptions): reado
 
 	// ---- Arguments ----------------------------------------------------------
 	const args = schema.args.filter((entry) => acceptsArgv(entry.schema));
-	if (args.length > 0) {
-		sections.push(formatArgsSection(args, opts));
+	for (const [group, entries] of groupEntries(
+		args,
+		(entry) => entry.schema.group,
+		opts.groupOrder,
+	)) {
+		const title = group === undefined ? 'Arguments:' : `${group} arguments:`;
+		sections.push(formatArgsSection(title, entries, opts));
 	}
 
 	// ---- Flags --------------------------------------------------------------
-	if (Object.values(schema.flags).some(acceptsArgv)) {
-		sections.push(formatFlagsSection(schema.flags, opts));
-	}
+	sections.push(...formatFlagSections(schema, opts));
 
 	// ---- Examples -----------------------------------------------------------
 	if (schema.examples.length > 0) {
@@ -717,15 +752,20 @@ function formatUsageLine(schema: CommandSchema, opts: ResolvedHelpOptions): stri
 }
 
 /**
- * Render the `Arguments:` help section.
+ * Render a positional arguments section.
  *
+ * @param title - Section heading.
  * @param args - Positional arg entries from the {@link CommandSchema}.
  * @param opts - Resolved help options for line-width wrapping.
  * @returns Multi-line arguments section string.
  */
-function formatArgsSection(args: readonly CommandArgEntry[], opts: ResolvedHelpOptions): string {
+function formatArgsSection(
+	title: string,
+	args: readonly CommandArgEntry[],
+	opts: ResolvedHelpOptions,
+): string {
 	const { theme } = opts;
-	const lines: string[] = [theme.sectionTitle('Arguments:')];
+	const lines: string[] = [theme.sectionTitle(title)];
 	const GAP = 2;
 
 	// Compute max left width (visible columns — the left column may carry SGR escapes)
@@ -771,20 +811,28 @@ function formatArgsSection(args: readonly CommandArgEntry[], opts: ResolvedHelpO
 }
 
 /**
- * Render the `Flags:` help section.
+ * Render the help sections for visible flags.
  *
- * @param flags - Map of flag names to {@link FlagSchema} definitions.
+ * @param schema - Command whose flag groups are rendered.
  * @param opts - Resolved help options for line-width wrapping.
- * @returns Multi-line flags section string.
+ * @returns Multi-line flag sections.
  */
-function formatFlagsSection(
-	flags: Readonly<Record<string, FlagSchema>>,
-	opts: ResolvedHelpOptions,
-): string {
-	return formatFlagEntriesBlock(
-		opts.theme.sectionTitle('Flags:'),
-		buildFlagEntries(flags, opts),
-		opts.width,
+function formatFlagSections(schema: CommandSchema, opts: ResolvedHelpOptions): readonly string[] {
+	const { flags } = schema;
+	const names = declaredFlagNames(schema).filter((name) => {
+		const flag = flags[name];
+		return flag !== undefined && acceptsArgv(flag);
+	});
+	if (names.length === 0) return [];
+
+	const reads = spellingCheck(flags, opts);
+	const groups = groupEntries(names, (name) => flags[name]?.group, opts.groupOrder);
+	return Array.from(groups, ([group, members]) =>
+		formatFlagEntriesBlock(
+			opts.theme.sectionTitle(group === undefined ? 'Flags:' : `${group} options:`),
+			buildFlagEntries(members, flags, opts, reads),
+			opts.width,
+		),
 	);
 }
 

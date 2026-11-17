@@ -89,7 +89,12 @@ interface JsonSchemaOptions {
 	 *
 	 * @defaultValue the CLI's `envPrefix` for {@link generateSchema}, none otherwise
 	 */
-	readonly envPrefix?: string;
+	readonly envPrefix?: string | undefined;
+	/**
+	 * Named help groups to display first, in order. Defaults to the CLI help
+	 * configuration for {@link generateSchema} and declaration order otherwise.
+	 */
+	readonly groupOrder?: readonly string[] | undefined;
 }
 
 /** Internal resolved options with defaults applied. */
@@ -300,6 +305,8 @@ type FlagElementFragmentV1 = {
 type FlagDefinitionFragmentV1 = FlagElementFragmentV1 & {
 	readonly defaultDescription?: string | false;
 	readonly sensitive?: true;
+	/** Named options section in command help. */
+	readonly group?: string;
 };
 
 /**
@@ -335,6 +342,8 @@ type ArgDefinitionFragmentV1 = {
 	readonly defaultDescription?: string | false;
 	readonly sensitive?: true;
 	readonly description?: string;
+	/** Named arguments section in command help. */
+	readonly group?: string;
 	readonly envVar?: string;
 	readonly envIndexed?: EnvIndexedFragmentV1;
 	readonly envAbsolute?: true;
@@ -377,6 +386,8 @@ type CommandDefinitionFragmentV1 = {
 	readonly examples?: readonly ExampleDefinitionFragmentV1[];
 	/** Named flag definitions keyed by flag name. */
 	readonly flags: Readonly<Record<string, FlagDefinitionFragmentV1>>;
+	/** Flag declaration order when it differs from the flag record's key order. */
+	readonly flagDeclarationOrder?: readonly string[];
 	/** Positional argument definitions in CLI order. */
 	readonly args: readonly ArgDefinitionFragmentV1[];
 	/** Nested subcommand definitions. */
@@ -401,6 +412,8 @@ type DefinitionDocumentV1 = {
 	 * fragment marked `envAbsolute` reads its names as written.
 	 */
 	readonly envPrefix?: string;
+	/** Named help groups to display first, in order. */
+	readonly groupOrder?: readonly string[];
 	readonly defaultCommand?: CommandDefinitionFragmentV1;
 	readonly commands: readonly CommandDefinitionFragmentV1[];
 };
@@ -420,6 +433,8 @@ type CommandDefinitionDocumentV1 = CommandDefinitionFragmentV1 & {
 	 * {@link DefinitionDocumentV1.envPrefix}.
 	 */
 	readonly envPrefix?: string;
+	/** Named help groups to display first, in order, for this command. */
+	readonly groupOrder?: readonly string[];
 };
 
 /** The current whole-CLI definition document. */
@@ -483,6 +498,7 @@ function generateSchema(
 ): DefinitionDocumentV1 {
 	const opts = resolveOptions(options);
 	const envPrefix = opts.envPrefix ?? schema.envPrefix;
+	const groupOrder = options?.groupOrder ?? schema.helpConfig?.groupOrder;
 	const resolvedMeta: ExampleMeta = meta ?? { name: schema.name, version: schema.version };
 
 	// Full definition, not just the name — the default command lives only in
@@ -502,6 +518,7 @@ function generateSchema(
 			? { description: resolvePlainHelpDescription(schema.description) }
 			: {}),
 		...(envPrefix !== undefined ? { envPrefix } : {}),
+		...(groupOrder !== undefined ? { groupOrder: [...groupOrder] } : {}),
 		...(defaultCommand !== undefined ? { defaultCommand } : {}),
 		commands: schema.commands
 			.filter((cmd) => opts.includeHidden || !cmd.hidden)
@@ -538,6 +555,7 @@ function generateCommandSchema(
 	return {
 		schemaVersion: DEFINITION_SCHEMA_VERSION,
 		...(opts.envPrefix !== undefined ? { envPrefix: opts.envPrefix } : {}),
+		...(options?.groupOrder !== undefined ? { groupOrder: [...options.groupOrder] } : {}),
 		...serializeCommand(schema, opts, resolvedMeta),
 	};
 }
@@ -574,6 +592,9 @@ function serializeCommand(
 			? { examples: schema.examples.map((example) => serializeExample(example, meta)) }
 			: {}),
 		flags,
+		...(schema.flagDeclarationOrder !== undefined
+			? { flagDeclarationOrder: [...schema.flagDeclarationOrder] }
+			: {}),
 		// Args — always present (positional order matters)
 		args: schema.args.map((entry) => serializeArgEntry(entry, opts)),
 		// Subcommands — always present
@@ -624,6 +645,7 @@ function serializeFlag(
 		...(schema.description !== undefined
 			? { description: resolvePlainHelpDescription(schema.description) }
 			: {}),
+		...(schema.group !== undefined ? { group: schema.group } : {}),
 		...(schema.enumValues !== undefined ? { enumValues: [...schema.enumValues] } : {}),
 		...(schema.numberConstraints !== undefined
 			? { numberConstraints: { ...schema.numberConstraints } }
@@ -745,6 +767,7 @@ function serializeArgValue(schema: ArgSchema, opts: ResolvedOptions): ArgValueFr
 		...(schema.description !== undefined
 			? { description: resolvePlainHelpDescription(schema.description) }
 			: {}),
+		...(schema.group !== undefined ? { group: schema.group } : {}),
 		...(schema.envVar !== undefined ? { envVar: schema.envVar } : {}),
 		...(schema.envIndexed !== undefined
 			? { envIndexed: serializeEnvIndexed(schema.envIndexed) }
@@ -1382,6 +1405,7 @@ function withDefinitionMetaSchemaDescriptions(
 
 /** The `envPrefix` property schema shared by both standalone document roots. */
 const ENV_PREFIX_PROPERTY = { type: 'string', minLength: 1, not: { pattern: '[={}]' } } as const;
+const GROUP_ORDER_PROPERTY = { type: 'array', items: { type: 'string' } } as const;
 
 /**
  * Command-fragment property schemas shared by the nested `command` def and
@@ -1395,6 +1419,7 @@ const commandFragmentProperties = {
 	hidden: { const: true },
 	examples: { type: 'array', items: { $ref: '#/$defs/example' } },
 	flags: { type: 'object', additionalProperties: { $ref: '#/$defs/flag' } },
+	flagDeclarationOrder: { type: 'array', items: { type: 'string' }, uniqueItems: true },
 	args: { type: 'array', items: { $ref: '#/$defs/arg' } },
 	commands: { type: 'array', items: { $ref: '#/$defs/command' } },
 } as const satisfies FragmentProperties<CommandDefinitionFragmentV1>;
@@ -1411,6 +1436,7 @@ const argValueFragmentProperties = {
 	defaultDescription: { oneOf: [{ type: 'string' }, { const: false }] },
 	sensitive: { const: true },
 	description: { type: 'string' },
+	group: { type: 'string' },
 	envVar: { type: 'string' },
 	envIndexed: { $ref: '#/$defs/envIndexed' },
 	envAbsolute: { const: true },
@@ -1477,6 +1503,7 @@ const flagFragmentProperties = {
 	...flagElementFragmentProperties,
 	defaultDescription: { oneOf: [{ type: 'string' }, { const: false }] },
 	sensitive: { const: true },
+	group: { type: 'string' },
 } as const satisfies FragmentProperties<FlagDefinitionFragmentV1> &
 	Record<SerializedFlagField, Record<string, unknown>>;
 
@@ -1513,6 +1540,7 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 			version: { type: 'string' },
 			description: { type: 'string' },
 			envPrefix: ENV_PREFIX_PROPERTY,
+			groupOrder: GROUP_ORDER_PROPERTY,
 			defaultCommand: { $ref: '#/$defs/command' },
 			commands: { type: 'array', items: { $ref: '#/$defs/command' } },
 		} satisfies FragmentProperties<DefinitionDocumentV1>,
@@ -1530,6 +1558,7 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 				properties: {
 					schemaVersion: { const: DEFINITION_SCHEMA_VERSION },
 					envPrefix: ENV_PREFIX_PROPERTY,
+					groupOrder: GROUP_ORDER_PROPERTY,
 					...commandFragmentProperties,
 				},
 				required: ['schemaVersion', 'name', 'flags', 'args', 'commands'],

@@ -23,13 +23,14 @@ import {
 	requestsHelp,
 } from '#internals/core/parse/index.ts';
 import type { CommandMeta, CommandSchema } from '#internals/core/schema/command.ts';
+import { declaredFlagNames, flagOrderOverride } from '#internals/core/schema/command.ts';
 import { acceptsArgv } from '#internals/core/schema/stdin.ts';
 import type { BuiltinsConfig } from './builtins.ts';
 import { builtinEnabled } from './builtins.ts';
 import type { CompiledCLI, CompiledCommand } from './compiled.ts';
 import { dispatch, findClosestCommand } from './dispatch.ts';
 import type { CLIPlugin } from './plugin.ts';
-import { collectPropagatedFlags } from './propagate.ts';
+import { collectPropagatedFlagEntries } from './propagate.ts';
 import { readRootOutputFlags } from './root-output-flags.ts';
 
 /**
@@ -242,14 +243,19 @@ function mergeCommandSchema(
 	command: CompiledCommand,
 	commandPath: readonly CommandSchema[],
 ): CommandSchema {
-	const propagated = collectPropagatedFlags(commandPath);
-	if (Object.keys(propagated).length === 0) {
+	const propagated = collectPropagatedFlagEntries(commandPath);
+	if (propagated.size === 0) {
 		return command.schema;
 	}
 
+	const flags = { ...Object.fromEntries(propagated), ...command.schema.flags };
 	return {
 		...command.schema,
-		flags: { ...propagated, ...command.schema.flags },
+		flags,
+		flagDeclarationOrder: flagOrderOverride(flags, [
+			...propagated.keys(),
+			...declaredFlagNames(command.schema),
+		]),
 	};
 }
 

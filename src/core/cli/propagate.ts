@@ -9,6 +9,7 @@
  * @module dreamcli/core/cli/propagate
  */
 
+import { declaredFlagNames } from '#internals/core/schema/command.ts';
 import type { CommandSchema, FlagSchema } from '#internals/core/schema/index.ts';
 
 // --- Propagated flag collection
@@ -48,19 +49,25 @@ import type { CommandSchema, FlagSchema } from '#internals/core/schema/index.ts'
 function collectPropagatedFlags(
 	commandPath: readonly CommandSchema[],
 ): Readonly<Record<string, FlagSchema>> {
-	if (commandPath.length <= 1) return {};
+	return Object.fromEntries(collectPropagatedFlagEntries(commandPath));
+}
 
+/** Collect inherited flag entries without losing integer-like key order. @internal */
+function collectPropagatedFlagEntries(
+	commandPath: readonly CommandSchema[],
+): ReadonlyMap<string, FlagSchema> {
 	// Ancestors = all elements except the last (target).
 	// Walk root → ... → parent, accumulating propagated flags.
 	// Later ancestors shadow earlier ones (natural overwrite order).
-	const accumulated: Record<string, FlagSchema> = {};
+	const accumulated = new Map<string, FlagSchema>();
 
 	for (let i = 0; i < commandPath.length - 1; i++) {
 		const ancestor = commandPath[i];
 		if (ancestor === undefined) continue;
 
-		for (const [name, flagSchema] of Object.entries(ancestor.flags)) {
-			if (flagSchema.propagate) {
+		for (const name of declaredFlagNames(ancestor)) {
+			const flagSchema = ancestor.flags[name];
+			if (flagSchema?.propagate) {
 				// Check if any descendant (between this ancestor and the target)
 				// defines a flag with the same name — if so, skip the ancestor's
 				// flag entirely. This ensures a child that redefines a flag
@@ -74,7 +81,7 @@ function collectPropagatedFlags(
 					}
 				}
 				if (!shadowedByDescendant) {
-					accumulated[name] = flagSchema;
+					accumulated.set(name, flagSchema);
 				}
 			}
 		}
@@ -85,7 +92,7 @@ function collectPropagatedFlags(
 	const target = commandPath[commandPath.length - 1];
 	if (target !== undefined) {
 		for (const name of Object.keys(target.flags)) {
-			delete accumulated[name];
+			accumulated.delete(name);
 		}
 	}
 
@@ -94,4 +101,4 @@ function collectPropagatedFlags(
 
 // --- Exports
 
-export { collectPropagatedFlags };
+export { collectPropagatedFlagEntries, collectPropagatedFlags };
