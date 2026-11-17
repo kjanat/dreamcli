@@ -172,6 +172,7 @@ describe('generateSchema — definition metadata', () => {
 		expect(Object.keys(expectRecord(commandDocument.properties))).toEqual([
 			'schemaVersion',
 			'envPrefix',
+			'groupOrder',
 			...Object.keys(expectRecord(command.properties)),
 		]);
 		expect(commandDocument.required).toEqual([
@@ -194,7 +195,7 @@ describe('generateSchema — definition metadata', () => {
 				args: [argEntry('target')],
 				commands: [commandDef({ name: 'status' })],
 			}),
-			{ envPrefix: 'FOO_' },
+			{ envPrefix: 'FOO_', groupOrder: ['Deployment'] },
 		);
 		expect(doc.envPrefix).toBe('FOO_');
 		const allowed = new Set(Object.keys(expectRecord(commandDocument.properties)));
@@ -1198,6 +1199,7 @@ describe('generateSchema — definition metadata', () => {
 				envVar: 'REGION',
 				configPath: 'release.region',
 				description: 'Release region',
+				group: 'Deployment',
 				enumValues: ['us', 'eu'],
 				valueHint: 'region',
 				prompt: { kind: 'input', message: 'Region?', placeholder: 'us' },
@@ -1284,7 +1286,9 @@ describe('generateSchema — definition metadata', () => {
 		expect([...serializedFields].sort()).toEqual(Object.keys(flagMetaProperties).sort());
 		expect(Object.keys(flagElementMetaProperties).sort()).toEqual(
 			Object.keys(flagMetaProperties)
-				.filter((field) => field !== 'defaultDescription' && field !== 'sensitive')
+				.filter(
+					(field) => field !== 'defaultDescription' && field !== 'sensitive' && field !== 'group',
+				)
 				.sort(),
 		);
 		expect(flagMetaProperties.elementSchema).toHaveProperty('$ref', '#/$defs/flagElement');
@@ -1362,6 +1366,7 @@ describe('generateSchema — definition metadata', () => {
 				defaultValue: 'us',
 				defaultDescription: 'United States',
 				description: 'Release region',
+				group: 'Deployment',
 				envVar: 'REGION',
 				enumValues: ['us', 'eu'],
 				valueHint: 'region',

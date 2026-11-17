@@ -103,6 +103,23 @@ cli('mycli')
 
 Both are also accepted per call via `execute(argv, { help })` / `run({ help })`.
 
+### Flag and argument groups
+
+Call `.group(name)` on a flag or argument builder to give it a named help
+section. For example, `.flag('output', flag.path().group('Output'))` appears
+under `Output options:`, and `.arg('source', arg.path().group('Input'))`
+appears under `Input arguments:`.
+
+Named sections follow the order their first visible members were declared.
+Use `.help({ groupOrder: ['Output', 'Input'] })` to prioritize named sections
+within the argument and flag tables. Unlisted groups follow in declaration
+order, and ungrouped entries appear under `Arguments:` or `Flags:`.
+`flagOrder` and `sortFlags` order the flags within each section. The usage
+line and parsing keep positional arguments in declaration order.
+
+The definition document and `--help --json` include each input's `group` and,
+when configured, the `groupOrder` array.
+
 ### Flag spelling
 
 The parser accepts the kebab-case spelling of a camelCase flag key, so a flag

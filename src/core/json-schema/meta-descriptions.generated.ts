@@ -22,6 +22,9 @@ const definitionMetaSchemaDescriptions = {
 				description:
 					"CLI-wide environment namespace prepended to every relative env binding\n(`undefined` when none is set). `.env('TOKEN')` reads `<envPrefix>TOKEN`;\na binding declared with `{ absolute: true }` is read as written.\n\nSet via the .envPrefix() builder method\nor the `envPrefix` field of CLIDefinition. Fixed when declared, so\nneither manifest name inference nor an inherited invocation name changes it.",
 			},
+			groupOrder: {
+				description: 'Named help groups to display first, in order.',
+			},
 			defaultCommand: {
 				description:
 					'Schema of the default command dispatched when no subcommand matches.\n\nWhen set, the CLI root behaves like a hybrid command group: subcommands\ndispatch by name as usual, but empty argv or flags-only argv falls\nthrough to this command instead of showing root help.\n\nSet via the .default() builder method\nor the `defaultCommand` field of CLIDefinition.',
@@ -78,6 +81,9 @@ const definitionMetaSchemaDescriptions = {
 				envPrefix: {
 					description:
 						"CLI-wide environment namespace prepended to every relative env binding\n(`undefined` when none is set). `.env('TOKEN')` reads `<envPrefix>TOKEN`;\na binding declared with `{ absolute: true }` is read as written.\n\nSet via the .envPrefix() builder method\nor the `envPrefix` field of CLIDefinition. Fixed when declared, so\nneither manifest name inference nor an inherited invocation name changes it.",
+				},
+				groupOrder: {
+					description: 'Named help groups to display first, in order.',
 				},
 				name: {
 					description: 'The command name used for dispatch.',
@@ -170,6 +176,9 @@ const definitionMetaSchemaDescriptions = {
 				duplicates: {
 					description:
 						"How repeated CLI occurrences of a singleton flag combine.\n\n- `'last'`  — last occurrence wins (matches historic behavior)\n- `'first'` — first occurrence wins; later ones parse but are ignored\n- `'error'` — a second occurrence is a `ParseError` (`DUPLICATE_FLAG`)\n\nApplies to CLI token occurrences only — env/config/prompt/default\nresolution keeps its precedence semantics and never raises duplicates.\nOccurrences are counted per *logical* flag: aliases and the negated\nspelling all count toward the same flag.\n\nDefault: `'last'`",
+				},
+				group: {
+					description: 'Named section in command help.',
 				},
 				defaultDescription: {
 					description:
@@ -325,6 +334,9 @@ const definitionMetaSchemaDescriptions = {
 				},
 				description: {
 					description: 'Human-readable description for help text.',
+				},
+				group: {
+					description: 'Named section in command help.',
 				},
 				envVar: {
 					description:

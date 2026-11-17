@@ -345,6 +345,8 @@ interface FlagSchema<K extends FlagKind = FlagKind> {
 	readonly configPath: string | undefined;
 	/** Human-readable description for help text. */
 	readonly description: HelpDescription | undefined;
+	/** Named section in command help. */
+	readonly group: string | undefined;
 	/** Allowed literal values when `kind === 'enum'`. */
 	readonly enumValues: readonly string[] | undefined;
 	/**
@@ -551,6 +553,8 @@ interface FlagDefinitionBase {
 	 * @defaultValue `undefined`
 	 */
 	readonly description?: HelpDescription | undefined;
+	/** Named section in command help. */
+	readonly group?: string | undefined;
 	/**
 	 * Help placeholder label (`'url'` renders as `<url>`).
 	 * @defaultValue `undefined`
@@ -820,6 +824,7 @@ const NORMALIZED_FLAG_SCHEMA_KEYS: readonly (keyof FlagSchema)[] = [
 	'envFromName',
 	'configPath',
 	'description',
+	'group',
 	'enumValues',
 	'numberConstraints',
 	'stringConstraints',
@@ -872,6 +877,7 @@ function assertEligibleFlagElementBuilder(schema: FlagSchema): void {
 		['envFromName', false],
 		['configPath', undefined],
 		['description', undefined],
+		['group', undefined],
 		['elementSchema', undefined],
 		['separator', undefined],
 		['split', undefined],
@@ -902,16 +908,18 @@ function assertEligibleFlagElementBuilder(schema: FlagSchema): void {
 	}
 }
 
-/** Reject input-level default presentation metadata on a flag element definition. */
+/** Reject unsupported input metadata on a flag element definition. */
 function assertValidFlagElementSchema(schema: FlagSchema): void {
 	const unsupportedField =
-		schema.completion !== undefined
-			? 'completion'
-			: schema.sensitive
-				? 'sensitive'
-				: schema.defaultDescription !== undefined
-					? 'defaultDescription'
-					: undefined;
+		schema.group !== undefined
+			? 'group'
+			: schema.completion !== undefined
+				? 'completion'
+				: schema.sensitive
+					? 'sensitive'
+					: schema.defaultDescription !== undefined
+						? 'defaultDescription'
+						: undefined;
 	if (unsupportedField === undefined) return;
 
 	throw new CLIError(`Flag element schema field '${unsupportedField}' is not supported`, {
@@ -1280,6 +1288,7 @@ function assembleFlagSchema<K extends FlagKind>(
 		envVar: undefined,
 		configPath: undefined,
 		description: undefined,
+		group: undefined,
 		enumValues: undefined,
 		numberConstraints: undefined,
 		stringConstraints: undefined,
@@ -1758,6 +1767,11 @@ class FlagBuilder<C extends FlagConfig> {
 			...this.schema,
 			description,
 		});
+	}
+
+	/** Place this flag in a named options section in command help. */
+	group(name: string): FlagBuilder<WithoutElementEligibility<C>> {
+		return new FlagBuilder({ ...this.schema, group: name });
 	}
 
 	/**

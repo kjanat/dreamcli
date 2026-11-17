@@ -279,6 +279,8 @@ interface ArgSchema<K extends ArgKind = ArgKind> {
 	readonly sensitive: boolean;
 	/** Human-readable description for help text. */
 	readonly description: HelpDescription | undefined;
+	/** Named section in command help. */
+	readonly group: string | undefined;
 	/**
 	 * Environment variable name for env resolution.
 	 *
@@ -478,6 +480,8 @@ interface ArgDefinitionBase {
 	 * @defaultValue `undefined`
 	 */
 	readonly description?: HelpDescription | undefined;
+	/** Named section in command help. */
+	readonly group?: string | undefined;
 	/**
 	 * Environment variable name for env resolution.
 	 * @defaultValue `undefined`
@@ -671,6 +675,7 @@ const NORMALIZED_ARG_SCHEMA_KEYS: readonly (keyof ArgSchema)[] = [
 	'defaultDescription',
 	'sensitive',
 	'description',
+	'group',
 	'envVar',
 	'envIndexed',
 	'envAbsolute',
@@ -731,6 +736,7 @@ function assertValidArgElementSchema(schema: ArgSchema): void {
 		['stdin', undefined],
 		['defaultValue', undefined],
 		['description', undefined],
+		['group', undefined],
 		['envVar', undefined],
 		['envIndexed', undefined],
 		['envAbsolute', false],
@@ -1033,6 +1039,7 @@ function assembleArgSchema<K extends ArgKind>(
 		sensitive:
 			sensitive === true || rest.prompt?.kind === 'password' || rest.prompt?.sensitive === true,
 		description: undefined,
+		group: undefined,
 		envVar: undefined,
 		configPath: undefined,
 		prompt: undefined,
@@ -1746,6 +1753,11 @@ class ArgBuilder<C extends ArgConfig> {
 			...this.schema,
 			description,
 		});
+	}
+
+	/** Place this argument in a named arguments section in command help. */
+	group(name: string): ArgBuilder<WithoutArgElementEligibility<C>> {
+		return new ArgBuilder({ ...this.schema, group: name });
 	}
 
 	/**

@@ -28,6 +28,7 @@ const ROOT_PROPERTY_TARGETS: Readonly<Record<string, NodeTarget>> = {
 	version: { exportId: 'dreamcli:CLISchema', property: 'version' },
 	description: { exportId: 'dreamcli:CLISchema', property: 'description' },
 	envPrefix: { exportId: 'dreamcli:CLISchema', property: 'envPrefix' },
+	groupOrder: { exportId: 'dreamcli:DefinitionDocumentV1', property: 'groupOrder' },
 	defaultCommand: {
 		exportId: 'dreamcli:CLISchema',
 		property: 'defaultCommand',
@@ -85,6 +86,7 @@ const DEF_PROPERTY_TARGETS: Readonly<Record<string, Readonly<Record<string, Node
 	commandDocument: {
 		schemaVersion: { exportId: 'dreamcli:DEFINITION_SCHEMA_VERSION' },
 		envPrefix: { exportId: 'dreamcli:CLISchema', property: 'envPrefix' },
+		groupOrder: { exportId: 'dreamcli:DefinitionDocumentV1', property: 'groupOrder' },
 		name: { exportId: 'dreamcli:CommandDefinitionFragmentV1', property: 'name' },
 		description: { exportId: 'dreamcli:CommandDefinitionFragmentV1', property: 'description' },
 		details: { exportId: 'dreamcli:CommandDefinitionFragmentV1', property: 'details' },
@@ -97,6 +99,7 @@ const DEF_PROPERTY_TARGETS: Readonly<Record<string, Readonly<Record<string, Node
 	},
 	flag: {
 		...FLAG_PROPERTY_TARGETS,
+		group: { exportId: 'dreamcli:FlagSchema', property: 'group' },
 		defaultDescription: { exportId: 'dreamcli:FlagSchema', property: 'defaultDescription' },
 		sensitive: { exportId: 'dreamcli:FlagSchema', property: 'sensitive' },
 	},
@@ -125,6 +128,7 @@ const DEF_PROPERTY_TARGETS: Readonly<Record<string, Readonly<Record<string, Node
 		defaultDescription: { exportId: 'dreamcli:ArgSchema', property: 'defaultDescription' },
 		sensitive: { exportId: 'dreamcli:ArgSchema', property: 'sensitive' },
 		description: { exportId: 'dreamcli:ArgSchema', property: 'description' },
+		group: { exportId: 'dreamcli:ArgSchema', property: 'group' },
 		envVar: { exportId: 'dreamcli:ArgSchema', property: 'envVar' },
 		envIndexed: { exportId: 'dreamcli:ArgSchema', property: 'envIndexed' },
 		envAbsolute: { exportId: 'dreamcli:ArgSchema', property: 'envAbsolute' },
