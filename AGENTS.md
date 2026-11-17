@@ -94,7 +94,7 @@ specs/                      # planning/design docs
 bun run typecheck             # tsgo --noEmit
 bun run typecheck:tsc         # tsc fallback
 bun run lint                  # biome lint
-bun run format:check          # dprint check
+bun run format:check          # kprint check
 bun run test                  # vitest run
 bun run meta-descriptions     # regenerate JSON Schema meta descriptions
 bun run meta-descriptions:check

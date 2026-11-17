@@ -1,8 +1,8 @@
 {
 	"$schema": "https://opencode.ai/config.json",
 	"formatter": {
-		"dprint": {
-			"command": ["bunx", "dprint", "fmt", "$FILE"],
+		"kprint": {
+			"command": ["bunx", "@kjanat/fmt", "$FILE"],
 			"extensions": [
 				".js",
 				".ts",

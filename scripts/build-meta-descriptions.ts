@@ -46,7 +46,7 @@ if (checkMode) {
 await writeFile(generatedMetaSchemaDescriptionsPath, rendered);
 console.log('✓ src/core/json-schema/meta-descriptions.generated.ts updated');
 
-/** Pipe generated source through dprint via stdin for consistent formatting. */
+/** Pipe generated source through kprint via stdin for consistent formatting. */
 async function formatGeneratedSource(source: string): Promise<string> {
-	return Bun.$`bunx --bun dprint fmt --stdin ts < ${Buffer.from(source)}`.text();
+	return Bun.$`bunx --bun @kjanat/fmt --stdin ts < ${Buffer.from(source)}`.text();
 }

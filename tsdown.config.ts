@@ -92,5 +92,5 @@ export default defineConfig({
 			return emitDefinitionSchema();
 		},
 	},
-	onSuccess: 'bun run fmt:dprint package.json',
+	onSuccess: 'bun run format -- package.json',
 });

@@ -15,13 +15,13 @@ import { promisify } from 'node:util';
 import { definitionMetaSchema } from '@kjanat/dreamcli/json-schema';
 
 const outFile = normalize(`${import.meta.dirname}/../dreamcli.schema.json`);
-const dprintBin = fileURLToPath(import.meta.resolve('dprint/bin.cjs'));
+const kprintBin = fileURLToPath(import.meta.resolve('@kprint/kprint/bin.cjs'));
 const formatSchema = promisify(execFile);
 
 export async function emitDefinitionSchema(): Promise<void> {
 	const schemaStr = `${JSON.stringify(definitionMetaSchema, null, '  ')}\n`;
 	// Format before touching the tracked file, which concurrent builds may have mapped.
-	const formatting = formatSchema(execPath, [dprintBin, 'fmt', '--stdin', 'schema.json'], {
+	const formatting = formatSchema(execPath, [kprintBin, 'fmt', '--stdin', 'schema.json'], {
 		cwd: normalize(`${import.meta.dirname}/..`),
 	});
 	formatting.child.stdin?.end(schemaStr);

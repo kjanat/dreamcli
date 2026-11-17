@@ -1,10 +1,11 @@
-name: bun-deno-runner-dprint
+name: bun-deno-runner-kprint
 description: A GitHub Action to setup Bun and Deno environments for running scripts, with runner/run bins.
 runs:
   using: composite
   steps:
     - uses: kjanat/runner@master
     - uses: kjanat/setup-tombi@master
+    # install-dprint@v2 defaults to kjanat/kprint. It warms the plugin cache.
     - uses: kjanat/install-dprint@v2
     - uses: denoland/setup-deno@v2
     - uses: oven-sh/setup-bun@v2
