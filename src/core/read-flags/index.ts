@@ -7,7 +7,7 @@
  * no command dispatch here; parse and resolution failures propagate as the
  * framework's `ParseError` and `ValidationError`. The one output surface is the
  * built-in `--help`: while it is on and no definition claims its spellings, a
- * pre-separator `--help` or `-h` prints generated help to the adapter's stdout
+ * pre-separator `--help`, `-h`, or `--help=all` prints generated help to the adapter's stdout
  * and exits the process with code 0.
  *
  * @module dreamcli/core/read-flags
@@ -20,7 +20,7 @@ import {
 	buildFlagLookup,
 	flagExpectsValue,
 	parse,
-	requestsHelp,
+	requestedHelpMode,
 	tokenize,
 } from '#internals/core/parse/index.ts';
 import type { DeprecationWarning, ResolveOptions } from '#internals/core/resolve/index.ts';
@@ -81,9 +81,9 @@ interface ReadFlagsOptions<F extends FlagMap = FlagMap> extends ResolveOptions {
 	readonly strict?: boolean;
 
 	/**
-	 * The built-in `--help`/`-h` handling.
+	 * The built-in `--help`/`-h`/`--help=all` handling.
 	 *
-	 * While `'on'`, a pre-separator `--help` or `-h` prints generated help for
+	 * While `'on'`, a pre-separator help flag prints generated help for
 	 * the definitions to the adapter's stdout and exits the process with
 	 * code 0. The built-in yields automatically when any definition claims the
 	 * `help` or `h` spelling through its name, an alias, a negated form, or a
@@ -222,7 +222,7 @@ function withoutUndeclaredTokens(
  * unknown-flag rejection, coercion, constraints, Standard Schema validators, and
  * `flag.path()` checks behave exactly as they do inside a command.
  *
- * A pre-separator `--help` or `-h` prints generated help to the adapter's
+ * A pre-separator help flag prints generated help to the adapter's
  * stdout and exits with code 0, unless {@linkcode ReadFlagsOptions.help} is
  * `'off'` or a definition claims either spelling. With
  * {@linkcode ReadFlagsOptions.strict} set to `false`, undeclared argv content
@@ -325,17 +325,19 @@ async function readFlags<const F extends FlagMap>(
 	const host = adapterReader(options?.adapter);
 	const argv = options?.argv ?? host().argv.slice(2);
 	const lookup = buildFlagLookup(schema.flags, options?.parse);
+	const helpMode = requestedHelpMode(argv);
 
 	if (
 		(options?.help ?? 'on') === 'on' &&
 		!lookup.has('help') &&
 		!lookup.has('h') &&
-		requestsHelp(argv)
+		helpMode !== undefined
 	) {
 		host().stdout(
 			formatHelp(schema, {
 				binName: scriptName(host()),
 				isDefaultHelp: true,
+				showAdvanced: helpMode === 'all',
 				...(options?.envPrefix !== undefined ? { envPrefix: options.envPrefix } : {}),
 				...(options?.flagSpelling !== undefined ? { flagSpelling: options.flagSpelling } : {}),
 				...(options?.parse?.caseParity !== undefined

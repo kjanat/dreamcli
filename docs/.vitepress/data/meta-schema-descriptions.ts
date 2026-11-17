@@ -102,6 +102,7 @@ const DEF_PROPERTY_TARGETS: Readonly<Record<string, Readonly<Record<string, Node
 	flag: {
 		...FLAG_PROPERTY_TARGETS,
 		group: { exportId: 'dreamcli:FlagSchema', property: 'group' },
+		advanced: { exportId: 'dreamcli:FlagSchema', property: 'advanced' },
 		defaultDescription: { exportId: 'dreamcli:FlagSchema', property: 'defaultDescription' },
 		sensitive: { exportId: 'dreamcli:FlagSchema', property: 'sensitive' },
 	},

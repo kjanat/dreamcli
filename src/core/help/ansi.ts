@@ -92,6 +92,28 @@ function padEnd(text: string, length: number): string {
 	return text + ' '.repeat(length - visible);
 }
 
+// biome-ignore lint/suspicious/noControlCharactersInRegex: Match ANSI CSI and OSC sequences before visible characters.
+const ESCAPE_OR_CHARACTER = /\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\))|./gsu;
+
+/** Split visible text without breaking terminal escape sequences. */
+function splitWord(word: string, width: number): readonly string[] {
+	const parts: string[] = [];
+	let part = '';
+	let columns = 0;
+	for (const [token] of word.matchAll(ESCAPE_OR_CHARACTER)) {
+		const size = token.startsWith('\x1b') && token.length > 1 ? 0 : token.length;
+		if (columns > 0 && columns + size > width) {
+			parts.push(part);
+			part = '';
+			columns = 0;
+		}
+		part += token;
+		columns += size;
+	}
+	parts.push(part);
+	return parts;
+}
+
 /**
  * Wrap text to `width`, preserving leading indent on continuation lines.
  *
@@ -101,20 +123,24 @@ function padEnd(text: string, length: number): string {
  * @param text - The text to wrap.
  * @param width - Maximum line width in columns.
  * @param indent - Number of leading spaces for continuation lines.
+ * @param breakLongWords - Split a word that cannot fit on a line.
  * @returns The wrapped string with newlines inserted as needed.
  */
-function wrapText(text: string, width: number, indent: number): string {
+function wrapText(text: string, width: number, indent: number, breakLongWords = false): string {
 	if (visibleWidth(text) + indent <= width) return text;
 
 	const maxLen = width - indent;
 	if (maxLen <= 0) return text;
 
 	const words = text.split(' ');
+	const parts = breakLongWords
+		? words.flatMap((word) => (visibleWidth(word) > maxLen ? splitWord(word, maxLen) : [word]))
+		: words;
 	const lines: string[] = [];
 	let current = '';
 	let currentWidth = 0;
 
-	for (const word of words) {
+	for (const word of parts) {
 		const wordWidth = visibleWidth(word);
 		if (current.length === 0) {
 			current = word;

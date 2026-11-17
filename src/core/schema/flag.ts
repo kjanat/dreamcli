@@ -347,6 +347,8 @@ interface FlagSchema<K extends FlagKind = FlagKind> {
 	readonly description: HelpDescription | undefined;
 	/** Named section in command help. */
 	readonly group: string | undefined;
+	/** Whether the flag is shown only in full text help. */
+	readonly advanced?: true | undefined;
 	/** Allowed literal values when `kind === 'enum'`. */
 	readonly enumValues: readonly string[] | undefined;
 	/**
@@ -555,6 +557,8 @@ interface FlagDefinitionBase {
 	readonly description?: HelpDescription | undefined;
 	/** Named section in command help. */
 	readonly group?: string | undefined;
+	/** Whether the flag is shown only in full text help. */
+	readonly advanced?: true | undefined;
 	/**
 	 * Help placeholder label (`'url'` renders as `<url>`).
 	 * @defaultValue `undefined`
@@ -878,6 +882,7 @@ function assertEligibleFlagElementBuilder(schema: FlagSchema): void {
 		['configPath', undefined],
 		['description', undefined],
 		['group', undefined],
+		['advanced', undefined],
 		['elementSchema', undefined],
 		['separator', undefined],
 		['split', undefined],
@@ -911,15 +916,17 @@ function assertEligibleFlagElementBuilder(schema: FlagSchema): void {
 /** Reject unsupported input metadata on a flag element definition. */
 function assertValidFlagElementSchema(schema: FlagSchema): void {
 	const unsupportedField =
-		schema.group !== undefined
-			? 'group'
-			: schema.completion !== undefined
-				? 'completion'
-				: schema.sensitive
-					? 'sensitive'
-					: schema.defaultDescription !== undefined
-						? 'defaultDescription'
-						: undefined;
+		schema.advanced !== undefined
+			? 'advanced'
+			: schema.group !== undefined
+				? 'group'
+				: schema.completion !== undefined
+					? 'completion'
+					: schema.sensitive
+						? 'sensitive'
+						: schema.defaultDescription !== undefined
+							? 'defaultDescription'
+							: undefined;
 	if (unsupportedField === undefined) return;
 
 	throw new CLIError(`Flag element schema field '${unsupportedField}' is not supported`, {
@@ -1772,6 +1779,11 @@ class FlagBuilder<C extends FlagConfig> {
 	/** Place this flag in a named options section in command help. */
 	group(name: string): FlagBuilder<WithoutElementEligibility<C>> {
 		return new FlagBuilder({ ...this.schema, group: name });
+	}
+
+	/** Show this flag only in full text help, requested with `--help=all`. */
+	advanced(): FlagBuilder<WithoutElementEligibility<C>> {
+		return new FlagBuilder({ ...this.schema, advanced: true });
 	}
 
 	/**

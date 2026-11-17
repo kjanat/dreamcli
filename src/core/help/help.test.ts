@@ -19,6 +19,41 @@ import { formatHelp } from './index.ts';
 // --- Basic command (no flags, no args)
 
 describe('formatHelp', () => {
+	it('breaks overlong flag labels and enum choices even when styled', () => {
+		const name = 'workflow-execution-provider-identifier-for-the-longest-supported-region';
+		const choice = 'workflow-execution-service-identifier-for-the-longest-supported-region';
+		const cmd = command('check')
+			.flag(name, flag.boolean())
+			.flag('service', flag.enum([choice, 'local']));
+		const help = formatHelp(cmd.schema, { width: 60, colors: createColors(true) });
+		expect(help.split('\n').every((line) => visibleWidth(line) <= 60)).toBe(true);
+		const plain = stripAnsi(help);
+		expect(plain.replaceAll(/\n +/gu, '')).toContain(`--${name}`);
+		expect(plain.replaceAll(/\n +/gu, '')).toContain(choice);
+		expect(plain).toContain('Choices:');
+	});
+
+	it('keeps long flag labels from widening the description column', () => {
+		const cmd = command('check')
+			.flag('output', flag.string().describe('Choose the report format'))
+			.flag(
+				'service',
+				flag
+					.enum(['github.com', 'github-data-residency', 'ghes', 'unknown'])
+					.describe('Select the workflow execution service'),
+			)
+			.flag(
+				'runner',
+				flag.boolean().alias('run-on-another-workflow-provider').describe('Run elsewhere'),
+			);
+		const help = formatHelp(cmd.schema, { width: 60 });
+		expect(help).toMatch(/--output <string> +Choose the report format/u);
+		expect(help).toContain('--service <value>');
+		expect(help).toMatch(/Choices: github\.com, github-data-residency, ghes,\s+unknown/u);
+		expect(help).toContain('--runner, --run-on-another-workflow-provider\n    Run elsewhere');
+		expect(help.split('\n').every((line) => visibleWidth(line) <= 60)).toBe(true);
+	});
+
 	describe('minimal command', () => {
 		const cmd = command('greet');
 

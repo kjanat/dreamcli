@@ -504,6 +504,10 @@
         "presence"
       ],
       "properties": {
+        "advanced": {
+          "description": "Whether the flag is shown only in full text help.",
+          "const": true
+        },
         "aliases": {
           "description": "Short/long aliases (e.g. `[{ name: 'f', hidden: false }]` for `--force`).",
           "type": "array",

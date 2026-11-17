@@ -19,7 +19,9 @@ import type { ParseOptions } from '#internals/core/parse/index.ts';
 import {
 	buildFlagLookup,
 	flagExpectsValue,
+	helpFlagMode,
 	includesBeforeSeparator,
+	requestedHelpMode,
 	requestsHelp,
 } from '#internals/core/parse/index.ts';
 import type { CommandMeta, CommandSchema } from '#internals/core/schema/command.ts';
@@ -368,15 +370,15 @@ function findUnknownFlagBeforePositional(
  */
 interface RootHeadScan {
 	/**
-	 * `--help` / `-h` appeared in the head before any command-dispatch token.
+	 * A help mode appeared in the head before any command-dispatch token.
 	 *
 	 * Mirrors the global reach of `--version` (#29): a help flag preceded only by
 	 * flags (no subcommand token) is a *root* help request. A help flag that
 	 * follows a subcommand token is left to that command's executor, so
-	 * `app sub --help` still renders the subcommand's help. Always `false` once
+	 * `app sub --help` still renders the subcommand's help. Always `undefined` once
 	 * the CLI releases `help` to its commands.
 	 */
-	readonly helpBeforeCommand: boolean;
+	readonly helpBeforeCommand: ReturnType<typeof helpFlagMode>;
 	/** First command-dispatch (positional) token, or `undefined` when the head is all flags. */
 	readonly firstCommandToken: string | undefined;
 	/** Index of {@linkcode firstCommandToken} in the head, or `-1` when absent. */
@@ -402,13 +404,14 @@ function scanRootHead(
 		const token = head[index];
 		if (token === undefined) continue;
 
-		if (helpOwned && (token === '--help' || token === '-h')) {
-			return { helpBeforeCommand: true, firstCommandToken: undefined, commandTokenIndex: -1 };
+		const helpMode = helpOwned ? helpFlagMode(token) : undefined;
+		if (helpMode !== undefined) {
+			return { helpBeforeCommand: helpMode, firstCommandToken: undefined, commandTokenIndex: -1 };
 		}
 
 		// Positional (command-dispatch) token: `-` alone or anything not flag-shaped.
 		if (token === '-' || !token.startsWith('-')) {
-			return { helpBeforeCommand: false, firstCommandToken: token, commandTokenIndex: index };
+			return { helpBeforeCommand: undefined, firstCommandToken: token, commandTokenIndex: index };
 		}
 
 		if (token.startsWith('--')) {
@@ -429,7 +432,7 @@ function scanRootHead(
 		}
 	}
 
-	return { helpBeforeCommand: false, firstCommandToken: undefined, commandTokenIndex: -1 };
+	return { helpBeforeCommand: undefined, firstCommandToken: undefined, commandTokenIndex: -1 };
 }
 
 /**
@@ -554,10 +557,13 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 	// keeping `app sub --help` scoped to the subcommand (version stays global by
 	// design — there is no per-command version).
 	const headScan = scanRootHead(filteredHead, rootValueFlags, helpOwned);
-	if (headScan.helpBeforeCommand) {
+	if (headScan.helpBeforeCommand !== undefined) {
 		return {
 			kind: 'root-help',
-			help: options.help,
+			help:
+				headScan.helpBeforeCommand === 'all'
+					? { ...options.help, showAdvanced: true }
+					: options.help,
 		};
 	}
 
@@ -704,7 +710,12 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 				kind: 'needs-subcommand',
 				command: result.command,
 				commandPath: result.commandPath,
-				help: scopeHelpToCommandPath(options, result.commandPath),
+				help: {
+					...scopeHelpToCommandPath(options, result.commandPath),
+					...(helpOwned && requestedHelpMode(result.remainingArgv) === 'all'
+						? { showAdvanced: true }
+						: {}),
+				},
 			};
 
 		case 'match':

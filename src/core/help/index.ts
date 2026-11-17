@@ -65,6 +65,8 @@ interface HelpOptions {
 	 * groups follow declaration order within each input kind.
 	 */
 	readonly groupOrder?: readonly string[];
+	/** Include flags marked as advanced. */
+	readonly showAdvanced?: boolean;
 	/**
 	 * Spelling of long flag names, aliases, and negations in the `Flags:` table.
 	 *
@@ -163,6 +165,7 @@ interface ResolvedHelpOptions {
 	readonly flagOrder: 'alphabetical' | 'declaration';
 	readonly sortFlags: ((a: string, b: string) => number) | undefined;
 	readonly groupOrder: readonly string[];
+	readonly showAdvanced: boolean;
 	readonly flagSpelling: 'declared' | 'kebab';
 	readonly caseParity: boolean;
 	readonly isDefaultHelp: boolean;
@@ -188,6 +191,7 @@ function resolveOptions(options?: HelpOptions): ResolvedHelpOptions {
 		flagOrder: options?.flagOrder ?? 'alphabetical',
 		sortFlags: options?.sortFlags,
 		groupOrder: options?.groupOrder ?? [],
+		showAdvanced: options?.showAdvanced ?? false,
 		flagSpelling: options?.flagSpelling ?? 'declared',
 		caseParity: options?.caseParity ?? true,
 		isDefaultHelp: options?.isDefaultHelp ?? false,
@@ -244,6 +248,8 @@ interface FlagEntry {
 	readonly left: string;
 	/** Preformatted help text for the description table column. */
 	readonly description: string;
+	/** Preformatted choices shown below a shortened enum label. */
+	readonly choices?: readonly string[];
 }
 
 /** Whether the parser reads `spelling` as flag `name`, negated or not. */
@@ -281,16 +287,17 @@ function kebabSpelling(spelling: string): string | undefined {
  *
  * @param name - Long flag name (without `--` prefix).
  * @param schema - The {@link FlagSchema} describing the flag.
- * @param theme - Theme applied to the flag forms and value hint.
+ * @param opts - Theme and width used to format the flag label.
  * @param reads - Parser check for kebab spellings; `undefined` keeps declared spellings.
- * @returns Formatted left-column string for the flags table.
+ * @returns Formatted label and any choices to display underneath.
  */
 function formatFlagLeft(
 	name: string,
 	schema: FlagSchema,
-	theme: HelpTheme,
+	opts: ResolvedHelpOptions,
 	reads: SpellingCheck | undefined,
-): string {
+): Pick<FlagEntry, 'left' | 'choices'> {
+	const { theme } = opts;
 	const visibleShortAliases = getFlagAliasNames(schema, { kind: 'short' });
 	const visibleLongAliases = getFlagAliasNames(schema, { kind: 'long' });
 	// A kebab spelling replaces a declared one only when the parser reads it
@@ -316,12 +323,26 @@ function formatFlagLeft(
 		...(negation?.alias !== undefined ? [`--${spell(negation.alias, true)}`] : []),
 	];
 
-	// Value placeholder (skip for kinds that take no value)
-	if (schema.kind !== 'boolean' && schema.kind !== 'count') {
-		return `${theme.flag(forms.join(', '))} ${theme.placeholder(formatValueHint(schema))}`;
-	}
+	const label = theme.flag(forms.join(', '));
+	if (schema.kind === 'boolean' || schema.kind === 'count') return { left: label };
 
-	return theme.flag(forms.join(', '));
+	const hint = formatValueHint(schema);
+	const left = `${label} ${theme.placeholder(hint)}`;
+	const element = schema.kind === 'array' ? schema.elementSchema : schema;
+	const choices =
+		element?.kind === 'enum' && element.valueHint === undefined ? element.enumValues : undefined;
+	if (
+		schema.valueHint !== undefined ||
+		choices === undefined ||
+		visibleWidth(left) + 2 <= (opts.width * 2) / 3
+	)
+		return { left };
+
+	const shortHint = schema.kind === 'array' ? '<value>...' : '<value>';
+	return {
+		left: `${label} ${theme.placeholder(shortHint)}`,
+		choices: choices.map((choice) => theme.arg(choice)),
+	};
 }
 
 /**
@@ -497,6 +518,11 @@ function orderFlagNames(
 	return [...names].sort((a, b) => defaultFlagOrder(a, b, flags));
 }
 
+/** Whether this flag has a command-line form shown in the current help mode. */
+function showsFlag(schema: FlagSchema, opts: ResolvedHelpOptions): boolean {
+	return acceptsArgv(schema) && (opts.showAdvanced || !schema.advanced);
+}
+
 /**
  * Build the flag entries in the configured order.
  *
@@ -515,9 +541,9 @@ function buildFlagEntries(
 	const entries: FlagEntry[] = [];
 	for (const name of orderFlagNames(names, flags, opts)) {
 		const schema = flags[name];
-		if (schema === undefined || !acceptsArgv(schema)) continue;
+		if (schema === undefined || !showsFlag(schema, opts)) continue;
 		entries.push({
-			left: formatFlagLeft(name, schema, opts.theme, reads),
+			...formatFlagLeft(name, schema, opts, reads),
 			description: formatFlagDescription(schema, opts.theme, opts.descriptionTheme, opts.envPrefix),
 		});
 	}
@@ -738,7 +764,7 @@ function formatUsageLine(schema: CommandSchema, opts: ResolvedHelpOptions): stri
 	}
 
 	// Flags placeholder
-	if (Object.values(schema.flags).some(acceptsArgv)) {
+	if (Object.values(schema.flags).some((flag) => showsFlag(flag, opts))) {
 		parts.push(theme.placeholder('[flags]'));
 	}
 
@@ -821,7 +847,7 @@ function formatFlagSections(schema: CommandSchema, opts: ResolvedHelpOptions): r
 	const { flags } = schema;
 	const names = declaredFlagNames(schema).filter((name) => {
 		const flag = flags[name];
-		return flag !== undefined && acceptsArgv(flag);
+		return flag !== undefined && showsFlag(flag, opts);
 	});
 	if (names.length === 0) return [];
 
@@ -862,18 +888,26 @@ function formatFlagEntriesBlock(
 	let maxLeft = 0;
 	for (const entry of entries) {
 		const indentedWidth = visibleWidth(entry.left) + 2;
-		if (indentedWidth > maxLeft) maxLeft = indentedWidth;
+		if (indentedWidth + GAP < width / 2 && indentedWidth > maxLeft) maxLeft = indentedWidth;
 	}
 
 	const descCol = maxLeft + GAP;
 	for (const entry of entries) {
-		const left = `  ${entry.left}`;
+		const left = `  ${wrapText(entry.left, width, 2, true)}`;
 		if (entry.description.length === 0) {
 			lines.push(left);
+		} else if (
+			visibleWidth(left) > maxLeft ||
+			entry.description.split(' ').some((word) => visibleWidth(word) > width - descCol)
+		) {
+			lines.push(left, `    ${wrapText(entry.description, width, 4, true)}`);
 		} else {
 			const padded = padEnd(left, descCol);
-			const wrapped = wrapText(entry.description, width, descCol);
+			const wrapped = wrapText(entry.description, width, descCol, true);
 			lines.push(`${padded}${wrapped}`);
+		}
+		if (entry.choices !== undefined) {
+			lines.push(`    ${wrapText(`Choices: ${entry.choices.join(', ')}`, width, 4, true)}`);
 		}
 	}
 

@@ -103,6 +103,15 @@ cli('mycli')
 
 Both are also accepted per call via `execute(argv, { help })` / `run({ help })`.
 
+When a long flag label would crowd the table, its description continues on
+the next line. Long enum lists appear on a `Choices:` line below the flag.
+
+### Short and full help
+
+Call `.advanced()` on a flag to show it in full text help. Use
+`mycli --help=all` for the root or `mycli deploy --help=all` for a command.
+Advanced flags remain available in parsing, shell completion, and JSON help.
+
 ### Flag and argument groups
 
 Call `.group(name)` on a flag or argument builder to give it a named help
