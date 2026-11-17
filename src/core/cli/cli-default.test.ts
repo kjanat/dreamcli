@@ -230,6 +230,73 @@ describe('.default()', () => {
 		});
 	});
 
+	// --- explicit filesystem paths are not command typos (#238)
+
+	describe.each([false, true])('path arguments (routed default: %s)', (route) => {
+		function pathApp() {
+			return cli('example')
+				.default(
+					command('check')
+						.arg('paths', arg.string().variadic().optional())
+						.flag('verbose', flag.boolean().alias('v'))
+						.action(({ args, out }) => out.log(JSON.stringify(args.paths))),
+					{ route },
+				)
+				.command(
+					command('fix')
+						.alias('f')
+						.action(({ out }) => out.log('fixed')),
+				);
+		}
+
+		it.each([
+			'.',
+			'..',
+			'./',
+			'../',
+			'.\\',
+			'..\\',
+			'/',
+			'\\',
+			'/fix',
+			'fix/',
+			'fix\\',
+			'./fix',
+			'..\\fix',
+		])('passes %s unchanged to the default command', async (path) => {
+			const result = await pathApp().execute([path]);
+
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual([`${JSON.stringify([path])}\n`]);
+			expect(result.stderr).toEqual([]);
+		});
+
+		it('preserves flags and all following path arguments', async () => {
+			const paths = ['.', '..', './', 'fix'];
+			const result = await pathApp().execute(['-v', ...paths]);
+
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual([`${JSON.stringify(paths)}\n`]);
+			expect(result.stderr).toEqual([]);
+		});
+
+		it('still suggests a mistyped sibling command', async () => {
+			const result = await pathApp().execute(['fiz']);
+
+			expect(result.exitCode).toBe(2);
+			expect(result.stdout).toEqual([]);
+			expect(result.stderr.join('')).toContain("Did you mean 'fix'?");
+		});
+
+		it.each(['fix', 'f'])('still dispatches the exact route %s', async (name) => {
+			const result = await pathApp().execute([name]);
+
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['fixed\n']);
+			expect(result.stderr).toEqual([]);
+		});
+	});
+
 	// --- nested unknown does not delegate to default
 
 	describe('nested unknown does not delegate to default', () => {
