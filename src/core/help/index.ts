@@ -893,21 +893,21 @@ function formatFlagEntriesBlock(
 
 	const descCol = maxLeft + GAP;
 	for (const entry of entries) {
-		const left = `  ${wrapText(entry.left, width, 2)}`;
+		const left = `  ${wrapText(entry.left, width, 2, true)}`;
 		if (entry.description.length === 0) {
 			lines.push(left);
 		} else if (
 			visibleWidth(left) > maxLeft ||
 			entry.description.split(' ').some((word) => visibleWidth(word) > width - descCol)
 		) {
-			lines.push(left, `    ${wrapText(entry.description, width, 4)}`);
+			lines.push(left, `    ${wrapText(entry.description, width, 4, true)}`);
 		} else {
 			const padded = padEnd(left, descCol);
-			const wrapped = wrapText(entry.description, width, descCol);
+			const wrapped = wrapText(entry.description, width, descCol, true);
 			lines.push(`${padded}${wrapped}`);
 		}
 		if (entry.choices !== undefined) {
-			lines.push(`    ${wrapText(`Choices: ${entry.choices.join(', ')}`, width, 4)}`);
+			lines.push(`    ${wrapText(`Choices: ${entry.choices.join(', ')}`, width, 4, true)}`);
 		}
 	}
 
