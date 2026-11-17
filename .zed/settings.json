@@ -10,18 +10,18 @@
 	"file_types": { "Markdown": ["LICENSE"], "TypeScript": ["*.ts.tpl"] },
 	"prettier": { "allowed": false },
 	"formatter": [
-		{ "language_server": { "name": "dprint" } }, // just in case...
-		{ "external": { "command": "dprint", "arguments": ["fmt", "--stdin", "{buffer_path}"] } }
+		{ "language_server": { "name": "kprint" } },
+		{ "external": { "command": "kprint", "arguments": ["fmt", "--stdin", "{buffer_path}"] } }
 	],
 	"languages": {
 		"JavaScript": {
 			"formatter": [
 				{ "language_server": { "name": "biome" } },
-				{ "language_server": { "name": "dprint" } },
+				{ "language_server": { "name": "kprint" } },
 				{
 					"external": {
 						"command": "bunx",
-						"arguments": ["dprint", "fmt", "--stdin", "{buffer_path}"]
+						"arguments": ["@kjanat/fmt", "--stdin", "{buffer_path}"]
 					}
 				}
 			],
@@ -34,11 +34,11 @@
 		"TypeScript": {
 			"formatter": [
 				{ "language_server": { "name": "biome" } },
-				{ "language_server": { "name": "dprint" } },
+				{ "language_server": { "name": "kprint" } },
 				{
 					"external": {
 						"command": "bunx",
-						"arguments": ["dprint", "fmt", "--stdin", "{buffer_path}"]
+						"arguments": ["@kjanat/fmt", "--stdin", "{buffer_path}"]
 					}
 				}
 			],
@@ -68,8 +68,8 @@
 				}
 			}
 		},
-		"dprint": {
-			"binary": { "path": "bunx", "arguments": ["dprint", "lsp"] }
+		"kprint": {
+			"binary": { "path": "bunx", "arguments": ["@kprint/kprint", "lsp"] }
 		},
 		"biome": {
 			"binary": {

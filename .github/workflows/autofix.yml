@@ -48,7 +48,7 @@ jobs:
         with: { ref: master }
       - uses: $/.github/actions/setup
       - run: runner install
-      # `dprint config update` queries every plugin registry and may download
+      # `kprint config update` queries every plugin registry and may download
       # and compile new plugin versions; 20s starves legitimate runs.
       - run: bash scripts/ci-retry-hang.sh 90 run fmt:update
       - run: run -s fmt:autofix lint:autofix
