@@ -32,6 +32,13 @@ import { resolveFlags } from './flags.ts';
 import { pathChecksSkippedError } from './path-checks.ts';
 import { applyStandardValidators } from './standard.ts';
 
+const sensitiveFlagsByResult = new WeakMap<ResolveResult, ReadonlySet<string>>();
+
+/** Read sensitivity selected during resolution without adding it to the result DTO. @internal */
+function resolvedSensitiveFlags(result: ResolveResult): ReadonlySet<string> | undefined {
+	return sensitiveFlagsByResult.get(result);
+}
+
 /**
  * Resolve parsed values against a command schema.
  *
@@ -143,13 +150,15 @@ async function resolve(
 		throwAggregatedErrors(errors);
 	}
 
-	return {
+	const result: ResolveResult = {
 		flags,
 		args,
 		deprecations,
 		skippedPathChecks,
 		provenance: { flags: flagProvenance, args: argProvenance },
 	};
+	if (sensitiveInputs.size > 0) sensitiveFlagsByResult.set(result, sensitiveInputs);
+	return result;
 }
 
 /**
@@ -173,4 +182,4 @@ export type {
 	ResolveResult,
 	SkippedPathCheck,
 };
-export { resolve };
+export { resolve, resolvedSensitiveFlags };

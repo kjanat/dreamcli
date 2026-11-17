@@ -19,6 +19,61 @@ if (prerequisites.length > 0)
 	console.warn(`Skipping native PowerShell completion: requires ${prerequisites.join(', ')}`);
 
 describe.skipIf(prerequisites.length > 0)('native PowerShell completion', () => {
+	it('matches flag prefixes case-insensitively after applying conflicts', () => {
+		const directory = mkdtempSync(join(tmpdir(), 'dreamcli-powershell-'));
+		try {
+			const source = new URL('../../index.ts', import.meta.url).href;
+			const fixture = `
+				import { cli, command, flag } from ${JSON.stringify(source)};
+				const app = cli('dcpsfixture').command(command('render')
+					.flag('output', flag.string())
+					.flag('keep-name', flag.boolean().negatable())
+					.flag('remote', flag.boolean().describe('Connect remotely'))
+					.constrain((c) => [c.conflicts('output', 'keep-name')]));
+				await app.completions({ as: 'flag' }).run();
+			`;
+			const entry = join(directory, 'fixture.ts');
+			const program = join(directory, 'dcpsfixture');
+			writeFileSync(entry, fixture);
+			writeFileSync(program, `#!/usr/bin/env bash\nexec bun ${quoteShellArg(entry)} "$@"\n`, {
+				mode: 0o700,
+			});
+			const generated = spawnSync(program, ['--completions', 'powershell'], { encoding: 'utf8' });
+			expect(generated.status, generated.stderr).toBe(0);
+			const script = join(directory, 'completion.ps1');
+			writeFileSync(script, generated.stdout);
+			const result = spawnSync(
+				'pwsh',
+				[
+					'-NoProfile',
+					'-NonInteractive',
+					'-Command',
+					[
+						"$ErrorActionPreference = 'Stop'",
+						`$env:PATH = ${quote(directory)} + [IO.Path]::PathSeparator + $env:PATH`,
+						`. ${quote(script)}`,
+						"foreach ($prefix in @('--R', '--')) {",
+						"  $line = 'dcpsfixture render --output x ' + $prefix",
+						'  $matches = [System.Management.Automation.CommandCompletion]::CompleteInput($line, $line.Length, $null).CompletionMatches',
+						'  ConvertTo-Json -Compress -InputObject @($matches | ForEach-Object { $_.CompletionText })',
+						'}',
+					].join('\n'),
+				],
+				{ encoding: 'utf8', timeout: 20_000 },
+			);
+			expect(result.status, result.error?.message ?? result.stderr).toBe(0);
+			const [uppercase, all] = result.stdout
+				.trim()
+				.split('\n')
+				.map((line) => JSON.parse(line));
+			expect(uppercase).toEqual(['--remote']);
+			expect(all).toEqual(expect.arrayContaining(['--no-keep-name', '--remote']));
+			expect(all).not.toContain('--keep-name');
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	}, 60_000);
+
 	it('preserves partial quotes, escaped literals, and preceding arguments', () => {
 		const directory = mkdtempSync(join(tmpdir(), 'dreamcli-powershell-'));
 		try {

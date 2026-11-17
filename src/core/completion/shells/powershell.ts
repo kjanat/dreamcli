@@ -22,6 +22,7 @@ import { flagValueSchema, valueEnumValues } from '#internals/core/schema/value.t
 import type { CommandNode, CompletionOptions, RootCompletionSurface } from './shared.ts';
 import {
 	getVisibleNegatedName,
+	hasCompletionConflicts,
 	hasDynamicCompletion,
 	programTag,
 	resolveRootCompletionSurface,
@@ -44,6 +45,7 @@ function generatePowerShellCompletion(schema: CLISchema, options?: CompletionOpt
 	const rootSurface = resolveRootCompletionSurface(schema, options?.rootMode);
 	const visibleCommands = rootSurface.visibleCommands;
 	const nodes = walkCommandTree(visibleCommands);
+	const hasConflicts = hasCompletionConflicts(schema);
 
 	const lines: string[] = [];
 
@@ -60,9 +62,9 @@ function generatePowerShellCompletion(schema: CLISchema, options?: CompletionOpt
 	lines.push('using namespace System.Management.Automation.Language');
 	lines.push('');
 
-	emitPowerShellPathTable(lines, dataVarName, rootSurface, nodes);
+	emitPowerShellPathTable(lines, dataVarName, rootSurface, nodes, hasConflicts);
 	lines.push('');
-	emitPowerShellHelpers(lines, helperPrefix, dataVarName);
+	emitPowerShellHelpers(lines, helperPrefix, dataVarName, hasConflicts);
 	lines.push('');
 	lines.push(
 		`Register-ArgumentCompleter -Native -CommandName ${quotePowerShellString(schema.name)} -ScriptBlock {`,
@@ -71,6 +73,7 @@ function generatePowerShellCompletion(schema: CLISchema, options?: CompletionOpt
 	if (hasDynamicCompletion(schema)) {
 		lines.push('\t$dynamicArgs = [System.Collections.Generic.List[string]]::new()');
 		lines.push("\t$dynamicArgs.Add('__complete')");
+		if (hasConflicts) lines.push("\t$dynamicArgs.Add('--values')");
 		lines.push("\t$dynamicArgs.Add('--')");
 		lines.push('\t$currentText = $wordToComplete');
 		lines.push('\tforeach ($element in $commandAst.CommandElements | Select-Object -Skip 1) {');
@@ -128,9 +131,15 @@ function generatePowerShellCompletion(schema: CLISchema, options?: CompletionOpt
 	lines.push('\t\treturn $results');
 	lines.push('\t}');
 	lines.push('');
+	if (hasConflicts) {
+		lines.push('\t$dynamicArgs.RemoveAt($dynamicArgs.Count - 1)');
+		lines.push("\t$dynamicArgs[1] = '--blocked-flags'");
+		lines.push(`\t$blockedFlags = @(& ${quotePowerShellString(schema.name)} @dynamicArgs 2>$null)`);
+	}
+	const blockedOption = hasConflicts ? ' -BlockedFlags $blockedFlags' : '';
 	lines.push("\tif ($wordPrefix.StartsWith('-')) {");
 	lines.push(
-		`\t\t${helperPrefix}_AddFlagResults -Results $results -PathData $state.PathData -WordToComplete $wordPrefix`,
+		`\t\t${helperPrefix}_AddFlagResults -Results $results -PathData $state.PathData -WordToComplete $wordPrefix${blockedOption}`,
 	);
 	lines.push('\t\treturn $results');
 	lines.push('\t}');
@@ -139,7 +148,7 @@ function generatePowerShellCompletion(schema: CLISchema, options?: CompletionOpt
 		`\t${helperPrefix}_AddCommandResults -Results $results -PathData $state.PathData -WordToComplete $wordPrefix`,
 	);
 	lines.push(
-		`\t${helperPrefix}_AddFlagResults -Results $results -PathData $state.PathData -WordToComplete $wordPrefix`,
+		`\t${helperPrefix}_AddFlagResults -Results $results -PathData $state.PathData -WordToComplete $wordPrefix${blockedOption}`,
 	);
 	lines.push('\treturn $results');
 	lines.push('}');
@@ -152,15 +161,28 @@ function emitPowerShellPathTable(
 	dataVarName: string,
 	rootSurface: RootCompletionSurface,
 	nodes: readonly CommandNode[],
+	hasConflicts: boolean,
 ): void {
 	lines.push(`$script:${dataVarName} = @{`);
-	appendPowerShellPathEntry(lines, '', rootSurface.visibleCommands, {
-		...rootSurface.rootFlags,
-		...(rootSurface.includeDefaultFlags ? rootSurface.defaultFlags : {}),
-	});
+	appendPowerShellPathEntry(
+		lines,
+		'',
+		rootSurface.visibleCommands,
+		{
+			...rootSurface.rootFlags,
+			...(rootSurface.includeDefaultFlags ? rootSurface.defaultFlags : {}),
+		},
+		hasConflicts,
+	);
 
 	for (const node of nodes) {
-		appendPowerShellPathEntry(lines, node.path.join(' '), node.children, node.mergedFlags);
+		appendPowerShellPathEntry(
+			lines,
+			node.path.join(' '),
+			node.children,
+			node.mergedFlags,
+			hasConflicts,
+		);
 	}
 
 	lines.push('}');
@@ -175,6 +197,7 @@ function appendPowerShellPathEntry(
 		readonly description: string | undefined;
 	}>,
 	flags: Readonly<Record<string, FlagSchema>>,
+	hasConflicts: boolean,
 ): void {
 	lines.push(`\t${quotePowerShellString(path)} = @{`);
 	lines.push('\t\tCommands = @(');
@@ -214,6 +237,11 @@ function appendPowerShellPathEntry(
 		lines.push('\t\t\t@{');
 		lines.push(`\t\t\t\tCanonicalName = ${quotePowerShellString(name)}`);
 		lines.push(`\t\t\t\tForms = ${formatPowerShellArray(forms)}`);
+		if (hasConflicts) {
+			const negatedForm =
+				visibleNegated === undefined ? '$null' : quotePowerShellString(`--${visibleNegated}`);
+			lines.push(`\t\t\t\tNegatedForm = ${negatedForm}`);
+		}
 		lines.push(`\t\t\t\tParseForms = ${formatPowerShellArray(parseForms)}`);
 		lines.push(`\t\t\t\tRequiresValue = ${flagExpectsValue(schema) ? '$true' : '$false'}`);
 		lines.push(
@@ -228,7 +256,12 @@ function appendPowerShellPathEntry(
 	lines.push('\t}');
 }
 
-function emitPowerShellHelpers(lines: string[], helperPrefix: string, dataVarName: string): void {
+function emitPowerShellHelpers(
+	lines: string[],
+	helperPrefix: string,
+	dataVarName: string,
+	hasConflicts: boolean,
+): void {
 	lines.push(`function ${helperPrefix}_UnquoteToken {`);
 	lines.push('\tparam([string]$TokenText)');
 	lines.push(
@@ -453,9 +486,18 @@ function emitPowerShellHelpers(lines: string[], helperPrefix: string, dataVarNam
 	lines.push('}');
 	lines.push('');
 	lines.push(`function ${helperPrefix}_AddFlagResults {`);
-	lines.push('\tparam($Results, $PathData, [string]$WordToComplete)');
+	lines.push(
+		hasConflicts
+			? '\tparam($Results, $PathData, [string]$WordToComplete, [string[]]$BlockedFlags)'
+			: '\tparam($Results, $PathData, [string]$WordToComplete)',
+	);
 	lines.push('\tforeach ($flag in $PathData.Flags) {');
 	lines.push('\t\tforeach ($form in $flag.Forms) {');
+	if (hasConflicts) {
+		lines.push(
+			'\t\t\tif ($BlockedFlags -ccontains $flag.CanonicalName -and $form -cne $flag.NegatedForm) { continue }',
+		);
+	}
 	lines.push(
 		'\t\t\tif (-not [string]::IsNullOrEmpty($WordToComplete) -and -not $form.StartsWith($WordToComplete, [System.StringComparison]::OrdinalIgnoreCase)) {',
 	);

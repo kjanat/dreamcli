@@ -240,7 +240,7 @@ async function completeValues(
 	compiled: CompiledCLI,
 	argv: readonly string[],
 	env: CompletionContext['env'],
-	valueOnly = false,
+	mode: 'all' | 'values' | 'value-only',
 ): Promise<{ readonly exitCode: number; readonly candidates: readonly string[] }> {
 	const position =
 		argv.length === 0 ? undefined : completionPosition(schema, compiled, argv.slice(0, -1));
@@ -250,7 +250,7 @@ async function completeValues(
 		const prefix = argv[argv.length - 1] ?? '';
 		const blocked = blockedFlagNames(position);
 		if (
-			valueOnly ||
+			mode !== 'all' ||
 			blocked.size === 0 ||
 			position.pending !== undefined ||
 			(prefix !== '' && !prefix.startsWith('-')) ||
@@ -307,7 +307,7 @@ async function completeValues(
 					!/\p{Cc}/u.test(value) &&
 					value.startsWith(target.context.prefix),
 			)
-			.map((value) => (valueOnly ? value : target.tokenPrefix + value));
+			.map((value) => (mode === 'value-only' ? value : target.tokenPrefix + value));
 		return { exitCode: 0, candidates };
 	} catch {
 		return {
@@ -333,9 +333,13 @@ async function completeRequest(
 			candidates: position === undefined ? [] : [...blockedFlagNames(position)],
 		};
 	}
-	const valueOnly = request[0] === '--value-only' && request[1] === '--';
-	const offset = valueOnly ? 2 : request[0] === '--' ? 1 : 0;
-	return completeValues(schema, compiled, request.slice(offset), env, valueOnly);
+	if (request[1] === '--') {
+		if (request[0] === '--value-only')
+			return completeValues(schema, compiled, request.slice(2), env, 'value-only');
+		if (request[0] === '--values')
+			return completeValues(schema, compiled, request.slice(2), env, 'values');
+	}
+	return completeValues(schema, compiled, request.slice(request[0] === '--' ? 1 : 0), env, 'all');
 }
 
 export { completeRequest };

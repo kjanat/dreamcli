@@ -1,6 +1,7 @@
 /** Post-resolution validation for the command's complete input set. */
 import { CLIError } from '#internals/core/errors/index.ts';
 import type { ResolveResult } from '#internals/core/resolve/contracts.ts';
+import { resolvedSensitiveFlags } from '#internals/core/resolve/index.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
 import type { CommandConstraint, ConstraintInput } from '#internals/core/schema/constraints.ts';
 import { describeConstraint } from '#internals/core/schema/constraints.ts';
@@ -50,6 +51,8 @@ function constraintError(
 function validationIssue(
 	issue: StandardSchemaV1Issue,
 	resolvedInput: boolean,
+	schema: CommandSchema,
+	sensitiveFlags: ReadonlySet<string> | undefined,
 ): {
 	readonly message: string;
 	readonly path: readonly string[];
@@ -58,17 +61,22 @@ function validationIssue(
 	const path = (issue.path ?? []).map((segment) =>
 		String(typeof segment === 'object' ? segment.key : segment),
 	);
-	const [first, second] = path;
-	const label = resolvedInput
-		? first === 'flags' && second !== undefined
-			? `--${second}`
-			: first === 'args' && second !== undefined
-				? `<${second}>`
-				: undefined
-		: first === undefined
-			? undefined
-			: `--${first}`;
-	return { message: issue.message, path, ...(label !== undefined ? { label } : {}) };
+	const surfaceIndex = resolvedInput && path[0] === 'sources' ? 1 : 0;
+	const surface = resolvedInput ? path[surfaceIndex] : 'flags';
+	const nameIndex = resolvedInput ? surfaceIndex + 1 : 0;
+	const name = path[nameIndex];
+	if (name === undefined || (surface !== 'flags' && surface !== 'args')) {
+		return { message: issue.message, path };
+	}
+	const sensitive =
+		surface === 'flags'
+			? sensitiveFlags?.has(name) || schema.flags[name]?.sensitive
+			: schema.args.find((arg) => arg.name === name)?.schema.sensitive;
+	return {
+		message: issue.message,
+		path: sensitive ? path.slice(0, nameIndex + 1) : path,
+		label: surface === 'flags' ? `--${name}` : `<${name}>`,
+	};
 }
 
 /** Check constraints and run validation without replacing resolved values. @internal */
@@ -93,7 +101,10 @@ async function validateCommandInputs(
 			throw new CLIError('Command validator threw', { code: 'COMMAND_VALIDATION_FAILED', cause });
 		}
 		if (result === undefined) continue;
-		const issues = result.map((issue) => validationIssue(issue, resolvedInput));
+		const sensitiveFlags = resolvedSensitiveFlags(resolved);
+		const issues = result.map((issue) =>
+			validationIssue(issue, resolvedInput, schema, sensitiveFlags),
+		);
 		throw new CLIError(
 			issues
 				.map(({ message, label }) => (label === undefined ? message : `${label}: ${message}`))

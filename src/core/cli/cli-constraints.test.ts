@@ -78,6 +78,79 @@ describe('resolved command constraints', () => {
 });
 
 describe('command Standard Schema validation', () => {
+	it('redacts nested paths of sensitive flags and args in resolved-input validation', async () => {
+		const cmd = command('prepare')
+			.flag('credentials', flag.keyValue().sensitive())
+			.flag('interactive', flag.string())
+			.arg('secret', arg.string().sensitive())
+			.interactive(() => ({ interactive: { kind: 'password', message: 'Secret' } }))
+			.validate(
+				{
+					'~standard': {
+						version: 1,
+						vendor: 'test',
+						validate: () => ({
+							issues: [
+								{ message: 'Invalid credentials', path: ['flags', 'credentials', 'private-key'] },
+								{ message: 'Invalid input', path: ['args', 'secret', 'private-arg'] },
+								{
+									message: 'Invalid interactive input',
+									path: ['flags', 'interactive', 'private-prompt'],
+								},
+							],
+						}),
+					},
+				},
+				{ input: 'resolved' },
+			)
+			.action(() => {});
+		const result = await runCommand(cmd, [
+			'--credentials',
+			'private-key=value',
+			'--interactive',
+			'value',
+			'argument',
+			'--json',
+		]);
+		const output = result.stdout.join('');
+		expect(output).not.toMatch(/private-(?:key|arg|prompt)/u);
+		expect(JSON.parse(output)).toMatchObject({
+			error: {
+				code: 'COMMAND_VALIDATION_FAILED',
+				details: {
+					issues: [
+						{ label: '--credentials', path: ['flags', 'credentials'] },
+						{ label: '<secret>', path: ['args', 'secret'] },
+						{ label: '--interactive', path: ['flags', 'interactive'] },
+					],
+				},
+			},
+		});
+	});
+
+	it('retains nested paths for public flags and only the name for sensitive flags', async () => {
+		const cmd = command('prepare')
+			.flag('credentials', flag.keyValue().sensitive())
+			.flag('options', flag.keyValue())
+			.validate({
+				'~standard': {
+					version: 1,
+					vendor: 'test',
+					validate: () => ({
+						issues: [
+							{ message: 'Invalid key', path: ['credentials', 'private-key'] },
+							{ message: 'Invalid option', path: ['options', 'port'] },
+						],
+					}),
+				},
+			})
+			.action(() => {});
+		const result = await runCommand(cmd, ['--json']);
+		expect(JSON.parse(result.stdout.join(''))).toMatchObject({
+			error: { details: { issues: [{ path: ['credentials'] }, { path: ['options', 'port'] }] } },
+		});
+	});
+
 	const validator: StandardSchemaV1 = {
 		'~standard': {
 			version: 1,
