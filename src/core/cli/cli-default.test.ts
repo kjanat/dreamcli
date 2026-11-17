@@ -10,7 +10,7 @@ import { flag } from '#internals/core/schema/flag.ts';
 import { cli } from './index.ts';
 import { formatRootHelp } from './root-help.ts';
 
-// === Helpers
+// Helpers
 
 function deployCommand() {
 	return command('deploy')
@@ -39,10 +39,10 @@ function noArgCommand() {
 		});
 }
 
-// === .default()
+// .default()
 
 describe('.default()', () => {
-	// --- builder
+	// builder
 
 	describe('builder', () => {
 		it('stores the default command reference in schema', () => {
@@ -117,7 +117,7 @@ describe('.default()', () => {
 		});
 	});
 
-	// --- single-command dispatch
+	// single-command dispatch
 
 	describe('single-command dispatch', () => {
 		it('dispatches to default on empty argv', async () => {
@@ -172,7 +172,7 @@ describe('.default()', () => {
 		});
 	});
 
-	// --- hybrid dispatch (default + siblings)
+	// hybrid dispatch (default + siblings)
 
 	describe('hybrid dispatch (default + siblings)', () => {
 		it('dispatches to named sibling command', async () => {
@@ -230,7 +230,74 @@ describe('.default()', () => {
 		});
 	});
 
-	// --- nested unknown does not delegate to default
+	// explicit filesystem paths are not command typos (#238)
+
+	describe.each([false, true])('path arguments (routed default: %s)', (route) => {
+		function pathApp() {
+			return cli('example')
+				.default(
+					command('check')
+						.arg('paths', arg.string().variadic().optional())
+						.flag('verbose', flag.boolean().alias('v'))
+						.action(({ args, out }) => out.log(JSON.stringify(args.paths))),
+					{ route },
+				)
+				.command(
+					command('fix')
+						.alias('f')
+						.action(({ out }) => out.log('fixed')),
+				);
+		}
+
+		it.each([
+			'.',
+			'..',
+			'./',
+			'../',
+			'.\\',
+			'..\\',
+			'/',
+			'\\',
+			'/fix',
+			'fix/',
+			'fix\\',
+			'./fix',
+			'..\\fix',
+		])('passes %s unchanged to the default command', async (path) => {
+			const result = await pathApp().execute([path]);
+
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual([`${JSON.stringify([path])}\n`]);
+			expect(result.stderr).toEqual([]);
+		});
+
+		it('preserves flags and all following path arguments', async () => {
+			const paths = ['.', '..', './', 'fix'];
+			const result = await pathApp().execute(['-v', ...paths]);
+
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual([`${JSON.stringify(paths)}\n`]);
+			expect(result.stderr).toEqual([]);
+		});
+
+		it('still suggests a mistyped sibling command', async () => {
+			const result = await pathApp().execute(['fiz']);
+
+			expect(result.exitCode).toBe(2);
+			expect(result.stdout).toEqual([]);
+			expect(result.stderr.join('')).toContain("Did you mean 'fix'?");
+		});
+
+		it.each(['fix', 'f'])('still dispatches the exact route %s', async (name) => {
+			const result = await pathApp().execute([name]);
+
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual(['fixed\n']);
+			expect(result.stderr).toEqual([]);
+		});
+	});
+
+	// nested unknown does not delegate to default
 
 	describe('nested unknown does not delegate to default', () => {
 		it('surfaces unknown-command error inside a group instead of delegating', async () => {
@@ -293,7 +360,7 @@ describe('.default()', () => {
 		});
 	});
 
-	// --- help and version
+	// help and version
 
 	describe('help and version', () => {
 		it('--help renders the default command inline as the root surface', async () => {
@@ -346,7 +413,7 @@ describe('.default()', () => {
 		});
 	});
 
-	// --- JSON mode
+	// JSON mode
 
 	describe('JSON mode', () => {
 		it('default command receives jsonMode context via --json', async () => {
@@ -378,7 +445,7 @@ describe('.default()', () => {
 		});
 	});
 
-	// --- same-name command help
+	// same-name command help
 
 	describe('same-name command help', () => {
 		it('collapses duplicate binary and command names in merged root help', async () => {
@@ -434,7 +501,7 @@ describe('.default()', () => {
 	});
 });
 
-// === Routed default (.default(cmd, { route: true }))
+// Routed default (.default(cmd, { route: true }))
 
 describe('.default() — routed (route: true)', () => {
 	// Mirrors the claude-down shape: a `status` default that is also the
@@ -462,7 +529,7 @@ describe('.default() — routed (route: true)', () => {
 			.command(anthropicCommand());
 	}
 
-	// --- schema
+	// schema
 
 	it('records defaultCommandRouted on the schema', () => {
 		expect(routedApp().schema.defaultCommandRouted).toBe(true);
@@ -480,7 +547,7 @@ describe('.default() — routed (route: true)', () => {
 		expect(app.schema.defaultCommand?.name).toBe('status');
 	});
 
-	// --- dispatch parity: root and named forms are the same surface
+	// dispatch parity: root and named forms are the same surface
 
 	it('runs the default on bare argv', async () => {
 		const result = await routedApp().execute([]);
@@ -511,7 +578,7 @@ describe('.default() — routed (route: true)', () => {
 		expect(result.stdout.join('')).toContain('anthropic:ok');
 	});
 
-	// --- help
+	// help
 
 	it('lists the routed default in Commands, marked (default)', () => {
 		const help = formatRootHelp(routedApp().schema);
@@ -521,7 +588,7 @@ describe('.default() — routed (route: true)', () => {
 		expect(help).toContain('anthropic');
 	});
 
-	// --- guards / non-routed parity
+	// guards / non-routed parity
 
 	it('a surface-only default is neither listed nor routable by name', async () => {
 		const app = cli('claude-down').default(sourceStatusCommand()).command(anthropicCommand());
@@ -548,7 +615,7 @@ describe('.default() — routed (route: true)', () => {
 	});
 });
 
-// === Root help formatting with default command
+// Root help formatting with default command
 
 describe('formatRootHelp — default command', () => {
 	it('shows [command] (optional) when a default and subcommands exist', () => {
@@ -669,7 +736,7 @@ describe('formatRootHelp — default command', () => {
 		}
 	});
 
-	// --- value-flag value matching a command name (#25)
+	// value-flag value matching a command name (#25)
 
 	describe('value-flag value matching a command name (#25)', () => {
 		function buildApp() {
@@ -712,7 +779,7 @@ describe('formatRootHelp — default command', () => {
 		});
 	});
 
-	// --- end-of-options separator (--) interception (#28)
+	// end-of-options separator (--) interception (#28)
 
 	describe('end-of-options separator (--) interception (#28)', () => {
 		function buildApp() {

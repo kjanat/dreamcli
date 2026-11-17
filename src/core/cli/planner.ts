@@ -620,8 +620,16 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 	switch (result.kind) {
 		case 'unknown': {
 			if (defaultCommand !== undefined && result.parentPath.length === 0) {
+				// Explicit filesystem syntax is positional input, not a command typo (#238).
+				const pathInput =
+					result.input === '.' ||
+					result.input === '..' ||
+					result.input.includes('/') ||
+					result.input.includes('\\');
 				const suggestion =
-					result.input !== '' ? findClosestCommand(result.input, result.candidates) : undefined;
+					result.input !== '' && !pathInput
+						? findClosestCommand(result.input, result.candidates)
+						: undefined;
 				if (
 					suggestion === undefined &&
 					canDelegateUnknownRootToDefault(defaultCommand, result.input)

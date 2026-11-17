@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Accept directory paths such as `.`, `..` and `./`, including Windows path separators, as positional arguments to default commands. ([#241](https://github.com/kjanat/dreamcli/pull/241))
+
 ### Release checklist
 
 - [ ] Start the intended version through Beepboop and review its version PR.
