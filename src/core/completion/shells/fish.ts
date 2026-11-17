@@ -15,6 +15,8 @@
 import type { CLISchema } from '#internals/core/cli/index.ts';
 import { resolvePlainHelpDescription } from '#internals/core/help/theme.ts';
 import { flagExpectsValue } from '#internals/core/parse/index.ts';
+import type { CommandSchema } from '#internals/core/schema/command.ts';
+import { excludesOtherInputs } from '#internals/core/schema/constraints.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type { FlagSchema } from '#internals/core/schema/index.ts';
 import { acceptsArgv } from '#internals/core/schema/stdin.ts';
@@ -22,6 +24,7 @@ import { flagValueSchema, valueEnumValues } from '#internals/core/schema/value.t
 import type { CommandNode, CompletionOptions, RootCompletionSurface } from './shared.ts';
 import {
 	getVisibleNegatedName,
+	hasCompletionConflicts,
 	hasDynamicCompletion,
 	programTag,
 	quoteShellArg,
@@ -49,6 +52,7 @@ function generateFishCompletion(schema: CLISchema, options?: CompletionOptions):
 	const helperPrefix = `__${sanitizeShellIdentifier(prefix)}_completions`;
 	const pathFuncName = `${helperPrefix}_path`;
 	const pathIsFuncName = `${helperPrefix}_path_is`;
+	const flagGuard = `${helperPrefix}_allows_flag`;
 	const rootSurface = resolveRootCompletionSurface(schema, options?.rootMode);
 	const visibleCommands = rootSurface.visibleCommands;
 	const nodes = walkCommandTree(visibleCommands);
@@ -81,6 +85,15 @@ function generateFishCompletion(schema: CLISchema, options?: CompletionOptions):
 		lines.push(`complete -c ${commandName} -f -a '(${helperPrefix}_dynamic)'`);
 		lines.push('');
 	}
+	if (hasCompletionConflicts(schema)) {
+		lines.push(`function ${flagGuard}`);
+		lines.push('\tset -l words (commandline -xpc)');
+		lines.push(
+			`\tnot contains -- "$argv[1]" (command ${commandName} __complete --blocked-flags -- $words[2..-1] 2>/dev/null)`,
+		);
+		lines.push('end');
+		lines.push('');
+	}
 
 	emitFishPathHelpers(lines, pathFuncName, pathIsFuncName, visibleCommands, nodes, rootSurface);
 
@@ -101,6 +114,7 @@ function generateFishCompletion(schema: CLISchema, options?: CompletionOptions):
 			'',
 			rootSurface.defaultFlags,
 			`${helperPrefix}_dynamic`,
+			fishFlagGuard(flagGuard, rootSurface.visibleDefaultCommand),
 		);
 	}
 
@@ -114,10 +128,22 @@ function generateFishCompletion(schema: CLISchema, options?: CompletionOptions):
 			path,
 			node.mergedFlags,
 			`${helperPrefix}_dynamic`,
+			fishFlagGuard(flagGuard, node.schema),
 		);
 	}
 
 	return lines.join('\n');
+}
+
+function fishFlagGuard(helper: string, schema: CommandSchema | undefined) {
+	const names = new Set(
+		schema?.constraints
+			?.filter(excludesOtherInputs)
+			.flatMap(({ inputs }) =>
+				inputs.filter(({ kind }) => kind === 'flag').map(({ name }) => name),
+			),
+	);
+	return { helper, names };
 }
 
 function emitFishPathHelpers(
@@ -226,11 +252,18 @@ function appendFishFlagCompletions(
 	path: string,
 	flags: Readonly<Record<string, FlagSchema>>,
 	dynamicFunction: string,
+	guard?: ReturnType<typeof fishFlagGuard>,
 ): void {
 	const condition = buildFishCondition(pathIsFuncName, path);
 	for (const [name, schema] of Object.entries(flags)) {
 		if (!acceptsArgv(schema)) continue;
-		const parts = [`complete -c ${commandName}`, `-n "${condition}"`];
+		const guarded = guard?.names.has(name) === true;
+		const parts = [
+			`complete -c ${commandName}`,
+			guarded
+				? `-n ${quoteShellArg(`${condition}; and ${guard.helper} ${quoteShellArg(name)}`)}`
+				: `-n "${condition}"`,
+		];
 		for (const alias of getFlagAliasNames(schema, { kind: 'short' })) {
 			parts.push(`-s ${quoteShellArg(alias)}`);
 		}
@@ -240,12 +273,20 @@ function appendFishFlagCompletions(
 		}
 		// Visible negated spelling shares the entry — and thus the description.
 		const negated = getVisibleNegatedName(name, schema);
-		if (negated !== undefined) {
+		if (negated !== undefined && !guarded) {
 			parts.push(`-l ${quoteShellArg(negated)}`);
 		}
 		parts.push(
 			`-d ${quoteShellArg(schema.description === undefined ? name : resolvePlainHelpDescription(schema.description))}`,
 		);
+		if (negated !== undefined && guarded) {
+			const description = quoteShellArg(
+				schema.description === undefined ? name : resolvePlainHelpDescription(schema.description),
+			);
+			lines.push(
+				`complete -c ${commandName} -n "${condition}" -l ${quoteShellArg(negated)} -d ${description}`,
+			);
+		}
 
 		if (flagExpectsValue(schema)) {
 			parts.push('-r', '-f');

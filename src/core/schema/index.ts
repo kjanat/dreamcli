@@ -73,6 +73,12 @@ export {
 } from './command.ts';
 export type { CompletionContext, CompletionHandler } from './completion.ts';
 export type {
+	CommandConstraint,
+	CommandValidationOptions,
+	ConstraintBuilder,
+	ConstraintInput,
+} from './constraints.ts';
+export type {
 	EnvOptions,
 	IndexedEnvBinding,
 	IndexedRecordEnvBinding,

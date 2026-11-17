@@ -269,6 +269,63 @@
             "$ref": "#/$defs/command"
           }
         },
+        "constraints": {
+          "description": "Relationships checked after input resolution.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "inputs",
+              "kind"
+            ],
+            "properties": {
+              "inputs": {
+                "type": "array",
+                "minItems": 2,
+                "uniqueItems": true,
+                "items": {
+                  "$ref": "#/$defs/constraintInput"
+                }
+              },
+              "kind": {
+                "enum": [
+                  "conflicts",
+                  "requires",
+                  "exactlyOne",
+                  "atMostOne",
+                  "allOrNone"
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "anyOf": [
+              {
+                "properties": {
+                  "inputs": {
+                    "maxItems": 2
+                  },
+                  "kind": {
+                    "enum": [
+                      "conflicts",
+                      "requires"
+                    ]
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "exactlyOne",
+                      "atMostOne",
+                      "allOrNone"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        },
         "description": {
           "description": "Human-readable description for help text.",
           "type": "string"
@@ -342,6 +399,63 @@
             "$ref": "#/$defs/command"
           }
         },
+        "constraints": {
+          "description": "Declarative relationships between the command's inputs.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "inputs",
+              "kind"
+            ],
+            "properties": {
+              "inputs": {
+                "type": "array",
+                "minItems": 2,
+                "uniqueItems": true,
+                "items": {
+                  "$ref": "#/$defs/constraintInput"
+                }
+              },
+              "kind": {
+                "enum": [
+                  "conflicts",
+                  "requires",
+                  "exactlyOne",
+                  "atMostOne",
+                  "allOrNone"
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "anyOf": [
+              {
+                "properties": {
+                  "inputs": {
+                    "maxItems": 2
+                  },
+                  "kind": {
+                    "enum": [
+                      "conflicts",
+                      "requires"
+                    ]
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "exactlyOne",
+                      "atMostOne",
+                      "allOrNone"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        },
         "description": {
           "description": "Human-readable description for help text.",
           "type": "string"
@@ -398,6 +512,25 @@
         "schemaVersion": {
           "description": "Version of the definition document format emitted by `generateSchema()`\nand `generateCommandSchema()` from `@kjanat/dreamcli/json-schema`.",
           "const": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "constraintInput": {
+      "type": "object",
+      "required": [
+        "kind",
+        "name"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "flag",
+            "arg"
+          ]
+        },
+        "name": {
+          "type": "string"
         }
       },
       "additionalProperties": false

@@ -91,58 +91,35 @@ Workarounds:
 
 References: [CLI Semantics](/guide/semantics), [Flags](/guide/flags)
 
-## "Exactly One Of" Is Not Built In
+## Relationships between inputs
 
-DreamCLI has no declarative mutual-exclusion modifier.
-There is no `.exclusive()`, no `.conflicts()`, and no required-one-of group — flags are resolved independently of one another.
-
-Why:
-
-- the schema models each flag as a standalone, independently resolved value;
-- cross-flag rules are open-ended (exactly-one, at-most-one, all-or-none, implies), and a single declarative knob would cover only a slice of them.
-
-Workaround — enforce the rule in `.derive()`, which runs after resolution and before the action, and throw a `CLIError`.
-Count the flags the user actually supplied by reading `sources`, the provenance record beside `flags` and `args`.
-`wasExplicit()` is `true` for every stage except `default`, so a flag that carries a `.default()` is still counted correctly:
+Use `.constrain()` after registering the command's flags and arguments.
+For example, require exactly one transport:
 
 ```ts twoslash
-import { CLIError, command, flag, wasExplicit } from '@kjanat/dreamcli';
+import { command, flag } from '@kjanat/dreamcli';
 
 command('lsp-server')
   .flag('stdio', flag.boolean())
   .flag('node-ipc', flag.boolean())
   .flag('socket', flag.number().default(6009))
-  .derive(({ sources }) => {
-    const count =
-      Number(wasExplicit(sources.flags.stdio)) +
-      Number(wasExplicit(sources.flags['node-ipc'])) +
-      Number(wasExplicit(sources.flags.socket));
-    if (count === 0) {
-      throw new CLIError('No transport selected.', {
-        code: 'NO_TRANSPORT',
-        suggest:
-          'Pass exactly one of --stdio, --node-ipc, or --socket <port>',
-      });
-    }
-    if (count > 1) {
-      throw new CLIError(
-        'Choose exactly one transport flag.',
-        { code: 'TOO_MANY_TRANSPORTS' },
-      );
-    }
-    return {};
-  })
+  .constrain((c) => [c.exactlyOne('stdio', 'node-ipc', 'socket')])
   .action(({ out }) => out.log('starting'));
 ```
 
-The thrown `CLIError` renders a friendly message on stderr and exits with code `1`.
-For a complete, typed version that hands the chosen transport to the action, see the `transport-launcher` example.
+The builder also supports `conflicts`, `requires`, `atMostOne`, and `allOrNone`.
+Use `c.arg(name)` to select a positional when a flag has the same name.
+Rules run after resolution. A value supplied by CLI, stdin, env, config, or
+prompt counts. Defaults and disabled boolean flags are excluded.
 
-Reading the resolved values instead (`flags.socket !== undefined`) works only while every flag in the rule has no declared default.
-A defaulted flag always has a value, so the rule stops detecting the conflict, and dropping `.default()` to restore it removes `defaultValue` from the definition document and the `(default: …)` suffix from help.
-`sources` is what separates the two questions.
+Text help and the definition document include the rules. Completion uses
+exclusion rules to suppress options that conflict with inputs already supplied
+on the command line.
 
-References: [Flags](/guide/flags), [Errors](/guide/errors), [Which source won](/guide/semantics#which-source-won)
+For custom rules, `.validate(standardSchema)` validates the resolved flags
+object before derive and middleware. Pass `{ input: 'resolved' }` as the
+second argument to validate `{ flags, args, sources }`. Validation reports
+issues with their input paths and preserves the resolved values for handlers.
 
 ## The Framework Is Overkill For Tiny One-Off Scripts
 

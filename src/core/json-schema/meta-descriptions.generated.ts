@@ -67,6 +67,9 @@ const definitionMetaSchemaDescriptions = {
 				args: {
 					description: 'Ordered positional arg entries (name + schema).',
 				},
+				constraints: {
+					description: 'Relationships checked after input resolution.',
+				},
 				commands: {
 					description:
 						'Nested subcommand schemas (for help rendering and completion).\n\nPure data — no execution closures. Populated by `.command()` on\n`CommandBuilder`. Empty for leaf commands.',
@@ -114,6 +117,9 @@ const definitionMetaSchemaDescriptions = {
 				},
 				args: {
 					description: 'Positional argument definitions in CLI order.',
+				},
+				constraints: {
+					description: "Declarative relationships between the command's inputs.",
 				},
 				commands: {
 					description: 'Nested subcommand definitions.',

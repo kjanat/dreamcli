@@ -18,6 +18,7 @@ import { resolvePlainHelpDescription } from '#internals/core/help/theme.ts';
 import type { schemaBrand } from '#internals/core/schema/brand.ts';
 import { DUPLICATE_KEYS } from '#internals/core/schema/cardinality.ts';
 import { resolveExampleCommand } from '#internals/core/schema/command.ts';
+import { CONSTRAINT_KINDS } from '#internals/core/schema/constraints.ts';
 import type { IndexedEnvBinding } from '#internals/core/schema/env-binding.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type {
@@ -25,6 +26,7 @@ import type {
 	ArgPresence,
 	ArgSchema,
 	CommandArgEntry,
+	CommandConstraint,
 	CommandExample,
 	CommandSchema,
 	DuplicateKeys,
@@ -392,6 +394,8 @@ type CommandDefinitionFragmentV1 = {
 	readonly flagDeclarationOrder?: readonly string[];
 	/** Positional argument definitions in CLI order. */
 	readonly args: readonly ArgDefinitionFragmentV1[];
+	/** Declarative relationships between the command's inputs. */
+	readonly constraints?: readonly CommandConstraint[];
 	/** Nested subcommand definitions. */
 	readonly commands: readonly CommandDefinitionFragmentV1[];
 };
@@ -599,6 +603,7 @@ function serializeCommand(
 			: {}),
 		// Args — always present (positional order matters)
 		args: schema.args.map((entry) => serializeArgEntry(entry, opts)),
+		...(schema.constraints?.length ? { constraints: schema.constraints } : {}),
 		// Subcommands — always present
 		commands: schema.commands
 			.filter((cmd) => opts.includeHidden || !cmd.hidden)
@@ -1424,6 +1429,27 @@ const commandFragmentProperties = {
 	flags: { type: 'object', additionalProperties: { $ref: '#/$defs/flag' } },
 	flagDeclarationOrder: { type: 'array', items: { type: 'string' }, uniqueItems: true },
 	args: { type: 'array', items: { $ref: '#/$defs/arg' } },
+	constraints: {
+		type: 'array',
+		items: {
+			type: 'object',
+			additionalProperties: false,
+			required: ['kind', 'inputs'],
+			properties: {
+				kind: { enum: CONSTRAINT_KINDS },
+				inputs: {
+					type: 'array',
+					minItems: 2,
+					uniqueItems: true,
+					items: { $ref: '#/$defs/constraintInput' },
+				},
+			},
+			anyOf: [
+				{ properties: { kind: { enum: ['conflicts', 'requires'] }, inputs: { maxItems: 2 } } },
+				{ properties: { kind: { enum: ['exactlyOne', 'atMostOne', 'allOrNone'] } } },
+			],
+		},
+	},
 	commands: { type: 'array', items: { $ref: '#/$defs/command' } },
 } as const satisfies FragmentProperties<CommandDefinitionFragmentV1>;
 
@@ -1550,6 +1576,12 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 		} satisfies FragmentProperties<DefinitionDocumentV1>,
 		required: ['$schema', 'schemaVersion', 'name', 'commands'],
 		$defs: {
+			constraintInput: {
+				type: 'object',
+				additionalProperties: false,
+				required: ['kind', 'name'],
+				properties: { kind: { enum: ['flag', 'arg'] }, name: { type: 'string' } },
+			},
 			command: {
 				type: 'object',
 				additionalProperties: false,

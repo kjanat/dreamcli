@@ -18,8 +18,10 @@ import { readRootOutputFlags } from '#internals/core/cli/root-output-flags.ts';
 import { resolveRootSurface } from '#internals/core/cli/root-surface.ts';
 import { extractConfigFlag } from '#internals/core/cli/runtime-preflight.ts';
 import type { FlagLookupEntry } from '#internals/core/parse/index.ts';
-import { buildFlagLookup, flagExpectsValue } from '#internals/core/parse/index.ts';
+import { buildFlagLookup, coerceFlagValue, flagExpectsValue } from '#internals/core/parse/index.ts';
 import type { CompletionContext, CompletionHandler } from '#internals/core/schema/completion.ts';
+import { excludesOtherInputs } from '#internals/core/schema/constraints.ts';
+import { getFlagAliasNames, getVisibleNegatedName } from '#internals/core/schema/flag.ts';
 import { acceptsArgv } from '#internals/core/schema/stdin.ts';
 
 interface CompletionTarget {
@@ -29,14 +31,11 @@ interface CompletionTarget {
 	readonly commandCandidates: readonly string[];
 }
 
-function findCompletion(
+function completionPosition(
 	schema: CLISchema,
 	compiled: CompiledCLI,
-	argv: readonly string[],
-	env: CompletionContext['env'],
-): CompletionTarget | undefined {
-	if (argv.length === 0) return undefined;
-	const beforeCursor = argv.slice(0, -1);
+	beforeCursor: readonly string[],
+) {
 	const configuredArgv =
 		schema.configSettings === undefined
 			? beforeCursor
@@ -64,15 +63,18 @@ function findCompletion(
 	)
 		return undefined;
 	const command = result.kind === 'unknown' ? visibleDefaultCommand : result.command.schema;
+	if (command === undefined) return undefined;
 	const path = result.kind === 'unknown' ? [] : result.commandPath;
 	const remaining = result.kind === 'unknown' ? completedArgv : result.remainingArgv;
+	const flags = { ...collectPropagatedFlags(path), ...command.flags };
+	const args = command.args.filter((entry) => acceptsArgv(entry.schema));
 	let positional = 0;
 	let afterSeparator = false;
 	let pending: FlagLookupEntry | undefined;
-	const lookup = buildFlagLookup(
-		command === undefined ? {} : { ...collectPropagatedFlags(path), ...command.flags },
-		schema.flagSettings,
-	);
+	const lookup = buildFlagLookup(flags, schema.flagSettings);
+	const activeFlags = command.constraints?.some(excludesOtherInputs)
+		? new Map<string, boolean>()
+		: undefined;
 	for (const token of remaining) {
 		if (pending !== undefined) {
 			pending = undefined;
@@ -96,13 +98,80 @@ function findCompletion(
 			const match = matchFlag(token, lookup);
 			if (match === undefined || (match.entry.negated && match.inline !== undefined))
 				return undefined;
+			if (activeFlags !== undefined) {
+				if (!token.startsWith('--')) {
+					for (const ch of token.slice(1)) {
+						const entry = lookup.get(ch);
+						if (entry === undefined || flagExpectsValue(entry.schema)) break;
+						recordActiveFlag(activeFlags, entry, undefined);
+					}
+				}
+				recordActiveFlag(activeFlags, match.entry, match.inline);
+			}
 			if (match.inline === undefined && flagExpectsValue(match.entry.schema)) pending = match.entry;
 			continue;
 		}
-		const args = command?.args.filter((entry) => acceptsArgv(entry.schema)) ?? [];
 		if (args[positional] === undefined && !args[args.length - 1]?.schema.variadic) return undefined;
 		positional++;
 	}
+	return {
+		command,
+		path,
+		result,
+		flags,
+		args,
+		positional,
+		afterSeparator,
+		pending,
+		lookup,
+		activeFlags,
+	};
+}
+
+/** Track only presence and boolean enablement, without running value callbacks. */
+function recordActiveFlag(
+	flags: Map<string, boolean>,
+	entry: FlagLookupEntry,
+	inline: string | undefined,
+): void {
+	const { name, schema, negated } = entry;
+	if (schema.duplicates === 'first' && flags.has(name)) return;
+	let active = !negated;
+	if (schema.kind === 'boolean' && inline !== undefined) {
+		try {
+			active = coerceFlagValue(name, inline, schema) === true;
+		} catch {
+			return;
+		}
+	}
+	flags.set(name, active);
+}
+
+type CompletionPosition = NonNullable<ReturnType<typeof completionPosition>>;
+
+function blockedFlagNames(position: CompletionPosition): ReadonlySet<string> {
+	const blocked = new Set<string>();
+	if (position.activeFlags === undefined || position.afterSeparator) return blocked;
+	const activeArgs = new Set(position.args.slice(0, position.positional).map(({ name }) => name));
+	for (const rule of position.command.constraints ?? []) {
+		if (!excludesOtherInputs(rule)) continue;
+		const active = rule.inputs.filter(({ kind, name }) =>
+			kind === 'flag' ? position.activeFlags?.get(name) === true : activeArgs.has(name),
+		);
+		for (const input of rule.inputs) {
+			if (input.kind === 'flag' && active.some((member) => member !== input))
+				blocked.add(input.name);
+		}
+	}
+	return blocked;
+}
+
+function findCompletion(
+	position: CompletionPosition,
+	argv: readonly string[],
+	env: CompletionContext['env'],
+): CompletionTarget | undefined {
+	const { args, path, result, positional, afterSeparator, pending, lookup } = position;
 	let prefix = argv[argv.length - 1] ?? '';
 	let tokenPrefix = '';
 	let input: CompletionContext['input'];
@@ -119,7 +188,6 @@ function findCompletion(
 		tokenPrefix = prefix.slice(0, prefix.length - match.inline.length);
 		prefix = match.inline;
 	} else {
-		const args = command?.args.filter((entry) => acceptsArgv(entry.schema)) ?? [];
 		const entry =
 			args[positional] ??
 			(args[args.length - 1]?.schema.variadic ? args[args.length - 1] : undefined);
@@ -174,8 +242,61 @@ async function completeValues(
 	env: CompletionContext['env'],
 	valueOnly = false,
 ): Promise<{ readonly exitCode: number; readonly candidates: readonly string[] }> {
-	const target = findCompletion(schema, compiled, argv, env);
-	if (target === undefined) return { exitCode: 1, candidates: [] };
+	const position =
+		argv.length === 0 ? undefined : completionPosition(schema, compiled, argv.slice(0, -1));
+	if (position === undefined) return { exitCode: 1, candidates: [] };
+	const target = findCompletion(position, argv, env);
+	if (target === undefined) {
+		const prefix = argv[argv.length - 1] ?? '';
+		const blocked = blockedFlagNames(position);
+		if (
+			valueOnly ||
+			blocked.size === 0 ||
+			position.pending !== undefined ||
+			(prefix !== '' && !prefix.startsWith('-')) ||
+			prefix.includes('=')
+		) {
+			return { exitCode: 1, candidates: [] };
+		}
+		const flags = Object.entries(position.flags).flatMap(([name, flag]) => {
+			if (!acceptsArgv(flag)) return [];
+			const negated = getVisibleNegatedName(name, flag);
+			return [
+				...(blocked.has(name)
+					? []
+					: [
+							`--${name}`,
+							...getFlagAliasNames(flag).map((alias) =>
+								alias.length === 1 ? `-${alias}` : `--${alias}`,
+							),
+						]),
+				...(negated !== undefined ? [`--${negated}`] : []),
+			];
+		});
+		const children =
+			position.result.kind === 'unknown'
+				? position.result.candidates
+				: [...new Set(position.result.command.subcommands.values())];
+		const commands =
+			position.positional === 0
+				? children
+						.filter((child) => !child.schema.hidden)
+						.flatMap(({ schema }) => [schema.name, ...schema.aliases])
+				: [];
+		const root =
+			position.result.kind === 'unknown'
+				? [
+						...(builtinEnabled(schema.builtins, 'help') ? ['--help'] : []),
+						...(schema.version !== undefined ? ['--version'] : []),
+					]
+				: [];
+		return {
+			exitCode: 0,
+			candidates: [...new Set([...commands, ...root, ...flags])].filter(
+				(candidate) => !/\p{Cc}/u.test(candidate) && candidate.startsWith(prefix),
+			),
+		};
+	}
 	try {
 		const values = await target.handler(target.context);
 		const candidates = [...new Set([...target.commandCandidates, ...values])]
@@ -205,6 +326,13 @@ async function completeRequest(
 	request: readonly string[],
 	env: CompletionContext['env'],
 ): ReturnType<typeof completeValues> {
+	if (request[0] === '--blocked-flags' && request[1] === '--') {
+		const position = completionPosition(schema, compiled, request.slice(2));
+		return {
+			exitCode: 0,
+			candidates: position === undefined ? [] : [...blockedFlagNames(position)],
+		};
+	}
 	const valueOnly = request[0] === '--value-only' && request[1] === '--';
 	const offset = valueOnly ? 2 : request[0] === '--' ? 1 : 0;
 	return completeValues(schema, compiled, request.slice(offset), env, valueOnly);

@@ -82,6 +82,7 @@ const DEF_PROPERTY_TARGETS: Readonly<Record<string, Readonly<Record<string, Node
 		flags: { exportId: 'dreamcli:CommandSchema', property: 'flags' },
 		flagDeclarationOrder: { exportId: 'dreamcli:CommandSchema', property: 'flagDeclarationOrder' },
 		args: { exportId: 'dreamcli:CommandSchema', property: 'args' },
+		constraints: { exportId: 'dreamcli:CommandSchema', property: 'constraints' },
 		commands: { exportId: 'dreamcli:CommandSchema', property: 'commands' },
 	},
 	commandDocument: {
@@ -97,6 +98,7 @@ const DEF_PROPERTY_TARGETS: Readonly<Record<string, Readonly<Record<string, Node
 		flags: { exportId: 'dreamcli:CommandDefinitionFragmentV1', property: 'flags' },
 		flagDeclarationOrder: { exportId: 'dreamcli:CommandSchema', property: 'flagDeclarationOrder' },
 		args: { exportId: 'dreamcli:CommandDefinitionFragmentV1', property: 'args' },
+		constraints: { exportId: 'dreamcli:CommandDefinitionFragmentV1', property: 'constraints' },
 		commands: { exportId: 'dreamcli:CommandDefinitionFragmentV1', property: 'commands' },
 	},
 	flag: {

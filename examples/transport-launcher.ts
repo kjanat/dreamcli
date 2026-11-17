@@ -2,13 +2,11 @@
 /**
  * Single-transport launcher (language-server style).
  *
- * A launcher that must be started over exactly one transport. dreamcli has no
- * native "mutually exclusive" / "exactly one of" modifier, so the rule is
- * expressed in `.derive()` — the resolution-time hook that runs after flags
- * resolve and before the action. The derived, fully typed `Transport` is then
- * handed to `.action()` through `ctx`.
+ * A launcher that starts over exactly one transport. The command validates
+ * the selection with `.constrain()`, then derives a typed `Transport` for
+ * the action.
  *
- * Demonstrates: an "exactly one of" rule via `.derive()` throwing `CLIError`,
+ * Demonstrates: an exactly-one constraint,
  * declarative numeric constraints (`flag.number({ int: true, min: 1, max: 65535 })`),
  * a kebab-case flag name accessed with bracket notation (`flags['node-ipc']`),
  * and passing a typed result to the action through derived context.
@@ -22,7 +20,7 @@
  *   npx tsx examples/transport-launcher.ts --help
  */
 
-import { CLIError, cli, command, flag } from '@kjanat/dreamcli';
+import { cli, command, flag } from '@kjanat/dreamcli';
 
 // One resolved transport — illegal states are unrepresentable.
 type Transport =
@@ -38,34 +36,15 @@ const launcher = command('lsp-server')
 		'socket',
 		flag.number({ int: true, min: 1, max: 65535 }).describe('Use a TCP socket on <port>'),
 	)
-	// `.derive()` runs after resolution and before the action — the idiomatic
-	// place for a constraint dreamcli does not express declaratively.
+	.constrain((c) => [c.exactlyOne('stdio', 'node-ipc', 'socket')])
 	.derive(({ flags }): { transport: Transport } => {
-		const selected: Transport[] = [];
-		if (flags.stdio) selected.push({ kind: 'stdio' });
-		// Kebab-case flag names stay kebab in the handler: bracket access, no camelCasing.
-		if (flags['node-ipc']) selected.push({ kind: 'node-ipc' });
-		// Port shape (integer, 1-65535) is already enforced declaratively by
-		// the flag's numeric constraints before `.derive()` runs.
+		if (flags.stdio) return { transport: { kind: 'stdio' } };
+		if (flags['node-ipc']) return { transport: { kind: 'node-ipc' } };
 		if (flags.socket !== undefined) {
-			selected.push({ kind: 'socket', port: flags.socket });
+			return { transport: { kind: 'socket', port: flags.socket } };
 		}
 
-		const [transport, ...rest] = selected;
-		if (transport === undefined) {
-			throw new CLIError('No transport selected.', {
-				code: 'NO_TRANSPORT',
-				suggest: 'Pass exactly one of --stdio, --node-ipc, or --socket <port>',
-			});
-		}
-		if (rest.length > 0) {
-			throw new CLIError('Choose exactly one transport flag.', {
-				code: 'TOO_MANY_TRANSPORTS',
-				suggest: 'Use only one of --stdio, --node-ipc, or --socket <port>',
-			});
-		}
-
-		return { transport };
+		throw new Error('Validated transport selection is missing');
 	})
 	.action(({ ctx, out }) => {
 		// ctx.transport: Transport — fully typed, ready to hand to the server.

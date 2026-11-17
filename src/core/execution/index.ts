@@ -39,6 +39,7 @@ import type {
 	Out,
 } from '#internals/core/schema/command.ts';
 import type { InternalRunOptions, RunResult } from '#internals/core/schema/run.ts';
+import { validateCommandInputs } from './constraints.ts';
 
 /**
  * The executable half of a command: what to run, and what wraps it.
@@ -194,6 +195,9 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 		};
 
 		await runResolvedHooks(options?.plugins, 'afterResolve', resolvedParams);
+		if (schema.constraints !== undefined || schema.validators !== undefined) {
+			await validateCommandInputs(schema, resolved);
+		}
 
 		for (const deprecation of resolved.deprecations) {
 			out.warn(formatDeprecation(deprecation));
