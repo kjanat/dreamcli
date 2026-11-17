@@ -827,11 +827,10 @@ function formatFlagSections(schema: CommandSchema, opts: ResolvedHelpOptions): r
 
 	const reads = spellingCheck(flags, opts);
 	const groups = groupEntries(names, (name) => flags[name]?.group, opts.groupOrder);
-	const flat = groups.size === 1 && groups.has(undefined);
 	return Array.from(groups, ([group, members]) =>
 		formatFlagEntriesBlock(
 			opts.theme.sectionTitle(group === undefined ? 'Flags:' : `${group} options:`),
-			buildFlagEntries(flat ? Object.keys(flags) : members, flags, opts, reads),
+			buildFlagEntries(members, flags, opts, reads),
 			opts.width,
 		),
 	);

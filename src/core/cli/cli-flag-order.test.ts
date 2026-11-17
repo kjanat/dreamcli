@@ -40,6 +40,19 @@ describe('flag ordering — end to end', () => {
 		expect(flagOrderIn(result.stdout.join(''))).toEqual(['zebra', 'apple', 'mango', 'banana']);
 	});
 
+	it('keeps numeric flags in declaration order in the flat flags table', async () => {
+		const app = cli('mycli')
+			.help({ flagOrder: 'declaration' })
+			.command(
+				command('run')
+					.flag('20', flag.boolean())
+					.flag('10', flag.boolean())
+					.action(() => {}),
+			);
+		const help = await app.execute(['run', '--help']);
+		expect(help.stdout.join('').match(/--\d+/gu)).toEqual(['--20', '--10']);
+	});
+
 	it('honors a runtime sortFlags comparator', async () => {
 		const app = cli('mycli').command(orderedCommand());
 		const result = await app.execute(['run', '--help'], {
