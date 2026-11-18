@@ -504,9 +504,14 @@ describe('CLIBuilder.run — config discovery opt-out', () => {
 			argv: ['node', 'cli.js', 'custom', '--no-config', '--json'],
 		});
 		await expect(exact.run({ adapter })).rejects.toMatchObject({ code: 0 });
-		await expect(exact.run({ adapter, flags: { caseParity: true } })).rejects.toMatchObject({
+		const stdout: string[] = [];
+		const overrideAdapter = { ...adapter, stdout: (line: string) => stdout.push(line) };
+		await expect(
+			exact.run({ adapter: overrideAdapter, flags: { caseParity: true } }),
+		).rejects.toMatchObject({
 			code: 1,
 		});
+		expect(JSON.parse(stdout.join(''))).toMatchObject({ error: { code: 'RESERVED_FLAG' } });
 	});
 });
 
