@@ -5,7 +5,7 @@
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import { collectPublicApiIndex } from './api-index.ts';
+import { collectPublicApiIndex, type PublicApiEntrypoint } from './api-index.ts';
 import type {
 	NormalizedApiComment,
 	NormalizedApiModel,
@@ -62,14 +62,33 @@ function createNode(input: {
 }
 
 describe('symbol page generation', () => {
+	let publicApi: readonly PublicApiEntrypoint[] = [];
 	let pages: ReturnType<typeof collectSymbolPages> = [];
 
 	beforeAll(async () => {
-		const publicApi = await collectPublicApiIndex(packageJsonPath);
+		publicApi = await collectPublicApiIndex(packageJsonPath);
 		const examples = await collectExamples(examplesRoot, rootDirPath);
 		const normalized = await collectDenoDocModel(packageJsonPath, publicApi);
 		pages = collectSymbolPages(normalized, symbolPagesRoot, examples);
 	}, 60_000);
+
+	it('generates exactly one unique route for each public TypeScript export', () => {
+		const expectedIds = publicApi.flatMap(({ entrypoint, kindGroups }) =>
+			kindGroups
+				.filter(({ kind }) => kind !== 'asset')
+				.flatMap(({ symbols }) => symbols.map(({ name }) => `${entrypoint}:${name}`)),
+		);
+		expect(pages.map(({ id }) => id).sort()).toEqual(expectedIds.sort());
+		expect(new Set(pages.map(({ routePath }) => routePath)).size).toBe(pages.length);
+	});
+
+	it('excludes the JSON schema asset and its Deno default export from symbol pages', () => {
+		expect(publicApi.find(({ subpath }) => subpath === './schema')).toMatchObject({
+			sourcePath: 'dreamcli.schema.json',
+			kindGroups: [{ kind: 'asset', symbols: [{ name: 'schema' }] }],
+		});
+		expect(pages.filter(({ entrypoint }) => entrypoint === '@kjanat/dreamcli/schema')).toEqual([]);
+	});
 
 	it('renders stable per-symbol routes from the normalized API model', () => {
 		const cliPage = pages.find((page) => page.id === '@kjanat/dreamcli:cli');

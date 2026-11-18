@@ -6,6 +6,9 @@ It resolves to the same schema referenced by `generateSchema()` output, with a p
 - npm/package export (`package.json`): `./schema` -> `dreamcli.schema.json`
 - Deno/JSR export (`deno.json`): `./schema` -> `src/schema.ts` (which re-exports the same schema)
 
+This page is the reference for both package targets. The API inventory lists `./schema` as a JSON
+asset. The Deno wrapper's default re-export is excluded from generated symbol pages.
+
 Its bytes are identical to the canonical hosted copy at
 `https://dreamcli.kjanat.dev/schemas/definition/v1.schema.json`, so use it when you want local or offline validation of dreamcli definition metadata without a network lookup.
 
