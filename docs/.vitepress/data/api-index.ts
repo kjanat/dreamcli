@@ -46,10 +46,6 @@ export interface InheritedApiMember {
 	readonly summary: string;
 	readonly optional: boolean;
 	readonly isStatic: boolean;
-	readonly signatures: readonly {
-		readonly returnType: string;
-		readonly parameterTypes: readonly string[];
-	}[];
 }
 
 /** Deno's graph lists declared members. The checker supplies resolved inherited properties. */
@@ -107,12 +103,6 @@ export function collectInheritedApiMembers(
 								summary: ts.displayPartsToString(member.getDocumentationComment(checker)),
 								optional: (member.flags & ts.SymbolFlags.Optional) !== 0,
 								isStatic,
-								signatures: type.getCallSignatures().map((signature) => ({
-									returnType: formatType(signature.getReturnType()),
-									parameterTypes: signature.parameters.map((param) =>
-										formatType(checker.getTypeOfSymbolAtLocation(param, declaration)),
-									),
-								})),
 							};
 						}),
 				),
