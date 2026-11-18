@@ -570,6 +570,8 @@ interface CommandSchema {
 	readonly flags: Readonly<Record<string, FlagSchema>>;
 	/** Flag declaration order when it differs from the flag record's key order. */
 	readonly flagDeclarationOrder?: readonly string[] | undefined;
+	/** Text-help topic names mapped to flag group names. */
+	readonly helpTopics?: Readonly<Record<string, string>> | undefined;
 	/** Ordered positional arg entries (name + schema). */
 	readonly args: readonly CommandArgEntry[];
 	/** Relationships checked after input resolution. */
@@ -661,6 +663,8 @@ interface CommandDefinition {
 	readonly flags?: Readonly<Record<string, FlagDefinition | FlagSchema>> | undefined;
 	/** Explicit declaration order for named flags. Unlisted flags follow in record order. */
 	readonly flagDeclarationOrder?: readonly string[] | undefined;
+	/** Text-help topic names mapped to flag group names. */
+	readonly helpTopics?: Readonly<Record<string, string>> | undefined;
 	/**
 	 * Ordered positional arg entries.
 	 * @defaultValue `[]`
@@ -812,6 +816,20 @@ function assertUsableArgKey(commandName: string, name: string): void {
 	});
 }
 
+function checkHelpTopic(name: string, group: string): void {
+	if (typeof name !== 'string' || name === 'all' || !/^[a-z][a-z0-9-]*$/u.test(name)) {
+		throw new CLIError(`Invalid help topic name '${name}'`, {
+			code: 'INVALID_SCHEMA',
+			suggest: 'Use a lowercase name such as "runners". "all" is reserved for full help.',
+		});
+	}
+	if (typeof group !== 'string' || group.trim() === '') {
+		throw new CLIError(`Help topic '${name}' requires a flag group name`, {
+			code: 'INVALID_SCHEMA',
+		});
+	}
+}
+
 /**
  * Merge definition fields onto the {@link CommandSchema} defaults, recursively.
  *
@@ -861,6 +879,8 @@ function buildCommandSchema(definition: CommandDefinition): CommandSchema {
 						...Object.keys(flags),
 					]),
 				]);
+	const helpTopics = Object.entries(definition.helpTopics ?? {});
+	for (const [name, group] of helpTopics) checkHelpTopic(name, group);
 	const schema: Omit<CommandSchema, typeof schemaBrand> = {
 		name: definition.name,
 		description: definition.description,
@@ -870,6 +890,7 @@ function buildCommandSchema(definition: CommandDefinition): CommandSchema {
 		examples: definition.examples ?? [],
 		flags,
 		...(order !== undefined ? { flagDeclarationOrder: order } : {}),
+		...(helpTopics.length > 0 ? { helpTopics: Object.fromEntries(helpTopics) } : {}),
 		args,
 		...(definition.constraints?.length ? { constraints: definition.constraints } : {}),
 		...(definition.validators?.length ? { validators: definition.validators } : {}),
@@ -1412,6 +1433,17 @@ class CommandBuilder<
 		this.handler = handler;
 		this._subcommands = subcommands ?? [];
 		this._executionSteps = executionSteps ?? [];
+	}
+
+	/** Register `--help=<name>` for a flag group, including its advanced flags. */
+	helpTopic(name: string, group: string): CommandBuilder<F, A, C> {
+		checkHelpTopic(name, group);
+		return new CommandBuilder(
+			{ ...this.schema, helpTopics: { ...this.schema.helpTopics, [name]: group } },
+			this.handler,
+			this._subcommands,
+			this._executionSteps,
+		);
 	}
 
 	/**

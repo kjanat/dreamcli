@@ -751,6 +751,20 @@ function formatHelp(schema: CommandSchema, options?: HelpOptions): string {
 	return `${formatHelpSections(schema, options).join('\n\n')}\n`;
 }
 
+/** Render just the flag section selected by a help topic. @internal */
+function formatHelpTopic(
+	schema: CommandSchema,
+	group: string,
+	options?: HelpOptions,
+): string | undefined {
+	const [section] = formatFlagSections(
+		schema,
+		resolveOptions({ ...options, showAdvanced: true }),
+		group,
+	);
+	return section;
+}
+
 // --- Section renderers
 
 /**
@@ -860,11 +874,19 @@ function formatArgsSection(
  * @param opts - Resolved help options for line-width wrapping.
  * @returns Multi-line flag sections.
  */
-function formatFlagSections(schema: CommandSchema, opts: ResolvedHelpOptions): readonly string[] {
+function formatFlagSections(
+	schema: CommandSchema,
+	opts: ResolvedHelpOptions,
+	onlyGroup?: string,
+): readonly string[] {
 	const { flags } = schema;
 	const names = declaredFlagNames(schema).filter((name) => {
 		const flag = flags[name];
-		return flag !== undefined && showsFlag(flag, opts);
+		return (
+			flag !== undefined &&
+			showsFlag(flag, opts) &&
+			(onlyGroup === undefined || flag.group === onlyGroup)
+		);
 	});
 	if (names.length === 0) return [];
 
@@ -1030,4 +1052,4 @@ function formatExamplesSection(
 export { osc8, visibleWidth } from './ansi.ts';
 export type { HelpDescription, HelpTheme, HelpThemeFactory } from './theme.ts';
 export type { FlagEntry, HelpOptions };
-export { formatFlagEntriesBlock, formatHelp, formatHelpSections };
+export { formatFlagEntriesBlock, formatHelp, formatHelpSections, formatHelpTopic };

@@ -284,7 +284,7 @@ function commandInvocationNeedsStdin(
 	flagSettings?: ParseOptions,
 	builtins?: BuiltinsConfig,
 ): boolean {
-	if (builtinEnabled(builtins, 'help') && requestsHelp(argv)) {
+	if (builtinEnabled(builtins, 'help') && requestsHelp(argv, schema.helpTopics)) {
 		return false;
 	}
 

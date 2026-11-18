@@ -589,7 +589,25 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 		}
 	}
 
-	if (rootOutputFlags.kind === 'failed' && !(helpOwned && requestsHelp(filteredArgv))) {
+	// A routed default is also dispatchable by its name; otherwise it is only the root fallback.
+	const rootCommands =
+		defaultCommand !== undefined && options.schema.defaultCommandRouted
+			? [...options.compiled.commands, defaultCommand]
+			: options.compiled.commands;
+	const result = dispatch(
+		filteredArgv,
+		buildRootCommandMap(rootCommands),
+		[],
+		rootValueFlags,
+		options.schema.flagSettings,
+	);
+	const helpTopics =
+		result.kind === 'unknown'
+			? result.parentPath.length === 0
+				? defaultCommand?.schema.helpTopics
+				: undefined
+			: result.command.schema.helpTopics;
+	if (rootOutputFlags.kind === 'failed' && !(helpOwned && requestsHelp(filteredArgv, helpTopics))) {
 		return { kind: 'dispatch-error', error: rootOutputFlags.error };
 	}
 
@@ -611,23 +629,6 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 			help: options.help,
 		};
 	}
-
-	// A routed default command (`.default(cmd, { route: true })`) is dispatchable
-	// by its own name in addition to the bare/flags-only root surface. It lives
-	// only in `defaultCommand` (kept disjoint from `commands`), so add it to the
-	// root route map here rather than duplicating it into `commands`.
-	const rootCommands =
-		defaultCommand !== undefined && options.schema.defaultCommandRouted
-			? [...options.compiled.commands, defaultCommand]
-			: options.compiled.commands;
-
-	const result = dispatch(
-		filteredArgv,
-		buildRootCommandMap(rootCommands),
-		[],
-		rootValueFlags,
-		options.schema.flagSettings,
-	);
 
 	switch (result.kind) {
 		case 'unknown': {
@@ -705,18 +706,28 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 			};
 		}
 
-		case 'needs-subcommand':
+		case 'needs-subcommand': {
+			const helpMode = helpOwned
+				? requestedHelpMode(result.remainingArgv, result.command.schema.helpTopics)
+				: undefined;
+			if (typeof helpMode === 'object' && !options.output.jsonMode) {
+				return buildPlannerMatchOutcome(
+					options,
+					result.command,
+					result.commandPath,
+					result.remainingArgv,
+				);
+			}
 			return {
 				kind: 'needs-subcommand',
 				command: result.command,
 				commandPath: result.commandPath,
 				help: {
 					...scopeHelpToCommandPath(options, result.commandPath),
-					...(helpOwned && requestedHelpMode(result.remainingArgv) === 'all'
-						? { showAdvanced: true }
-						: {}),
+					...(helpMode === 'all' ? { showAdvanced: true } : {}),
 				},
 			};
+		}
 
 		case 'match':
 			return buildPlannerMatchOutcome(

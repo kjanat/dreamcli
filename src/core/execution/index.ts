@@ -15,7 +15,7 @@ import type {
 	ResolvedCommandParams,
 } from '#internals/core/cli/plugin.ts';
 import { CLIError } from '#internals/core/errors/index.ts';
-import { formatHelp } from '#internals/core/help/index.ts';
+import { formatHelp, formatHelpTopic } from '#internals/core/help/index.ts';
 import type { CapturedOutput } from '#internals/core/output/index.ts';
 import { clearRequestedExitCode, getRequestedExitCode } from '#internals/core/output/index.ts';
 import { parse, parseForResolution, requestedHelpMode } from '#internals/core/parse/index.ts';
@@ -106,7 +106,7 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 
 	try {
 		const helpMode = builtinEnabled(options?.builtins, 'help')
-			? requestedHelpMode(argv)
+			? requestedHelpMode(argv, schema.helpTopics)
 			: undefined;
 		if (helpMode !== undefined) {
 			// `options.jsonMode` carries the resolved JSON mode from the CLI/testkit
@@ -142,11 +142,22 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 					: {}),
 				...(caseParity !== undefined ? { caseParity } : {}),
 			};
-			const helpText = formatHelp(
-				schema,
-				help.colors !== undefined ? help : { ...help, colors: out.color },
-			);
-			out.log(helpText);
+			const renderOptions = help.colors !== undefined ? help : { ...help, colors: out.color };
+			if (typeof helpMode === 'object') {
+				const helpText = formatHelpTopic(schema, helpMode.group, renderOptions);
+				if (helpText === undefined) {
+					throw new CLIError(
+						`Help topic '${helpMode.name}' has no flags in group '${helpMode.group}'`,
+						{
+							code: 'INVALID_SCHEMA',
+							details: { command: schema.name, topic: helpMode.name, group: helpMode.group },
+						},
+					);
+				}
+				out.log(helpText);
+			} else {
+				out.log(formatHelp(schema, renderOptions));
+			}
 			return { exitCode: 0, error: undefined };
 		}
 

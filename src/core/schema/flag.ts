@@ -1786,7 +1786,7 @@ class FlagBuilder<C extends FlagConfig> {
 		return new FlagBuilder({ ...this.schema, group: name });
 	}
 
-	/** Show this flag only in full text help, requested with `--help=all`. */
+	/** Show this flag in full text help and any help topic for its group. */
 	advanced(): FlagBuilder<WithoutElementEligibility<C>> {
 		return new FlagBuilder({ ...this.schema, advanced: true });
 	}

@@ -144,9 +144,11 @@ async function runCommandInternal(
 		);
 	}
 
+	// Dispatch can supply the schema with propagated flags already merged in.
+	const schema = options?.mergedSchema ?? cmd.schema;
 	if (
 		rootOutputFlags.kind === 'failed' &&
-		!(builtinEnabled(options?.builtins, 'help') && requestsHelp(effectiveArgv))
+		!(builtinEnabled(options?.builtins, 'help') && requestsHelp(effectiveArgv, schema.helpTopics))
 	) {
 		const { error } = rootOutputFlags;
 		if (jsonMode) {
@@ -160,9 +162,6 @@ async function runCommandInternal(
 		return buildRunResult({ exitCode: error.exitCode, error }, captured);
 	}
 
-	// Use merged schema (with propagated flags) when provided by dispatch layer,
-	// otherwise fall back to the command's own schema.
-	const schema = options?.mergedSchema ?? cmd.schema;
 	const meta: CommandMeta = options?.meta ?? {
 		name: schema.name,
 		bin: options?.help?.binName ?? schema.name,
