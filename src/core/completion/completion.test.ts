@@ -3,9 +3,9 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { osc8 } from '#internals/core/help/ansi.ts';
 import type { CLISchema } from '#internals/core/cli/index.ts';
 import { createCLISchema } from '#internals/core/cli/index.ts';
+import { osc8 } from '#internals/core/help/ansi.ts';
 import { createCommandSchema } from '#internals/core/schema/command.ts';
 import { createFlagSchema } from '#internals/core/schema/flag.ts';
 import type {
