@@ -14,7 +14,10 @@ import type {
 	NormalizedApiNode,
 	NormalizedApiType,
 } from './api-model.ts';
-import { replaceDocLinks } from './doc-links.ts';
+import { replaceDocLinks, replaceProseLinks } from './doc-links.ts';
+
+type RenderProse = (text: string) => string;
+
 import type { ExampleEntry } from './examples.ts';
 
 export interface GeneratedSymbolPage {
@@ -51,6 +54,29 @@ export function collectSymbolPages(
 				publicKind: entry.publicKind,
 				hasCaseInsensitiveCollision,
 			});
+			const renderProse = (text: string) =>
+				replaceProseLinks(text, ({ target, label, code }) => {
+					const text = code ? `\`${label}\`` : label.replace(/[[\]]/gu, '\\$&');
+					if (/^https?:\/\//u.test(target)) return `[${text}](<${target}>)`;
+					const [name, member] = target.replace(/\(\)$/u, '').split(/[.#]/u);
+					const candidates = exportsByName.get(name ?? '') ?? [];
+					const linked =
+						candidates.find((candidate) => candidate.entrypoint === entry.entrypoint) ??
+						candidates[0];
+					if (linked === undefined) return text;
+					const route = toSymbolPageRoute(linked.entrypoint, linked.name, {
+						publicKind: linked.publicKind,
+						hasCaseInsensitiveCollision: caseInsensitiveCollisions.has(
+							toCollisionKey(linked.entrypoint, linked.name),
+						),
+					});
+					const anchor =
+						member !== undefined &&
+						linked.reflection.children.some((child) => child.name === member)
+							? `#${member.toLowerCase()}`
+							: '';
+					return `[${text}](${route}${anchor})`;
+				});
 			return {
 				id: entry.id,
 				name: entry.name,
@@ -61,31 +87,7 @@ export function collectSymbolPages(
 					publicKind: entry.publicKind,
 					hasCaseInsensitiveCollision,
 				}),
-				content: replaceDocLinks(
-					renderSymbolPage(entry, exampleLinksBySymbol.get(entry.id) ?? []),
-					({ target, label, code }) => {
-						const text = code ? `\`${label}\`` : label.replace(/[[\]]/gu, '\\$&');
-						if (/^https?:\/\//u.test(target)) return `[${text}](<${target}>)`;
-						const [name, member] = target.replace(/\(\)$/u, '').split(/[.#]/u);
-						const candidates = exportsByName.get(name ?? '') ?? [];
-						const linked =
-							candidates.find((candidate) => candidate.entrypoint === entry.entrypoint) ??
-							candidates[0];
-						if (linked === undefined) return text;
-						const route = toSymbolPageRoute(linked.entrypoint, linked.name, {
-							publicKind: linked.publicKind,
-							hasCaseInsensitiveCollision: caseInsensitiveCollisions.has(
-								toCollisionKey(linked.entrypoint, linked.name),
-							),
-						});
-						const anchor =
-							member !== undefined &&
-							linked.reflection.children.some((child) => child.name === member)
-								? `#${member.toLowerCase()}`
-								: '';
-						return `[${text}](${route}${anchor})`;
-					},
-				),
+				content: renderSymbolPage(entry, exampleLinksBySymbol.get(entry.id) ?? [], renderProse),
 				summary:
 					entry.reflection.comment === null
 						? null
@@ -171,14 +173,15 @@ function toSymbolPageSection(entrypoint: string): string {
 function renderSymbolPage(
 	entry: NormalizedApiExport,
 	relatedExamples: readonly ExampleEntry[],
+	renderProse: RenderProse,
 ): string {
-	const summary = summarizeComment(entry.reflection.comment);
+	const summary = summarizeComment(entry.reflection.comment, renderProse);
 	const source = entry.reflection.sources[0] ?? null;
-	const deprecatedNote = renderDeprecatedNote(entry.reflection.comment);
+	const deprecatedNote = renderDeprecatedNote(entry.reflection.comment, renderProse);
 	const exampleTags = collectExampleTags(entry.reflection);
 	const sections = [
-		renderSignatureSection(entry),
-		renderMembersSection(entry.reflection),
+		renderSignatureSection(entry, renderProse),
+		renderMembersSection(entry.reflection, renderProse),
 		renderExamplesSection(exampleTags),
 		renderRelatedExamplesSection(relatedExamples),
 		renderSeeAlsoSection(entry),
@@ -201,9 +204,12 @@ function renderSymbolPage(
 	].join('\n');
 }
 
-function renderSignatureSection(entry: NormalizedApiExport): string | null {
+function renderSignatureSection(
+	entry: NormalizedApiExport,
+	renderProse: RenderProse,
+): string | null {
 	const reflection = entry.reflection;
-	const declarations = renderDeclarations(entry.name, reflection);
+	const declarations = renderDeclarations(entry.name, reflection, renderProse);
 	if (declarations.length === 0) {
 		return null;
 	}
@@ -211,10 +217,14 @@ function renderSignatureSection(entry: NormalizedApiExport): string | null {
 	return ['## Signatures', '', ...declarations].join('\n');
 }
 
-function renderDeclarations(name: string, reflection: NormalizedApiNode): readonly string[] {
+function renderDeclarations(
+	name: string,
+	reflection: NormalizedApiNode,
+	renderProse: RenderProse,
+): readonly string[] {
 	switch (reflection.kind) {
 		case 'function':
-			return renderFunctionDeclarations(name, reflection);
+			return renderFunctionDeclarations(name, reflection, renderProse);
 		case 'class':
 			return [renderCodeBlock(renderClassDeclaration(name, reflection))];
 		case 'interface':
@@ -227,7 +237,7 @@ function renderDeclarations(name: string, reflection: NormalizedApiNode): readon
 			return [renderCodeBlock(renderVariableDeclaration(name, reflection))];
 		default:
 			if (reflection.signatures.length > 0) {
-				return renderFunctionDeclarations(name, reflection);
+				return renderFunctionDeclarations(name, reflection, renderProse);
 			}
 
 			if (reflection.type !== null) {
@@ -241,6 +251,7 @@ function renderDeclarations(name: string, reflection: NormalizedApiNode): readon
 function renderFunctionDeclarations(
 	name: string,
 	reflection: NormalizedApiNode,
+	renderProse: RenderProse,
 ): readonly string[] {
 	const signatures = reflection.signatures.length === 0 ? [reflection] : reflection.signatures;
 	return signatures.map((signature, index) => {
@@ -248,7 +259,7 @@ function renderFunctionDeclarations(
 		return [
 			...lines,
 			renderCodeBlock(renderCallableSignature(name, signature, 'function')),
-			...renderParameterDetails(signature),
+			...renderParameterDetails(signature, renderProse),
 		].join('\n');
 	});
 }
@@ -283,13 +294,16 @@ function renderVariableDeclaration(name: string, reflection: NormalizedApiNode):
 	return `const ${name}: ${value};`;
 }
 
-function renderParameterDetails(signature: NormalizedApiNode): readonly string[] {
+function renderParameterDetails(
+	signature: NormalizedApiNode,
+	renderProse: RenderProse,
+): readonly string[] {
 	if (signature.parameters.length === 0) {
 		return [];
 	}
 
 	const rows = signature.parameters.flatMap((parameter) => {
-		const summary = summarizeComment(parameter.comment);
+		const summary = summarizeComment(parameter.comment, renderProse);
 		return summary === null
 			? []
 			: [
@@ -303,7 +317,10 @@ function renderParameterDetails(signature: NormalizedApiNode): readonly string[]
 	return ['', '| Parameter | Type | Description |', '| --- | --- | --- |', ...rows];
 }
 
-function renderMembersSection(reflection: NormalizedApiNode): string | null {
+function renderMembersSection(
+	reflection: NormalizedApiNode,
+	renderProse: RenderProse,
+): string | null {
 	const allMembers = [
 		...reflection.children,
 		...reflection.signatures,
@@ -327,7 +344,11 @@ function renderMembersSection(reflection: NormalizedApiNode): string | null {
 			return [];
 		}
 
-		return [`### ${group.title}`, '', ...children.flatMap((child) => renderMember(child))];
+		return [
+			`### ${group.title}`,
+			'',
+			...children.flatMap((child) => renderMember(child, renderProse)),
+		];
 	});
 	if (sections.length === 0) {
 		return null;
@@ -370,10 +391,10 @@ function mergeUngroupedMembers(
 	];
 }
 
-function renderMember(member: NormalizedApiNode): readonly string[] {
+function renderMember(member: NormalizedApiNode, renderProse: RenderProse): readonly string[] {
 	const summaries = new Set(
 		[member.comment, ...member.signatures.map((signature) => signature.comment)]
-			.map(summarizeComment)
+			.map((comment) => summarizeComment(comment, renderProse))
 			.filter((summary) => summary !== null),
 	);
 	const declaration = renderMemberDeclaration(member);
@@ -386,10 +407,16 @@ function renderMember(member: NormalizedApiNode): readonly string[] {
 	];
 }
 
+function renderMemberName(name: string): string {
+	return /^[\p{ID_Start}_$][\p{ID_Continue}$\u200C\u200D]*$/u.test(name)
+		? name
+		: JSON.stringify(name);
+}
+
 function renderMemberDeclaration(member: NormalizedApiNode): string {
 	switch (member.kind) {
 		case 'property':
-			return `${member.name}${isOptionalNode(member) ? '?' : ''}: ${renderNodeType(member)};`;
+			return `${renderMemberName(member.name)}${isOptionalNode(member) ? '?' : ''}: ${renderNodeType(member)};`;
 		case 'method':
 			return renderMethodDeclaration(member);
 		case 'accessor':
@@ -419,7 +446,7 @@ function renderMemberDeclaration(member: NormalizedApiNode): string {
 
 function renderMethodDeclaration(member: NormalizedApiNode): string {
 	return (member.signatures.length === 0 ? [member] : member.signatures)
-		.map((signature) => renderCallableSignature(member.name, signature, 'method'))
+		.map((signature) => renderCallableSignature(renderMemberName(member.name), signature, 'method'))
 		.join('\n');
 }
 
@@ -427,15 +454,15 @@ function renderAccessorDeclaration(member: NormalizedApiNode): string {
 	const getter = member.getSignature ?? member;
 	const setter = member.setSignature;
 	if (setter === null) {
-		return `get ${member.name}(): ${renderNodeType(getter)};`;
+		return `get ${renderMemberName(member.name)}(): ${renderNodeType(getter)};`;
 	}
 
 	const valueParameter = setter.parameters[0];
 	const setterType =
 		valueParameter === undefined ? 'unknown' : renderParameter(valueParameter, false);
 	return [
-		`get ${member.name}(): ${renderNodeType(getter)};`,
-		`set ${member.name}(${setterType});`,
+		`get ${renderMemberName(member.name)}(): ${renderNodeType(getter)};`,
+		`set ${renderMemberName(member.name)}(${setterType});`,
 	].join('\n');
 }
 
@@ -477,6 +504,7 @@ function renderParameter(parameter: NormalizedApiNode, includeDefault = true): s
 	if (parameter.type?.kind === 'rest') {
 		return `...${parameter.name}: ${renderType(parameter.type.elementType)}[]`;
 	}
+	if (parameter.flags.includes('isRest')) return `...${parameter.name}: ${type}`;
 
 	return `${parameter.name}${optional && !defaultValue ? '?' : ''}: ${type}${defaultValue}`;
 }
@@ -488,6 +516,7 @@ function renderParameterType(parameter: NormalizedApiNode): string {
 	if (parameter.type?.kind === 'rest') {
 		return `...${renderType(parameter.type.elementType)}[]`;
 	}
+	if (parameter.flags.includes('isRest')) return `...${type}`;
 
 	return `${type}${optional && !defaultValue ? ' | undefined' : ''}${defaultValue}`;
 }
@@ -701,26 +730,32 @@ function extractExampleTags(
 	return comment.blockTags.filter((tag) => tag.tag === '@example' && tag.content.trim() !== '');
 }
 
-function renderDeprecatedNote(comment: NormalizedApiComment | null): string | null {
+function renderDeprecatedNote(
+	comment: NormalizedApiComment | null,
+	renderProse: RenderProse,
+): string | null {
 	if (comment === null) {
 		return null;
 	}
 
 	const deprecatedTag = comment.blockTags.find((tag) => tag.tag === '@deprecated');
 	if (deprecatedTag !== undefined) {
-		const content = deprecatedTag.content.trim();
+		const content = renderProse(deprecatedTag.content).trim();
 		return content === '' ? '> Deprecated.' : `> Deprecated: ${content}`;
 	}
 
 	return comment.modifierTags.includes('@deprecated') ? '> Deprecated.' : null;
 }
 
-function summarizeComment(comment: NormalizedApiComment | null): string | null {
+function summarizeComment(
+	comment: NormalizedApiComment | null,
+	renderProse: RenderProse,
+): string | null {
 	if (comment === null) {
 		return null;
 	}
 
-	const summary = comment.summary.trim();
+	const summary = renderProse(comment.summary).trim();
 	return summary === '' ? null : summary;
 }
 

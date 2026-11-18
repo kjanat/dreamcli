@@ -46,6 +46,10 @@ export interface InheritedApiMember {
 	readonly summary: string;
 	readonly optional: boolean;
 	readonly isStatic: boolean;
+	readonly signatures: readonly {
+		readonly returnType: string;
+		readonly parameterTypes: readonly string[];
+	}[];
 }
 
 /** Deno's graph lists declared members. The checker supplies resolved inherited properties. */
@@ -68,6 +72,8 @@ export function collectInheritedApiMembers(
 			const symbol = resolveExportSymbol(exported, checker);
 			const declaration = pickDeclaration(symbol);
 			if (declaration === undefined) continue;
+			const formatType = (type: ts.Type) =>
+				checker.typeToString(type, declaration, ts.TypeFormatFlags.NoTruncation);
 			const instance = checker.getDeclaredTypeOfSymbol(symbol);
 			const sides = [{ type: instance, isStatic: false }];
 			if (ts.isClassDeclaration(declaration)) {
@@ -83,24 +89,32 @@ export function collectInheritedApiMembers(
 						.getPropertiesOfType(type)
 						.filter(
 							(member) =>
-								/^[\w$]+$/u.test(member.name) &&
+								(member.flags & (ts.SymbolFlags.PropertyOrAccessor | ts.SymbolFlags.Method)) !==
+									0 &&
+								!/^__[@#]/u.test(String(member.escapedName)) &&
 								member.name !== 'prototype' &&
 								!member.declarations?.some(
 									(declaration) =>
-										(ts.getCombinedModifierFlags(declaration) & ts.ModifierFlags.Private) !== 0,
+										(ts.getCombinedModifierFlags(declaration) & ts.ModifierFlags.Private) !== 0 ||
+										hasInternalTag(declaration),
 								),
 						)
-						.map((member) => ({
-							name: member.name,
-							type: checker.typeToString(
-								checker.getTypeOfSymbolAtLocation(member, declaration),
-								declaration,
-								ts.TypeFormatFlags.NoTruncation,
-							),
-							summary: ts.displayPartsToString(member.getDocumentationComment(checker)),
-							optional: (member.flags & ts.SymbolFlags.Optional) !== 0,
-							isStatic,
-						})),
+						.map((member) => {
+							const type = checker.getTypeOfSymbolAtLocation(member, declaration);
+							return {
+								name: member.name,
+								type: formatType(type),
+								summary: ts.displayPartsToString(member.getDocumentationComment(checker)),
+								optional: (member.flags & ts.SymbolFlags.Optional) !== 0,
+								isStatic,
+								signatures: type.getCallSignatures().map((signature) => ({
+									returnType: formatType(signature.getReturnType()),
+									parameterTypes: signature.parameters.map((param) =>
+										formatType(checker.getTypeOfSymbolAtLocation(param, declaration)),
+									),
+								})),
+							};
+						}),
 				),
 			);
 		}
@@ -294,6 +308,7 @@ function createApiProgram(entrypoints: readonly string[]): ts.Program {
 			esModuleInterop: true,
 			module: ts.ModuleKind.Preserve,
 			moduleResolution: ts.ModuleResolutionKind.Bundler,
+			strictNullChecks: true,
 			target: ts.ScriptTarget.ESNext,
 		},
 	});

@@ -3,6 +3,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import type { NormalizedApiModel } from './api-model.ts';
 import { createDenoDocFixture } from './deno-doc-fixture.ts';
 import {
 	buildDefinitionMetaSchemaDescriptions,
@@ -12,6 +13,55 @@ import {
 const collectModel = createDenoDocFixture();
 
 describe('definition meta-schema descriptions', () => {
+	it('uses complete JSDoc labels in summaries and default values', () => {
+		const model: NormalizedApiModel = {
+			schemaVersion: '1',
+			collectorVersion: 2,
+			packageName: 'dreamcli',
+			entrypoints: [],
+			exports: [
+				{
+					id: 'dreamcli:CLISchema',
+					name: 'CLISchema',
+					entrypoint: 'dreamcli',
+					subpath: '.',
+					publicKind: 'interface',
+					sourcePath: 'src/index.ts',
+					reflection: {
+						reflectionId: 1,
+						name: 'CLISchema',
+						kind: 'interface',
+						flags: [],
+						comment: {
+							summary: 'See {@link CLISchema | CLI schema \\}}.',
+							blockTags: [
+								{ tag: '@defaultValue', name: null, content: '{@linkcode preset | base \\}}' },
+							],
+							modifierTags: [],
+						},
+						sourcePath: null,
+						sources: [],
+						defaultValue: null,
+						type: null,
+						signatures: [],
+						parameters: [],
+						typeParameters: [],
+						children: [],
+						indexSignatures: [],
+						getSignature: null,
+						setSignature: null,
+						extendedTypes: [],
+						implementedTypes: [],
+						groups: [],
+					},
+				},
+			],
+		};
+		expect(buildDefinitionMetaSchemaDescriptions(model).root.description).toBe(
+			'See CLI schema }.\n\nDefault: base }',
+		);
+	});
+
 	it('extracts root and nested property descriptions from the normalized API model', {
 		timeout: 60_000,
 	}, async () => {

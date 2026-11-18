@@ -582,6 +582,12 @@ Runtime detection is automatic.
 The core framework never imports platform-specific APIs directly — a thin `RuntimeAdapter` interface
 handles the divergent edges (argv, env, filesystem, TTY detection, exit behavior).
 
+## Building the docs
+
+Install [Deno 2.9.8 or newer](https://docs.deno.com/runtime/getting_started/installation/)
+alongside Bun, then run `bun install`. The docs build, docs tests, and
+`bun run meta-descriptions:check` use the v2 JSON graph from `deno doc`.
+
 ## License
 
 [MIT][LICENSE] © 2026 Kaj Kowalski

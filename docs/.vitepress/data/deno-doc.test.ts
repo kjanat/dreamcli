@@ -2,13 +2,95 @@
  * @module
  */
 
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+import { collectPublicApiIndex } from './api-index.ts';
+import { collectDenoDocModel } from './deno-doc.ts';
 import { createDenoDocFixture } from './deno-doc-fixture.ts';
+import { collectSymbolPages } from './symbol-pages.ts';
 
 const collectModel = createDenoDocFixture();
 
 describe('deno doc normalization', () => {
+	it('renders resolved declarations and preserves the boundary between prose and examples', {
+		timeout: 60_000,
+	}, async () => {
+		const root = await mkdtemp(join(tmpdir(), 'dreamcli-doc-test-'));
+		const manifest = join(root, 'package.json');
+		const templateDeclaration = `type EnvKey = \`APP_\${string}_\${number}\`;`;
+		try {
+			await mkdir(join(root, 'src'));
+			await Promise.all([
+				writeFile(
+					manifest,
+					JSON.stringify({
+						name: '@kjanat/dreamcli',
+						exports: {
+							'.': './src/main.ts',
+							'./first': './src/first.ts',
+							'./second': './src/second.ts',
+						},
+					}),
+				),
+				writeFile(join(root, 'src/first.ts'), 'export interface Options { wrong: string; }\n'),
+				writeFile(join(root, 'src/second.ts'), 'export interface Options { right: string; }\n'),
+				writeFile(
+					join(root, 'src/main.ts'),
+					[
+						"import type { Options } from './second.ts';",
+						'export type SelectedOptions = Options;',
+						`export ${templateDeclaration}`,
+						'export interface Base<T> {',
+						'  /** Inherited documentation. */',
+						"  'x-mode': T;",
+						'  method(value: T): T;',
+						'  local: T;',
+						'  /** @internal */',
+						'  internal: T;',
+						'}',
+						"export interface Derived extends Base<string> { local: 'override'; }",
+						"export interface Mapped extends Omit<Derived, 'local'> {}",
+						'/**',
+						' * See {@link EnvKey | key \\}}.',
+						' * @param value - See {@link EnvKey|the key} and A | B.',
+						' * @example',
+						' * ```ts',
+						' * const example = "{@link EnvKey}";',
+						' * ```',
+						' */',
+						'export function use(value: string): string { return value; }',
+					].join('\n'),
+				),
+			]);
+			const inventory = await collectPublicApiIndex(manifest);
+			const model = await collectDenoDocModel(manifest, inventory);
+			const pages = collectSymbolPages(model, root, []);
+			const page = (id: string) =>
+				pages.find((entry) => entry.id === `@kjanat/dreamcli${id}`)?.content;
+
+			expect(page('/first:Options')).toContain('src/first.ts:1`]');
+			expect(page('/first:Options')).toContain('src/first.ts#L1)');
+			expect(page(':SelectedOptions')).toContain('right: string;');
+			expect(page(':SelectedOptions')).not.toContain('wrong: string;');
+			expect(page(':EnvKey')).toContain(templateDeclaration);
+			expect(page(':Derived')).toContain('"x-mode": string;');
+			expect(page(':Derived')).toContain('Inherited documentation.');
+			expect(page(':Derived')).toContain('method(value: string): string;');
+			expect(page(':Derived')).toContain('local: "override";');
+			expect(page(':Derived')).not.toContain('internal:');
+			expect(page(':Mapped')).toContain('"x-mode": string;');
+			expect(page(':Mapped')).not.toContain('internal:');
+			expect(page(':use')).toContain('[key }](/reference/symbols/main/EnvKey)');
+			expect(page(':use')).toContain('[the key](/reference/symbols/main/EnvKey) and A \\| B.');
+			expect(page(':use')).toContain('const example = "{@link EnvKey}";');
+		} finally {
+			await rm(root, { recursive: true });
+		}
+	});
+
 	it('normalizes public entrypoints into a DreamCLI-owned docs model', {
 		timeout: 60_000,
 	}, async () => {

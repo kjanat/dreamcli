@@ -48,13 +48,21 @@ async function runDeno(args: readonly string[], cwd: string): Promise<string> {
 		if (!result.success) throw new Error(decoder.decode(result.stderr));
 		return decoder.decode(result.stdout);
 	}
-	const { stdout } = await promisify(execFile)('deno', args, {
-		cwd,
-		encoding: 'utf8',
-		maxBuffer: 32 * 1024 * 1024,
-	});
-	return stdout;
+	try {
+		const { stdout } = await promisify(execFile)('deno', args, {
+			cwd,
+			encoding: 'utf8',
+			maxBuffer: 32 * 1024 * 1024,
+		});
+		return stdout;
+	} catch (error) {
+		if (object(error).code !== 'ENOENT') throw error;
+		throw new Error(DENO_DOC_REQUIREMENT, { cause: error });
+	}
 }
+
+const DENO_DOC_REQUIREMENT =
+	'API reference generation requires Deno 2.9.8 or newer on PATH. Install it from https://docs.deno.com/runtime/getting_started/installation/.';
 
 async function collectModules(root: string, entrypoints: readonly PublicApiEntrypoint[]) {
 	const manifest = object(JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8')));
@@ -89,13 +97,15 @@ async function collectModules(root: string, entrypoints: readonly PublicApiEntry
 			);
 			const graph = object(JSON.parse(raw));
 			const module = object(object(graph.nodes)[url]);
-			if (graph.version !== 2 || !Array.isArray(module.symbols)) {
+			if (graph.version !== 2)
+				throw new Error(`Expected deno doc JSON v2. ${DENO_DOC_REQUIREMENT}`);
+			if (!Array.isArray(module.symbols)) {
 				throw new Error(`Expected a deno doc v2 graph for ${entry.sourcePath}`);
 			}
 			return items(module.symbols);
 		}),
 	);
-	return { modules, packageName: string(manifest.name) ?? '@kjanat/dreamcli' };
+	return { modules, imports, packageName: string(manifest.name) ?? '@kjanat/dreamcli' };
 }
 
 export async function collectDenoDocModel(
@@ -103,8 +113,18 @@ export async function collectDenoDocModel(
 	publicApi: readonly PublicApiEntrypoint[],
 ): Promise<NormalizedApiModel> {
 	const root = dirname(packageJsonFilePath);
-	const { modules, packageName } = await collectModules(root, publicApi);
-	const normalize = new DenoDocNormalizer(root, packageName, modules.flat());
+	const { modules, imports, packageName } = await collectModules(root, publicApi);
+	const normalize = new DenoDocNormalizer(
+		root,
+		packageName,
+		imports,
+		new Map(
+			publicApi.map((entry, index) => [
+				pathToFileURL(resolve(root, entry.sourcePath)).href,
+				modules[index] ?? [],
+			]),
+		),
+	);
 	const exports: NormalizedApiExport[] = [];
 	const entrypoints = publicApi.map((entry, index) => {
 		const module = modules[index] ?? [];
@@ -164,13 +184,16 @@ class DenoDocNormalizer {
 	private nextId = 0;
 	private readonly declarations = new Map<string, JsonObject[]>();
 	private readonly locations = new Map<string, JsonObject>();
+	private readonly referenceResolutions = new WeakMap<NormalizedApiType, JsonObject>();
+	private readonly inheritedGenericNodes = new WeakSet<NormalizedApiNode>();
 
 	constructor(
 		private readonly root: string,
 		private readonly packageName: string,
-		symbols: readonly JsonObject[],
+		private readonly imports: Readonly<Record<string, string>>,
+		private readonly modules: ReadonlyMap<string, readonly JsonObject[]>,
 	) {
-		for (const symbol of symbols) {
+		for (const symbol of Array.from(modules.values()).flat()) {
 			const name = string(symbol.name);
 			if (name === undefined) continue;
 			const declarations = items(symbol.declarations).filter(
@@ -192,9 +215,33 @@ class DenoDocNormalizer {
 	}
 
 	addInheritedMembers(reflection: NormalizedApiNode, members: readonly InheritedApiMember[]): void {
-		const existing = new Set(
-			reflection.children.map((member) => `${member.flags.includes('isStatic')}:${member.name}`),
+		const existing = new Map(
+			reflection.children.map((member) => [
+				`${member.flags.includes('isStatic')}:${member.name}`,
+				member,
+			]),
 		);
+		for (const member of members) {
+			const node = existing.get(`${member.isStatic}:${member.name}`);
+			if (node === undefined || !this.inheritedGenericNodes.has(node)) continue;
+			if (node.kind === 'property') node.type = { kind: 'unknown', name: member.type };
+			if (node.getSignature !== null) {
+				node.getSignature.type = { kind: 'unknown', name: member.type };
+			}
+			if (node.signatures.length === member.signatures.length) {
+				node.signatures.forEach((signature, index) => {
+					const resolved = member.signatures[index];
+					if (resolved === undefined) return;
+					signature.type = { kind: 'unknown', name: resolved.returnType };
+					signature.parameters.forEach((param, paramIndex) => {
+						const type = resolved.parameterTypes[paramIndex];
+						if (type === undefined) return;
+						if (param.type?.kind === 'rest') param.flags = [...param.flags, 'isRest'];
+						param.type = { kind: 'unknown', name: type };
+					});
+				});
+			}
+		}
 		const added = members
 			.filter((member) => !existing.has(`${member.isStatic}:${member.name}`))
 			.map((member) =>
@@ -295,7 +342,11 @@ class DenoDocNormalizer {
 			];
 		}
 		if (type?.kind === 'reference') {
-			const declaration = this.resolveDeclaration(type.name, origin);
+			const declaration = this.resolveDeclaration(
+				type.name,
+				origin,
+				this.referenceResolutions.get(type),
+			);
 			if (declaration !== undefined && !seen.has(declaration)) {
 				const def = object(declaration.def);
 				return declaration.kind === 'typeAlias'
@@ -315,12 +366,13 @@ class DenoDocNormalizer {
 		if (typeof filename !== 'string' || !filename.startsWith('file:') || typeof line !== 'number')
 			return null;
 		const path = relative(this.root, fileURLToPath(filename)).split(sep).join('/');
+		const displayLine = line + 1;
 		return {
 			path,
-			line,
+			line: displayLine,
 			character: typeof col === 'number' ? col : 0,
 			url: path.startsWith('src/')
-				? `https://github.com/kjanat/dreamcli/blob/${gitRef}/${path}#L${line}`
+				? `https://github.com/kjanat/dreamcli/blob/${gitRef}/${path}#L${displayLine}`
 				: null,
 		};
 	}
@@ -469,26 +521,37 @@ class DenoDocNormalizer {
 						}),
 			);
 		}
-		for (const member of items(def.members)) {
+		for (const member of items(def.members).filter(publicMember)) {
 			children.push(
 				this.node(string(member.name) ?? 'member', 'enumMember', member, {
 					defaultValue: string(object(member.init).repr) ?? null,
 				}),
 			);
 		}
-		const local = new Set(children.map((child) => child.name));
+		const memberKey = (name: unknown, isStatic: boolean) => `${isStatic}:${name}`;
+		const local = new Set(
+			[...items(def.properties), ...items(def.methods)].map((member) =>
+				memberKey(member.name, member.isStatic === true),
+			),
+		);
 		const bases =
 			typeof def.extends === 'string'
 				? [{ kind: 'typeRef', value: { typeName: def.extends } }]
 				: items(def.extends);
 		for (const base of bases) {
 			const name = string(object(base.value).typeName);
-			const parent = name === undefined ? undefined : this.resolveDeclaration(name, declaration);
+			const parent =
+				name === undefined
+					? undefined
+					: this.resolveDeclaration(name, declaration, object(object(base.value).resolution));
 			if (parent === undefined || ancestors.has(parent)) continue;
-			const inherited = this.members(object(parent.def), parent, new Set([...ancestors, parent]));
+			const parentDef = object(parent.def);
+			const inherited = this.members(parentDef, parent, new Set([...ancestors, parent]));
 			for (const child of inherited.children ?? []) {
-				if (child.kind === 'constructor' || local.has(child.name)) continue;
-				local.add(child.name);
+				const key = memberKey(child.name, child.flags.includes('isStatic'));
+				if (child.kind === 'constructor' || local.has(key)) continue;
+				local.add(key);
+				if (items(parentDef.typeParams).length > 0) this.inheritedGenericNodes.add(child);
 				children.push(child);
 			}
 		}
@@ -506,21 +569,47 @@ class DenoDocNormalizer {
 					? [{ title, children: members.map(({ reflectionId, name }) => ({ reflectionId, name })) }]
 					: [];
 			}),
-			signatures: items(def.callSignatures).map((call) =>
-				this.signature('', 'callSignature', call),
-			),
-			indexSignatures: items(def.indexSignatures).map((index) =>
-				this.signature('', 'indexSignature', index),
-			),
+			signatures: items(def.callSignatures)
+				.filter(publicMember)
+				.map((call) => this.signature('', 'callSignature', call)),
+			indexSignatures: items(def.indexSignatures)
+				.filter(publicMember)
+				.map((index) => this.signature('', 'indexSignature', index)),
 		};
 	}
 
-	private resolveDeclaration(name: string, origin: JsonObject): JsonObject | undefined {
-		const candidates = this.declarations.get(name) ?? [];
-		const filename = object(origin.location).filename;
-		return (
-			candidates.find((entry) => object(entry.location).filename === filename) ?? candidates[0]
-		);
+	private resolveDeclaration(
+		name: string,
+		origin: JsonObject,
+		resolution: JsonObject = {},
+	): JsonObject | undefined {
+		const filename = string(object(origin.location).filename);
+		if (filename === undefined || resolution.kind === 'typeParam') return undefined;
+		let module = filename;
+		if (resolution.kind === 'import') {
+			const specifier = string(resolution.specifier);
+			if (specifier === undefined) return undefined;
+			const prefix = Object.keys(this.imports)
+				.filter((key) => key.endsWith('/') && specifier.startsWith(key))
+				.sort((left, right) => right.length - left.length)[0];
+			const url = Object.hasOwn(this.imports, specifier)
+				? this.imports[specifier]
+				: prefix === undefined
+					? specifier
+					: this.imports[prefix] + specifier.slice(prefix.length);
+			if (url === undefined || !/^(?:\.{1,2}\/|\/|[\w-]+:)/u.test(url)) return undefined;
+			const resolved = URL.parse(url, filename);
+			if (resolved === null) return undefined;
+			module = resolved.href;
+			name = string(resolution.name) ?? name;
+			const exported = this.modules.get(module)?.find((symbol) => symbol.name === name);
+			const first = items(exported?.declarations)[0];
+			if (first !== undefined) {
+				if (first.kind !== 'reference') return first;
+				return this.locations.get(this.locationKey(object(object(first.def).target)));
+			}
+		}
+		return this.declarations.get(name)?.find((entry) => object(entry.location).filename === module);
 	}
 
 	private optionalType(raw: unknown): NormalizedApiType | null {
@@ -533,7 +622,7 @@ class DenoDocNormalizer {
 		args: readonly JsonObject[],
 	): NormalizedApiType {
 		const target = this.declarations.get(name)?.[0];
-		return {
+		const reference: NormalizedApiType = {
 			kind: 'reference',
 			name,
 			target: target === undefined ? null : this.locationKey(object(target.location)),
@@ -543,6 +632,8 @@ class DenoDocNormalizer {
 			refersToTypeParameter: resolution.kind === 'typeParam',
 			typeArguments: args.map((entry) => this.type(entry)),
 		};
+		this.referenceResolutions.set(reference, resolution);
+		return reference;
 	}
 
 	private type(raw: JsonObject): NormalizedApiType {
@@ -555,6 +646,17 @@ class DenoDocNormalizer {
 					? { kind: 'literal', value: null }
 					: { kind: 'intrinsic', name: string(raw.value) ?? 'unknown' };
 			case 'literal': {
+				if (value.kind === 'template') {
+					const parts = items(value.tsTypes);
+					const text = (part: JsonObject | undefined) => string(part?.repr) ?? '';
+					return {
+						kind: 'templateLiteral',
+						head: text(parts[0]),
+						tail: parts.flatMap((part, index) =>
+							index % 2 === 1 ? [{ type: this.type(part), text: text(parts[index + 1]) }] : [],
+						),
+					};
+				}
 				const literal = value.string ?? value.number ?? value.boolean;
 				if (
 					typeof literal === 'string' ||
@@ -667,7 +769,10 @@ function modifier(value: unknown, text: string): string | null {
 }
 
 function publicMember(member: JsonObject): boolean {
-	return member.accessibility !== 'private';
+	return (
+		member.accessibility !== 'private' &&
+		!items(object(member.jsDoc).tags).some((tag) => tag.kind === 'internal')
+	);
 }
 
 function publicOverloads(
