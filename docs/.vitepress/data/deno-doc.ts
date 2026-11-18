@@ -46,6 +46,7 @@ function string(value: unknown): string | undefined {
 }
 
 async function runDeno(args: readonly string[], cwd: string, signal: AbortSignal): Promise<string> {
+	signal.throwIfAborted();
 	if (typeof Deno !== 'undefined') {
 		const result = await new Deno.Command(Deno.execPath(), {
 			args: [...args],
@@ -61,15 +62,16 @@ async function runDeno(args: readonly string[], cwd: string, signal: AbortSignal
 	try {
 		const pending = promisify(execFile)('deno', args, {
 			cwd,
-			signal,
-			killSignal: 'SIGKILL',
 			encoding: 'utf8',
 			maxBuffer: 32 * 1024 * 1024,
 		});
 		const closed = new Promise<void>((resolve) => pending.child.once('close', resolve));
+		const abort = () => pending.child.kill('SIGKILL');
+		signal.addEventListener('abort', abort, { once: true });
 		try {
 			return (await pending).stdout;
 		} finally {
+			signal.removeEventListener('abort', abort);
 			await closed;
 		}
 	} catch (error) {
