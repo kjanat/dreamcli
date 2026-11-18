@@ -30,6 +30,8 @@ import type {
 } from '#internals/core/schema/index.ts';
 import { acceptsArgv } from '#internals/core/schema/stdin.ts';
 import { padEnd, visibleWidth, wrapText } from './ansi.ts';
+import type { ProgramHelpHeader } from './header.ts';
+import { formatProgramHeader } from './header.ts';
 import type { HelpTheme, HelpThemeFactory } from './theme.ts';
 import { extendHelpTheme, resolveHelpDescription, resolveHelpTheme } from './theme.ts';
 
@@ -91,12 +93,13 @@ interface HelpOptions {
 	 */
 	readonly caseParity?: boolean;
 	/**
-	 * Emit OSC 8 hyperlinks where link metadata is available (currently the
-	 * root-help header name/version configured via `CLIBuilder.links()`).
+	 * Emit OSC 8 hyperlinks where header links are available.
 	 * Defaults to `false`; `CLIBuilder.execute()`/`.run()` enable it
 	 * automatically when stdout is a TTY.
 	 */
 	readonly hyperlinks?: boolean;
+	/** Program identity and links for command and topic help. @internal */
+	readonly programHeader?: ProgramHelpHeader;
 	/**
 	 * Render the default command's arguments and flags inline in root help.
 	 *
@@ -658,6 +661,11 @@ function formatArgDescription(
 function formatHelpSections(schema: CommandSchema, options?: HelpOptions): readonly string[] {
 	const opts = resolveOptions(options);
 	const sections: string[] = [];
+	if (options?.programHeader !== undefined && options.isDefaultHelp !== true) {
+		sections.push(
+			formatProgramHeader(options.programHeader, options.hyperlinks === true, opts.theme),
+		);
+	}
 
 	// ---- Usage line ---------------------------------------------------------
 	sections.push(formatUsageLine(schema, opts));
@@ -757,12 +765,15 @@ function formatHelpTopic(
 	group: string,
 	options?: HelpOptions,
 ): string | undefined {
-	const [section] = formatFlagSections(
-		schema,
-		resolveOptions({ ...options, showAdvanced: true }),
-		group,
+	const opts = resolveOptions({ ...options, showAdvanced: true });
+	const [section] = formatFlagSections(schema, opts, group);
+	if (section === undefined || options?.programHeader === undefined) return section;
+	const header = formatProgramHeader(
+		options.programHeader,
+		options.hyperlinks === true,
+		opts.theme,
 	);
-	return section;
+	return `${header}\n\n${section}`;
 }
 
 // --- Section renderers
