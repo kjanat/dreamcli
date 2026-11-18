@@ -41,6 +41,7 @@ interface RuntimeConfigSettings {
 	readonly appName: string;
 	/** Optional format loaders (JSON/YAML/TOML); `undefined` uses built-in JSON. */
 	readonly loaders: readonly ConfigLoader[] | undefined;
+	readonly noConfigFlag?: boolean;
 }
 
 /**
@@ -121,6 +122,8 @@ interface RuntimePreflightSchemaLike {
  * @internal
  */
 interface RuntimePreflightOptions {
+	/** Parser settings override used for reservation checks. */
+	readonly flags?: ParseOptions;
 	/** Environment variables override; bypasses adapter env when set. */
 	readonly env?: Readonly<Record<string, string | undefined>>;
 	/** Pre-loaded config object; skips config file discovery when set. */
@@ -217,12 +220,17 @@ const PRECHECK_OUTPUT = {
 };
 
 /** Extract and strip valid runtime `--config` forms from argv, returning path + filtered tokens. @internal */
-function extractConfigFlag(argv: readonly string[]): {
+function extractConfigFlag(
+	argv: readonly string[],
+	noConfigFlag = false,
+): {
 	readonly configPath: string | undefined;
 	readonly filteredArgv: readonly string[];
+	readonly skipDiscovery?: true;
 } {
 	const filteredArgv: string[] = [];
 	let configPath: string | undefined;
+	let skipDiscovery = false;
 
 	for (let i = 0; i < argv.length; i += 1) {
 		const arg = argv[i];
@@ -233,6 +241,10 @@ function extractConfigFlag(argv: readonly string[]): {
 		if (arg === '--') {
 			filteredArgv.push(...argv.slice(i));
 			break;
+		}
+		if (noConfigFlag && arg === '--no-config') {
+			skipDiscovery = true;
+			continue;
 		}
 
 		if (configPath === undefined && arg.startsWith('--config=')) {
@@ -261,7 +273,7 @@ function extractConfigFlag(argv: readonly string[]): {
 		filteredArgv.push(arg);
 	}
 
-	return { configPath, filteredArgv };
+	return { configPath, filteredArgv, ...(skipDiscovery ? { skipDiscovery: true } : {}) };
 }
 
 /**
@@ -407,7 +419,8 @@ async function applyPackageJsonDiscovery(
 }
 
 /**
- * Re-run the `RESERVED_FLAG` guard when discovery supplied the version.
+ * Re-run the `RESERVED_FLAG` guard when discovery supplies a version or
+ * runtime parser settings enable case parity for `--no-config`.
  *
  * `.manifest()` reads a version off the filesystem at `.run()` time, past every
  * build-time check, so a command flag spelling `--version` or `-V` as a name, an
@@ -419,22 +432,31 @@ async function applyPackageJsonDiscovery(
  * @param discovered - Schema after manifest discovery merged its metadata in.
  * @param declared - Schema as the builder had it before discovery.
  * @param compiled - Compiled graph carrying every registered command schema.
+ * @param flagSettings - Effective parser settings for this run.
  * @returns The `RESERVED_FLAG` error for the first collision, or `undefined`.
  *
  * @internal
  */
-function discoveredVersionCollision(
+function runtimeReservedFlagCollision(
 	discovered: RuntimePreflightSchemaLike,
 	declared: RuntimePreflightSchemaLike,
 	compiled: CompiledCLI,
+	flagSettings: ParseOptions | undefined,
 ): CLIError | undefined {
-	if (discovered.version === declared.version) return undefined;
+	const noConfigFlag = discovered.configSettings?.noConfigFlag === true;
+	const enablesParity =
+		noConfigFlag &&
+		declared.flagSettings?.caseParity === false &&
+		flagSettings?.caseParity !== false;
+	if (discovered.version === declared.version && !enablesParity) return undefined;
 
 	try {
 		assertNoReservedFlagCollisions(
 			discovered.version,
 			[compiled.defaultCommand?.schema, ...compiled.commands.map((command) => command.schema)],
 			discovered.builtins,
+			noConfigFlag,
+			flagSettings,
 		);
 		return undefined;
 	} catch (error: unknown) {
@@ -501,12 +523,19 @@ async function prepareRuntimePreflight(
 	options: PrepareRuntimePreflightOptions,
 ): Promise<RuntimePreflightResult> {
 	const rawArgv = options.adapter.argv.slice(2);
-	const { configPath, filteredArgv } =
+	const { configPath, filteredArgv, skipDiscovery } =
 		options.schema.configSettings !== undefined
-			? extractConfigFlag(rawArgv)
-			: { configPath: undefined, filteredArgv: rawArgv };
+			? extractConfigFlag(rawArgv, options.schema.configSettings.noConfigFlag)
+			: { configPath: undefined, filteredArgv: rawArgv, skipDiscovery: undefined };
 	const rootOutputFlags = readRootOutputFlags(filteredArgv, options.schema.builtins);
 	const jsonMode = resolveRootJsonMode(rootOutputFlags, options.options?.jsonMode);
+	if (skipDiscovery && configPath !== undefined) {
+		return {
+			kind: 'startup-error',
+			error: new CLIError('Cannot use --config with --no-config', { code: 'INVALID_VALUE' }),
+			jsonMode,
+		};
+	}
 	const verbosity = resolveRootVerbosity(rootOutputFlags, options.options?.verbosity) ?? 'normal';
 	const isCompletions = isCompletionsInvocation(options.schema, options.compiled, filteredArgv);
 	const schema = await applyPackageJsonDiscovery(
@@ -515,22 +544,29 @@ async function prepareRuntimePreflight(
 		options.inheritedName,
 		isCompletions,
 	);
-	const versionCollision = discoveredVersionCollision(schema, options.schema, options.compiled);
+	const collision = runtimeReservedFlagCollision(
+		schema,
+		options.schema,
+		options.compiled,
+		options.options?.flags ?? options.schema.flagSettings,
+	);
 
-	if (versionCollision !== undefined) {
+	if (collision !== undefined) {
 		return {
 			kind: 'startup-error',
-			error: versionCollision,
+			error: collision,
 			jsonMode,
 		};
 	}
-	const loadedConfig = await loadRuntimeConfig(
-		schema,
-		options.adapter,
-		configPath,
-		isCompletions,
-		options.options?.config,
-	);
+	const loadedConfig = skipDiscovery
+		? options.options?.config
+		: await loadRuntimeConfig(
+				schema,
+				options.adapter,
+				configPath,
+				isCompletions,
+				options.options?.config,
+			);
 
 	if (loadedConfig instanceof CLIError) {
 		return {

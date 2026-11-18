@@ -39,7 +39,7 @@ function completionPosition(
 	const configuredArgv =
 		schema.configSettings === undefined
 			? beforeCursor
-			: extractConfigFlag(beforeCursor).filteredArgv;
+			: extractConfigFlag(beforeCursor, schema.configSettings.noConfigFlag).filteredArgv;
 	const completedArgv = readRootOutputFlags(configuredArgv, schema.builtins).argv;
 	const visibleDefaultCommand = resolveRootSurface(schema).visibleDefaultCommand;
 	const commands =
