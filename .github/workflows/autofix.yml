@@ -5,37 +5,20 @@ on:
   workflow_call:
   workflow_dispatch:
 permissions: { contents: read }
-env: { MAINTENANCE_BRANCH: maintenance/autofix }
 concurrency:
   group: "autofix-${{ github.repository }}-${{ github.ref }}"
   cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 jobs:
-  branch:
-    if: github.repository == 'kjanat/dreamcli'
-    runs-on: ubuntu-latest
-    timeout-minutes: 1
-    outputs:
-      master: ${{ steps.branch.outputs.master }}
-      ordinary: ${{ steps.branch.outputs.ordinary }}
-    steps:
-      - id: branch
-        env:
-          PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
-        run: |
-          master=false
-          ordinary=false
-          # Beepboop exclusively owns the maintenance ref. A fork's branch is independent.
-          if [[ "${GITHUB_REF}" == refs/heads/master ]]; then
-            master=true
-          elif [[ "${GITHUB_REF}" != "refs/heads/${MAINTENANCE_BRANCH}" ]] &&
-               [[ "${PR_HEAD_REPO}" != "${GITHUB_REPOSITORY}" || "${GITHUB_HEAD_REF}" != "${MAINTENANCE_BRANCH}" ]]; then
-            ordinary=true
-          fi
-          printf 'master=%s\nordinary=%s\n' "${master}" "${ordinary}" >> "${GITHUB_OUTPUT}"
-
   autofix:
-    needs: [branch]
-    if: ${{ needs.branch.outputs.ordinary == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.stack == null) }}
+    # Beepboop exclusively owns the maintenance ref. A fork's branch is independent.
+    if: >- # actionlint:ignore case-insensitive-conditions -- also reserve case variants from ordinary autofix
+      ${{ github.repository == 'kjanat/dreamcli' && case(
+        github.ref == 'refs/heads/master' || github.ref == 'refs/heads/maintenance/autofix', false,
+        github.event_name == 'pull_request',
+          github.event.pull_request.stack == null &&
+          (github.event.pull_request.head.repo.full_name != github.repository || github.head_ref != 'maintenance/autofix'),
+        true
+      ) }}
     runs-on: ubuntu-latest
     timeout-minutes: 8
     env: { RUNNER_PM: bun }
@@ -47,8 +30,7 @@ jobs:
       - uses: autofix-ci/action@v1
 
   maintenance-pr:
-    needs: [branch]
-    if: ${{ needs.branch.outputs.master == 'true' }}
+    if: github.repository == 'kjanat/dreamcli' && github.ref_protected && github.ref == 'refs/heads/master' # actionlint:ignore case-insensitive-conditions -- master is protected and checkout pins the exact branch
     runs-on: ubuntu-latest
     timeout-minutes: 8
     permissions: { contents: read, id-token: write }
@@ -69,7 +51,7 @@ jobs:
         # A clean checkout leaves any existing proposal for maintainers to close if obsolete.
         if: steps.changes.outputs.changed == 'true'
         with:
-          branch: ${{ env.MAINTENANCE_BRANCH }}
+          branch: maintenance/autofix
           base: master
           title: ${{ steps.changes.outputs.title }}
           body: ${{ steps.changes.outputs.body }}

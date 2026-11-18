@@ -4,7 +4,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { parseDocument } from 'yaml';
 import { describeChanges } from './autofix-pr.ts';
 
 describe('maintenance PR metadata', () => {
@@ -81,48 +80,6 @@ describe('maintenance PR metadata', () => {
 			expect(result).toMatch(/^body<<(\S+)\n([\s\S]*)\n\1\n$/mu);
 			expect(result).toContain('- `npm:formatter@1.0.0` → `npm:formatter@2.0.0`');
 			expect(result).toContain('- `.dprint.jsonc`\n- `deleted.md`\n- `new file.md`');
-		} finally {
-			rmSync(directory, { recursive: true, force: true });
-		}
-	});
-});
-
-describe.skipIf(process.platform === 'win32')('autofix workflow branch routing', () => {
-	const repository = 'kjanat/dreamcli';
-	it.each([
-		['refs/heads/master', '', '', 'master=true\nordinary=false\n'],
-		['refs/pull/1/merge', 'maintenance/autofix', repository, 'master=false\nordinary=false\n'],
-		['refs/heads/maintenance/autofix', '', '', 'master=false\nordinary=false\n'],
-		['refs/pull/2/merge', 'feature', repository, 'master=false\nordinary=true\n'],
-		[
-			'refs/pull/3/merge',
-			'maintenance/autofix',
-			'contributor/fork',
-			'master=false\nordinary=true\n',
-		],
-	])('routes %s with PR head %s from %s', (ref, headRef, headRepo, expected) => {
-		const workflow = parseDocument(
-			readFileSync(new URL('../.github/workflows/autofix.yml', import.meta.url), 'utf8'),
-		);
-		const script: unknown = workflow.getIn(['jobs', 'branch', 'steps', 0, 'run']);
-		const maintenanceBranch: unknown = workflow.getIn(['env', 'MAINTENANCE_BRANCH']);
-		if (typeof script !== 'string' || typeof maintenanceBranch !== 'string') {
-			throw new Error('Expected the branch routing step and its maintenance branch');
-		}
-		const directory = mkdtempSync(join(tmpdir(), 'dreamcli-autofix-'));
-		try {
-			const output = join(directory, 'outputs');
-			execFileSync('bash', ['-e', '-o', 'pipefail', '-c', script], {
-				env: {
-					GITHUB_REF: ref,
-					GITHUB_HEAD_REF: headRef,
-					GITHUB_REPOSITORY: repository,
-					PR_HEAD_REPO: headRepo,
-					MAINTENANCE_BRANCH: maintenanceBranch,
-					GITHUB_OUTPUT: output,
-				},
-			});
-			expect(readFileSync(output, 'utf8')).toBe(expected);
 		} finally {
 			rmSync(directory, { recursive: true, force: true });
 		}
