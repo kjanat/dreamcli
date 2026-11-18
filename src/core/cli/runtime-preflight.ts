@@ -81,6 +81,7 @@ interface RuntimePreflightSchemaLike {
 	readonly inheritName: boolean;
 	/** Declared version; `undefined` means version will be inferred from package.json if available. */
 	readonly version: string | undefined;
+	readonly versionAlias?: string | undefined;
 	/** Declared description; `undefined` allows package.json inference. */
 	readonly description: string | undefined;
 	/** Whether the default command is also exposed as a named top-level route. */
@@ -465,6 +466,7 @@ function runtimeReservedFlagCollision(
 			discovered.builtins,
 			noConfigFlag,
 			flagSettings,
+			discovered.versionAlias,
 		);
 		return undefined;
 	} catch (error: unknown) {

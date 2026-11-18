@@ -49,6 +49,7 @@ interface PlannerSchemaLike {
 	readonly name: string;
 	/** Declared version string; `undefined` disables `--version` interception. */
 	readonly version: string | undefined;
+	readonly versionAlias?: string | undefined;
 	/** Whether the default command is also exposed as a named top-level route. */
 	readonly defaultCommandRouted: boolean;
 	/**
@@ -535,7 +536,7 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 	if (
 		options.schema.version !== undefined &&
 		(includesBeforeSeparator(options.argv, '--version') ||
-			includesBeforeSeparator(options.argv, '-V'))
+			includesBeforeSeparator(options.argv, `-${options.schema.versionAlias ?? 'V'}`))
 	) {
 		return {
 			kind: 'root-version',

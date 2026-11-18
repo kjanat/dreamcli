@@ -79,9 +79,6 @@ const VERSION_RESERVED: ReservedFlag = {
 	remedy: RENAME,
 };
 
-/** Tokens the root owns only once a version is configured. */
-const VERSION_TOKENS: readonly string[] = ['version', 'V'];
-
 /**
  * The tokens a CLI's commands may not spell.
  *
@@ -93,6 +90,7 @@ function reservedTokens(
 	version: string | undefined,
 	builtins: BuiltinsConfig | undefined,
 	noConfigFlag: boolean,
+	versionAlias: string,
 ): ReadonlyMap<string, ReservedFlag> {
 	const reserved = new Map<string, ReservedFlag>();
 
@@ -107,7 +105,13 @@ function reservedTokens(
 	}
 
 	if (version !== undefined) {
-		for (const token of VERSION_TOKENS) reserved.set(token, VERSION_RESERVED);
+		if (reserved.has(versionAlias)) {
+			throw new CLIError(`Version alias -${versionAlias} conflicts with a built-in flag`, {
+				code: 'RESERVED_FLAG',
+			});
+		}
+		reserved.set('version', VERSION_RESERVED);
+		reserved.set(versionAlias, VERSION_RESERVED);
 	}
 	if (noConfigFlag) {
 		reserved.set('no-config', { rootSpelling: '--no-config', effect: STRIPPED, remedy: RENAME });
@@ -161,6 +165,7 @@ function flagSpellings(
  * @param schema - Command to walk, including its nested subcommands.
  * @param reserved - Reserved tokens for the current CLI configuration.
  * @param flagSettings - Parser settings that determine case-parity spellings.
+ * @param versionAlias - Short version alias without its leading dash.
  * @returns The collision, or `undefined` when the tree is clean.
  *
  * @internal
@@ -254,8 +259,9 @@ function assertNoReservedFlagCollisions(
 	builtins?: BuiltinsConfig,
 	noConfigFlag = false,
 	flagSettings?: ParseOptions,
+	versionAlias = 'V',
 ): void {
-	const reserved = reservedTokens(version, builtins, noConfigFlag);
+	const reserved = reservedTokens(version, builtins, noConfigFlag, versionAlias);
 
 	for (const schema of commands) {
 		if (schema === undefined) continue;

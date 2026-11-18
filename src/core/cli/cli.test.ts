@@ -125,6 +125,23 @@ describe('CLIBuilder immutability', () => {
 // --- Version
 
 describe('--version flag', () => {
+	it('uses a configured alias in dispatch, help, and completions', async () => {
+		const app = cli('app')
+			.version('1.2.3', { alias: 'v' })
+			.default(
+				command('run')
+					.flag('verbose', flag.boolean().alias('V'))
+					.action(() => {}),
+			)
+			.completions({ rootMode: 'surface' });
+		expect((await app.execute(['-v'])).stdout.join('')).toBe('1.2.3\n');
+		expect((await app.execute(['--help'])).stdout.join('')).toContain('-v, --version');
+		expect((await app.execute(['completions', 'zsh'])).stdout.join('')).toContain('-v');
+		expect(() => app.command(command('other').flag('verbose', flag.boolean().alias('v')))).toThrow(
+			/collides|reserved/i,
+		);
+	});
+
 	it('outputs version and exits 0', async () => {
 		const app = cli('mycli').version('2.5.0').command(deployCommand());
 		const result = await app.execute(['--version']);

@@ -170,6 +170,8 @@ interface CLISchema {
 	readonly inheritName: boolean;
 	/** Program version (shown by `--version`). */
 	readonly version: string | undefined;
+	/** Configured short version alias, without a leading dash. */
+	readonly versionAlias?: string | undefined;
 	/** Program description (shown in root help). */
 	readonly description: string | undefined;
 	/** Schemas of the registered commands, in registration order. */
@@ -783,6 +785,7 @@ function createCLISchema(definition: CLIDefinition): CLISchema {
 		schema.builtins,
 		schema.configSettings?.noConfigFlag,
 		schema.flagSettings,
+		schema.versionAlias,
 	);
 	if (schema.completionsFlag !== undefined) {
 		for (const cmd of allCommands) {
@@ -1136,17 +1139,25 @@ class CLIBuilder {
 	 * command, so this rejects a command that already declares either spelling.
 	 *
 	 * @param v - Semantic version string.
+	 * @param options - Override the short alias (for example, `{ alias: 'v' }`).
 	 * @returns The builder (for chaining).
 	 * @throws {@link CLIError} `RESERVED_FLAG` when a registered command spells
 	 *   `--version` or `-V` as a flag name, an alias, or a negated spelling.
 	 */
-	version(v: string): CLIBuilder {
+	version(v: string, options?: { readonly alias?: string }): CLIBuilder {
+		const alias = options?.alias;
+		if (alias !== undefined && !/^[a-z]$/iu.test(alias)) {
+			throw new CLIError('Version alias must be one ASCII letter', { code: 'INVALID_SCHEMA' });
+		}
 		assertNoReservedFlagCollisions(
 			v,
 			[this.schema.defaultCommand, ...this.schema.commands],
 			this.schema.builtins,
+			false,
+			undefined,
+			alias,
 		);
-		return rebuild(this, { ...this.schema, version: v });
+		return rebuild(this, { ...this.schema, version: v, versionAlias: alias });
 	}
 
 	/**
@@ -1241,6 +1252,9 @@ class CLIBuilder {
 			this.schema.version,
 			[this.schema.defaultCommand, ...this.schema.commands],
 			builtins,
+			false,
+			undefined,
+			this.schema.versionAlias,
 		);
 		return rebuild(this, sealCLISchema({ ...this.schema, builtins }));
 	}
@@ -1363,6 +1377,7 @@ class CLIBuilder {
 				this.schema.builtins,
 				true,
 				this.schema.flagSettings,
+				this.schema.versionAlias,
 			);
 		}
 		return rebuild(
@@ -1522,6 +1537,9 @@ class CLIBuilder {
 			next.version,
 			[next.defaultCommand, ...next.commands],
 			next.builtins,
+			false,
+			undefined,
+			next.versionAlias,
 		);
 		return rebuild(this, next);
 	}
@@ -1555,6 +1573,7 @@ class CLIBuilder {
 			this.schema.builtins,
 			this.schema.configSettings?.noConfigFlag,
 			this.schema.flagSettings,
+			this.schema.versionAlias,
 		);
 		if (this.schema.completionsFlag !== undefined) {
 			assertNoCompletionsFlagCollision(cmd.schema);
@@ -1647,6 +1666,7 @@ class CLIBuilder {
 			this.schema.builtins,
 			this.schema.configSettings?.noConfigFlag,
 			this.schema.flagSettings,
+			this.schema.versionAlias,
 		);
 		if (this.schema.completionsFlag !== undefined) {
 			assertNoCompletionsFlagCollision(cmd.schema);

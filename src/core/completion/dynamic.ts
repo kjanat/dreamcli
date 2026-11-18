@@ -94,7 +94,11 @@ function completionPosition(
 							(form) => token === form || token.startsWith(`${form}=`),
 						)),
 			);
-			if (builtin || (schema.version !== undefined && (token === '--version' || token === '-V')))
+			if (
+				builtin ||
+				(schema.version !== undefined &&
+					(token === '--version' || token === `-${schema.versionAlias ?? 'V'}`))
+			)
 				continue;
 			const match = matchFlag(token, lookup);
 			if (match === undefined || (match.entry.negated && match.inline !== undefined))
@@ -297,7 +301,12 @@ async function completeValues(
 			position.result.kind === 'unknown'
 				? [
 						...(builtinEnabled(schema.builtins, 'help') ? ['--help'] : []),
-						...(schema.version !== undefined ? ['--version'] : []),
+						...(schema.version !== undefined
+							? [
+									'--version',
+									...(schema.versionAlias === undefined ? [] : [`-${schema.versionAlias}`]),
+								]
+							: []),
 					]
 				: [];
 		return {
