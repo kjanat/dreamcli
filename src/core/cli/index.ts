@@ -273,6 +273,8 @@ interface CLISchema {
  * @internal
  */
 const compiledStates = new WeakMap<CLIBuilder, CompiledCLI>();
+const completionCommands = new WeakSet<CommandSchema>();
+const completionSchemas = new WeakMap<CommandMeta, CLISchema>();
 
 /**
  * Read the compiled state seeded by {@linkcode CLIBuilder._from}.
@@ -1747,10 +1749,6 @@ class CLIBuilder {
 			});
 		}
 
-		// Capture current schema — includes all commands registered so far.
-		// The completions command itself is deliberately excluded from the
-		// generated script (it would be noise in shell completions).
-		const cliSchema = this.schema;
 		const completionOptions = completionGeneratorOptions(options);
 
 		const cmd = command('completions')
@@ -1773,8 +1771,15 @@ class CLIBuilder {
 					.describe(`Target shell (${SHELLS.join(', ')})`),
 			)
 			.action(async ({ args, meta, out }) => {
-				const completionSchema =
-					meta.bin === cliSchema.name ? cliSchema : { ...cliSchema, name: meta.bin };
+				const schema = completionSchemas.get(meta);
+				if (schema === undefined) {
+					throw new CLIError('Missing completion schema', { code: 'INVALID_BUILDER_STATE' });
+				}
+				const completionSchema = {
+					...schema,
+					name: meta.bin,
+					commands: schema.commands.filter((entry) => !completionCommands.has(entry)),
+				};
 				const { generateCompletion } = await import('#internals/core/completion/index.ts');
 				const script = generateCompletion(completionSchema, args.shell, completionOptions);
 				if (out.jsonMode) {
@@ -1784,6 +1789,7 @@ class CLIBuilder {
 				}
 			});
 
+		completionCommands.add(cmd.schema);
 		const withCompletions = this.command(cmd);
 		return rebuild(withCompletions, {
 			...withCompletions.schema,
@@ -2167,6 +2173,9 @@ async function executeCLI(
 		}
 
 		case 'match': {
+			if (completionCommands.has(planned.plan.command.schema)) {
+				completionSchemas.set(planned.plan.meta, builder.schema);
+			}
 			const help = planned.plan.help ?? helpOptions;
 			const commandRunOptions = buildCommandRunOptions(
 				effectiveOptions,
