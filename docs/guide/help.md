@@ -138,13 +138,15 @@ starts with a letter, and reserves `all` for full help.
 ```ts twoslash
 import { cli, command, flag } from '@kjanat/dreamcli';
 
-cli('demo').command(
-  command('check')
-    .flag('runner-provider', flag.string().group('Runners').advanced())
-    .flag('output', flag.string().group('Output'))
-    .helpTopic('runners', 'Runners')
-    .action(() => {}),
-);
+cli('demo')
+  .command(
+    command('check')
+      .flag('runner-provider', flag.string().group('Runners').advanced())
+      .flag('output', flag.string().group('Output'))
+      .helpTopic('runners', 'Runners')
+      .action(() => {}),
+  )
+  .run();
 ```
 
 `demo check --help=runners` displays the `Runners options:` section, including

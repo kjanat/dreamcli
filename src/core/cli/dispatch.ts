@@ -14,6 +14,7 @@ import type { FlagLookupEntry, ParseOptions } from '#internals/core/parse/index.
 import { buildFlagLookup, flagExpectsValue } from '#internals/core/parse/index.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
 import type { CompiledCommand } from './compiled.ts';
+import { collectPropagatedFlagEntries } from './propagate.ts';
 
 /**
  * Flag lookup (spelling → {@link FlagLookupEntry}) used to make the
@@ -159,14 +160,18 @@ function dispatch(
 	const remaining = [...argv.slice(0, cmdIdx), ...argv.slice(cmdIdx + 1)];
 	const currentPath = [...ancestorPath, matched.schema];
 
-	// If command has subcommands, try to descend. The matched command's own
-	// flags govern arity at the child level (e.g. `db --config x migrate`).
+	// At the child level, arity follows the group's effective flags.
 	if (matched.subcommands.size > 0) {
+		const inherited = collectPropagatedFlagEntries(currentPath);
+		const flags =
+			inherited.size === 0
+				? matched.schema.flags
+				: { ...Object.fromEntries(inherited), ...matched.schema.flags };
 		const subResult = dispatch(
 			remaining,
 			matched.subcommands,
 			currentPath,
-			buildFlagLookup(matched.schema.flags, parseOptions),
+			buildFlagLookup(flags, parseOptions),
 			parseOptions,
 		);
 

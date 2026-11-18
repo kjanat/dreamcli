@@ -601,14 +601,34 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 		rootValueFlags,
 		options.schema.flagSettings,
 	);
-	const helpTopics =
-		result.kind === 'unknown'
-			? result.parentPath.length === 0
-				? defaultCommand?.schema.helpTopics
-				: undefined
-			: result.command.schema.helpTopics;
+	let selectedDefault: CompiledCommand | undefined;
+	if (result.kind === 'unknown' && defaultCommand !== undefined && result.parentPath.length === 0) {
+		// Explicit filesystem syntax is positional input, not a command typo (#238).
+		const pathInput =
+			result.input === '.' ||
+			result.input === '..' ||
+			result.input.includes('/') ||
+			result.input.includes('\\');
+		const suggestion =
+			result.input !== '' && !pathInput
+				? findClosestCommand(result.input, result.candidates)
+				: undefined;
+		if (suggestion === undefined && canDelegateUnknownRootToDefault(defaultCommand, result.input)) {
+			selectedDefault = defaultCommand;
+		}
+	}
+	const selectedCommand = result.kind === 'unknown' ? selectedDefault : result.command;
+	const helpTopics = selectedCommand?.schema.helpTopics;
 	if (rootOutputFlags.kind === 'failed' && !(helpOwned && requestsHelp(filteredArgv, helpTopics))) {
 		return { kind: 'dispatch-error', error: rootOutputFlags.error };
+	}
+	if (selectedDefault !== undefined) {
+		return buildPlannerMatchOutcome(
+			options,
+			selectedDefault,
+			[selectedDefault.schema],
+			filteredArgv,
+		);
 	}
 
 	// A CLI with no commands and no default is misconfigured: report NO_ACTION
@@ -633,28 +653,6 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 	switch (result.kind) {
 		case 'unknown': {
 			if (defaultCommand !== undefined && result.parentPath.length === 0) {
-				// Explicit filesystem syntax is positional input, not a command typo (#238).
-				const pathInput =
-					result.input === '.' ||
-					result.input === '..' ||
-					result.input.includes('/') ||
-					result.input.includes('\\');
-				const suggestion =
-					result.input !== '' && !pathInput
-						? findClosestCommand(result.input, result.candidates)
-						: undefined;
-				if (
-					suggestion === undefined &&
-					canDelegateUnknownRootToDefault(defaultCommand, result.input)
-				) {
-					return buildPlannerMatchOutcome(
-						options,
-						defaultCommand,
-						[defaultCommand.schema],
-						filteredArgv,
-					);
-				}
-
 				const unknownFlag = findUnknownFlagBeforePositional(
 					filteredArgv,
 					defaultCommand.schema.flags,

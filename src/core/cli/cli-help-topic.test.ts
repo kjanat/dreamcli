@@ -3,11 +3,11 @@ import { arg } from '#internals/core/schema/arg.ts';
 import { command, createCommandSchema } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { runCommand } from '#internals/core/testkit/index.ts';
-import { createTestAdapter, ExitError } from '#internals/runtime/index.ts';
+import { createTestAdapter, ExitError } from '#internals/runtime/adapter.ts';
 import { cli } from './index.ts';
 
-function checkCommand() {
-	return command('check')
+function checkCommand(name = 'check') {
+	return command(name)
 		.arg('paths', arg.string().variadic().optional())
 		.flag('runner-provider', flag.string().group('Runners').advanced())
 		.flag('output', flag.string().group('Output'))
@@ -58,13 +58,22 @@ describe('command help topics', () => {
 		const withTopic = await app.execute(argv);
 		expect(withTopic.exitCode).toBe(0);
 		expect(withTopic.stdout).toEqual(original.stdout);
-		const readStdin = vi.fn(async () => null);
+		const stdout: string[] = [];
+		const readStdin = vi.fn(async () => 'value');
 		const adapter = {
-			...createTestAdapter({ argv: ['node', 'demo', 'check', '--help=runners'] }),
+			...createTestAdapter({
+				argv: ['node', 'demo', 'check', '--help=runners'],
+				stdout: (text) => stdout.push(text),
+			}),
 			readStdin,
 		};
 		await expect(app.run({ adapter })).rejects.toEqual(new ExitError(0));
+		expect(stdout.join('')).toBe('Runners options:\n  --runner <string>\n');
 		expect(readStdin).not.toHaveBeenCalled();
+		await expect(
+			app.run({ adapter: { ...adapter, argv: ['node', 'demo', 'check'] } }),
+		).rejects.toEqual(new ExitError(0));
+		expect(readStdin).toHaveBeenCalledOnce();
 	});
 
 	it('works for an actionless group and uses the effective inherited flags', async () => {
@@ -86,9 +95,54 @@ describe('command help topics', () => {
 		expect(group.stdout.join('')).toMatch(/^Runners options:\n  --runner-provider[^\n]*\n$/u);
 		const nested = await app.execute(['parent', 'nested', 'check', '--help=runners']);
 		expect(nested.stdout).toEqual(group.stdout);
+		const nestedWithValue = await app.execute([
+			'parent',
+			'nested',
+			'--runner-provider',
+			'local',
+			'--help=runners',
+		]);
+		expect(nestedWithValue.exitCode).toBe(0);
+		expect(nestedWithValue.stdout).toEqual(group.stdout);
+		const childWithValue = await app.execute([
+			'parent',
+			'nested',
+			'--runner-provider',
+			'local',
+			'check',
+			'--help=runners',
+		]);
+		expect(childWithValue.exitCode).toBe(0);
+		expect(childWithValue.stdout).toEqual(group.stdout);
 		const groupTopicJson = await app.execute(['parent', 'nested', '--help=runners', '--json']);
 		const groupJson = await app.execute(['parent', 'nested', '--help', '--json']);
 		expect(groupTopicJson.stdout).toEqual(groupJson.stdout);
+	});
+
+	it('bypasses output flag errors only when the registered topic will render', async () => {
+		const app = cli('demo')
+			.default(checkCommand('fallback').action(() => {}))
+			.command(command('check').action(() => {}));
+		const typo = await app.execute(['chek', '--help=runners', '--json=bogus']);
+		expect(typo.error?.code).toBe('INVALID_VALUE');
+		const fallback = await app.execute(['./path', '--help=runners', '--json=bogus']);
+		expect(fallback.exitCode).toBe(0);
+		expect(fallback.stdout.join('')).toContain('Runners options:');
+	});
+
+	it('uses a nested group’s local override when scanning for the child route', async () => {
+		const parent = command('parent')
+			.flag('verbose', flag.string().propagate())
+			.command(
+				command('nested')
+					.flag('verbose', flag.boolean())
+					.command(checkCommand().action(() => {})),
+			);
+		const result = await cli('demo')
+			.command(parent)
+			.execute(['parent', 'nested', '--verbose', 'check', '--help=runners']);
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout.join('')).toBe('Runners options:\n  --runner-provider <string>\n');
 	});
 
 	it('keeps unknown names and post-separator text out of built-in help', async () => {
