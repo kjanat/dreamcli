@@ -5,6 +5,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { collectPublicApiIndex } from './api-index.ts';
@@ -42,6 +43,22 @@ describe('deno doc normalization', () => {
 					[
 						"import type { Options } from './second.ts';",
 						'export type SelectedOptions = Options;',
+						'export type Shadowed<Options> = Options;',
+						'export interface Box<T = string> {',
+						'  /** Value stored in the box. */',
+						'  value: T;',
+						'  identity<T>(input: T): T;',
+						'}',
+						'export interface DerivedBox<T> extends Box<T[]> {}',
+						'export type Renamed<U> = DerivedBox<U>;',
+						'export type NumberBox = Renamed<number>;',
+						'export type DefaultBox = Box;',
+						'export class Accessors<T> {',
+						'  get item(): T { throw new Error(); }',
+						'  set item(value: T | null) {}',
+						'  set writeOnly(value: T[]) {}',
+						'}',
+						'export class TextAccessors extends Accessors<string> {}',
 						`export ${templateDeclaration}`,
 						'export interface Base<T> {',
 						'  /** Inherited documentation. */',
@@ -76,6 +93,25 @@ describe('deno doc normalization', () => {
 			expect(page('/first:Options')).toContain('src/first.ts#L1)');
 			expect(page(':SelectedOptions')).toContain('right: string;');
 			expect(page(':SelectedOptions')).not.toContain('wrong: string;');
+			const reflectionType = (name: string) =>
+				model.exports.find((entry) => entry.id === `@kjanat/dreamcli:${name}`)?.reflection.type;
+			expect(reflectionType('SelectedOptions')).toMatchObject({
+				target: `${pathToFileURL(join(root, 'src/second.ts')).href}:0:0`,
+				packageName: '@kjanat/dreamcli',
+			});
+			expect(reflectionType('Shadowed')).toMatchObject({
+				refersToTypeParameter: true,
+				target: null,
+				packageName: null,
+			});
+			expect(page(':NumberBox')).toContain('value: number[];');
+			expect(page(':NumberBox')).toContain('Value stored in the box.');
+			expect(page(':NumberBox')).toContain('identity<T>(input: T): T;');
+			expect(page(':DefaultBox')).toContain('value: string;');
+			expect(page(':TextAccessors')).toContain('get item(): string;');
+			expect(page(':TextAccessors')).toContain('set item(value: string | null);');
+			expect(page(':TextAccessors')).toContain('set writeOnly(value: string[]);');
+			expect(page(':TextAccessors')).not.toContain('get writeOnly()');
 			expect(page(':EnvKey')).toContain(templateDeclaration);
 			expect(page(':Derived')).toContain('"x-mode": string;');
 			expect(page(':Derived')).toContain('Inherited documentation.');
@@ -88,6 +124,11 @@ describe('deno doc normalization', () => {
 			expect(page(':use')).toContain('[the key](/reference/symbols/main/EnvKey) and A \\| B.');
 			expect(page(':use')).toContain('const example = "{@link EnvKey}";');
 			expect(page(':logs')).toContain('function logs(...values: string[]): string[];');
+
+			await writeFile(join(root, 'src/first.ts'), 'export interface Options {');
+			await expect(collectDenoDocModel(manifest, inventory)).rejects.toThrow(
+				'Failed to collect docs for src/first.ts',
+			);
 		} finally {
 			await rm(root, { recursive: true });
 		}

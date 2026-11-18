@@ -451,19 +451,18 @@ function renderMethodDeclaration(member: NormalizedApiNode): string {
 }
 
 function renderAccessorDeclaration(member: NormalizedApiNode): string {
-	const getter = member.getSignature ?? member;
-	const setter = member.setSignature;
-	if (setter === null) {
-		return `get ${renderMemberName(member.name)}(): ${renderNodeType(getter)};`;
+	const getter = member.kind === 'getSignature' ? member : member.getSignature;
+	const setter = member.kind === 'setSignature' ? member : member.setSignature;
+	const name = renderMemberName(member.name);
+	const lines: string[] = [];
+	if (getter !== null) lines.push(`get ${name}(): ${renderNodeType(getter)};`);
+	if (setter !== null) {
+		const value = setter.parameters[0];
+		lines.push(
+			`set ${name}(${value === undefined ? 'value: unknown' : renderParameter(value, false)});`,
+		);
 	}
-
-	const valueParameter = setter.parameters[0];
-	const setterType =
-		valueParameter === undefined ? 'unknown' : renderParameter(valueParameter, false);
-	return [
-		`get ${renderMemberName(member.name)}(): ${renderNodeType(getter)};`,
-		`set ${renderMemberName(member.name)}(${setterType});`,
-	].join('\n');
+	return lines.join('\n');
 }
 
 function renderIndexSignature(member: NormalizedApiNode): string {
