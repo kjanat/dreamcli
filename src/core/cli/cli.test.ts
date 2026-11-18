@@ -416,6 +416,80 @@ describe('CLIBuilder.run — runtime name inheritance', () => {
 
 // --- Runtime terminal width
 
+describe('CLIBuilder.run — config discovery opt-out', () => {
+	const check = command('check')
+		.arg('token', arg.string().optional())
+		.flag('region', flag.string().config('region').default('us'))
+		.action(({ args, flags, out }) => out.log(`${flags.region}:${args.token ?? ''}`));
+	const app = cli('demo').config('demo', { noConfigFlag: true }).command(check);
+
+	it('skips malformed automatic config before or after the command name', async () => {
+		for (const argv of [
+			['--no-config', 'check'],
+			['check', '--no-config'],
+		]) {
+			const stdout: string[] = [];
+			const readFile = vi.fn(async () => '{invalid');
+			const adapter = createTestAdapter({
+				argv: ['node', 'cli.js', ...argv],
+				readFile,
+				stdout: (line) => stdout.push(line),
+			});
+			await expect(app.run({ adapter })).rejects.toMatchObject({ code: 0 });
+			expect(readFile).not.toHaveBeenCalled();
+			expect(stdout).toEqual(['us:\n']);
+		}
+	});
+
+	it.each([
+		['--no-config', 'check', '--config=settings.json'],
+		['--config', 'settings.json', 'check', '--no-config'],
+	])('rejects config overrides with the opt-out (%j)', async (...argv) => {
+		const stdout: string[] = [];
+		const readFile = vi.fn(async () => '{invalid');
+		const adapter = createTestAdapter({
+			argv: ['node', 'cli.js', ...argv, '--json'],
+			readFile,
+			stdout: (line) => stdout.push(line),
+		});
+		await expect(app.run({ adapter })).rejects.toMatchObject({ code: 1 });
+		expect(readFile).not.toHaveBeenCalled();
+		expect(JSON.parse(stdout.join(''))).toMatchObject({
+			error: { code: 'INVALID_VALUE', message: 'Cannot use --config with --no-config' },
+		});
+	});
+
+	it('treats --no-config after -- as a positional argument and loads config', async () => {
+		const stdout: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', 'cli.js', 'check', '--', '--no-config'],
+			cwd: '/test',
+			readFile: async (path) => (path === '/test/.demo.json' ? '{"region":"eu"}' : null),
+			stdout: (line) => stdout.push(line),
+		});
+		await expect(app.run({ adapter })).rejects.toMatchObject({ code: 0 });
+		expect(stdout).toEqual(['eu:--no-config\n']);
+	});
+
+	it('only reserves and advertises --no-config when explicitly enabled', async () => {
+		const custom = command('custom')
+			.flag('no-config', flag.boolean())
+			.action(({ flags, out }) => out.log(String(flags['no-config'])));
+		const regular = cli('demo').config('demo').command(custom);
+		const stdout: string[] = [];
+		const adapter = createTestAdapter({
+			argv: ['node', 'cli.js', 'custom', '--no-config'],
+			stdout: (line) => stdout.push(line),
+		});
+		await expect(regular.run({ adapter })).rejects.toMatchObject({ code: 0 });
+		expect(stdout).toEqual(['true\n']);
+		expect(formatRootHelp(regular.schema)).not.toContain('--no-config');
+		expect(formatRootHelp(app.schema)).toContain('--no-config');
+		expect(() => app.command(custom)).toThrow(/reserved.*--no-config/u);
+		expect(() => regular.config('demo', { noConfigFlag: true })).toThrow(/reserved.*--no-config/u);
+	});
+});
+
 describe('CLIBuilder.run — terminal help width', () => {
 	const inspect = command('inspect')
 		.description('alpha beta gamma delta epsilon zeta eta theta iota')

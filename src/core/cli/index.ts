@@ -452,6 +452,8 @@ interface ConfigSettings {
 
 	/** Additional format loaders beyond the built-in JSON loader. */
 	readonly loaders: readonly ConfigLoader[] | undefined;
+	/** Reserve `--no-config` to skip filesystem config discovery. */
+	readonly noConfigFlag?: boolean;
 }
 
 /**
@@ -531,6 +533,16 @@ interface ConfigSettingsDefinition {
 	 * @defaultValue `undefined`
 	 */
 	readonly loaders?: readonly ConfigLoader[] | undefined;
+	/** Allow callers to skip filesystem config discovery with `--no-config`. */
+	readonly noConfigFlag?: boolean;
+}
+
+type ConfigOptions = Omit<ConfigSettingsDefinition, 'appName'>;
+
+function isConfigLoaderList(
+	input: ConfigOptions | readonly ConfigLoader[],
+): input is readonly ConfigLoader[] {
+	return Array.isArray(input);
 }
 
 /**
@@ -679,7 +691,11 @@ function buildCLISchema(definition: CLIDefinition): CLISchema {
 		defaultCommandRouted: definition.defaultCommandRouted ?? false,
 		configSettings:
 			configSettings !== undefined
-				? { appName: configSettings.appName, loaders: configSettings.loaders }
+				? {
+						appName: configSettings.appName,
+						loaders: configSettings.loaders,
+						...(configSettings.noConfigFlag === true ? { noConfigFlag: true } : {}),
+					}
 				: undefined,
 		packageJsonSettings: definition.packageJsonSettings,
 		helpLinks: definition.helpLinks,
@@ -754,7 +770,12 @@ function createCLISchema(definition: CLIDefinition): CLISchema {
 		assertNoTopLevelRouteConflict(registered, schema.defaultCommand);
 	}
 	const allCommands = [schema.defaultCommand, ...schema.commands];
-	assertNoReservedFlagCollisions(schema.version, allCommands, schema.builtins);
+	assertNoReservedFlagCollisions(
+		schema.version,
+		allCommands,
+		schema.builtins,
+		schema.configSettings?.noConfigFlag,
+	);
 	if (schema.completionsFlag !== undefined) {
 		for (const cmd of allCommands) {
 			if (cmd !== undefined) assertNoCompletionsFlagCollision(cmd);
@@ -1323,17 +1344,28 @@ class CLIBuilder {
 	 * `options.config` directly).
 	 *
 	 * @param appName - Name used to build search paths.
-	 * @param loaders - Additional {@link ConfigLoader}s (JSON is built-in).
+	 * @param input - Additional {@link ConfigLoader}s, or options with loaders
+	 *   and `noConfigFlag: true` to enable the discovery opt-out.
 	 * @returns The builder (for chaining).
 	 */
-	config(appName: string, loaders?: readonly ConfigLoader[]): CLIBuilder {
+	config(appName: string, input: readonly ConfigLoader[] | ConfigOptions = {}): CLIBuilder {
+		const settings: ConfigOptions = isConfigLoaderList(input) ? { loaders: input } : input;
+		if (settings.noConfigFlag === true) {
+			assertNoReservedFlagCollisions(
+				this.schema.version,
+				[this.schema.defaultCommand, ...this.schema.commands],
+				this.schema.builtins,
+				true,
+			);
+		}
 		return rebuild(
 			this,
 			sealCLISchema({
 				...this.schema,
 				configSettings: {
 					appName,
-					loaders,
+					loaders: settings.loaders,
+					...(settings.noConfigFlag === true ? { noConfigFlag: true } : {}),
 				},
 			}),
 		);
@@ -1510,7 +1542,12 @@ class CLIBuilder {
 		C extends Record<string, unknown>,
 	>(cmd: CommandBuilder<F, A, C>): CLIBuilder {
 		assertNoTopLevelRouteConflict(this.schema.commands, cmd.schema, this.schema.defaultCommand);
-		assertNoReservedFlagCollisions(this.schema.version, [cmd.schema], this.schema.builtins);
+		assertNoReservedFlagCollisions(
+			this.schema.version,
+			[cmd.schema],
+			this.schema.builtins,
+			this.schema.configSettings?.noConfigFlag,
+		);
 		if (this.schema.completionsFlag !== undefined) {
 			assertNoCompletionsFlagCollision(cmd.schema);
 		}
@@ -1596,7 +1633,12 @@ class CLIBuilder {
 		}
 
 		assertNoTopLevelRouteConflict(this.schema.commands, cmd.schema);
-		assertNoReservedFlagCollisions(this.schema.version, [cmd.schema], this.schema.builtins);
+		assertNoReservedFlagCollisions(
+			this.schema.version,
+			[cmd.schema],
+			this.schema.builtins,
+			this.schema.configSettings?.noConfigFlag,
+		);
 		if (this.schema.completionsFlag !== undefined) {
 			assertNoCompletionsFlagCollision(cmd.schema);
 		}

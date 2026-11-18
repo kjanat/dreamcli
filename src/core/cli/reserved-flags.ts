@@ -90,6 +90,7 @@ const VERSION_TOKENS: readonly string[] = ['version', 'V'];
 function reservedTokens(
 	version: string | undefined,
 	builtins: BuiltinsConfig | undefined,
+	noConfigFlag: boolean,
 ): ReadonlyMap<string, ReservedFlag> {
 	const reserved = new Map<string, ReservedFlag>();
 
@@ -105,6 +106,9 @@ function reservedTokens(
 
 	if (version !== undefined) {
 		for (const token of VERSION_TOKENS) reserved.set(token, VERSION_RESERVED);
+	}
+	if (noConfigFlag) {
+		reserved.set('no-config', { rootSpelling: '--no-config', effect: STRIPPED, remedy: RENAME });
 	}
 
 	return reserved;
@@ -227,8 +231,9 @@ function assertNoReservedFlagCollisions(
 	version: string | undefined,
 	commands: readonly (CommandSchema | undefined)[],
 	builtins?: BuiltinsConfig,
+	noConfigFlag = false,
 ): void {
-	const reserved = reservedTokens(version, builtins);
+	const reserved = reservedTokens(version, builtins, noConfigFlag);
 
 	for (const schema of commands) {
 		if (schema === undefined) continue;

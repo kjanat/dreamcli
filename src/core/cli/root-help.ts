@@ -40,11 +40,13 @@ interface CLISchemaLike {
 		| undefined;
 	readonly completionsFlag?: { readonly shells: readonly string[] } | undefined;
 	/**
-	 * Config discovery settings. Only its presence is read — defined means
+	 * Config discovery settings. Defined means
 	 * `.config()` enabled the built-in `--config <path>` flag, so root help
 	 * advertises it in `Global options:`.
 	 */
-	readonly configSettings?: { readonly appName: string } | undefined;
+	readonly configSettings?:
+		| { readonly appName: string; readonly noConfigFlag?: boolean }
+		| undefined;
 	/**
 	 * Built-in flag state. A built-in set to `'off'` belongs to the commands, so
 	 * `Global options:` stops advertising it. Optional so hand-built schema-like
@@ -360,6 +362,12 @@ function formatGlobalOptionsSection(
 		entries.push({
 			left: `${theme.flag('--config')} ${theme.placeholder('<path>')}`,
 			description: 'Load configuration from the given file',
+		});
+	}
+	if (schema.configSettings?.noConfigFlag === true) {
+		entries.push({
+			left: theme.flag('--no-config'),
+			description: 'Skip configuration file discovery',
 		});
 	}
 	if (entries.length === 0) return '';

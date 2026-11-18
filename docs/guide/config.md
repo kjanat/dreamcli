@@ -32,6 +32,11 @@ cli('mycli')
 
 This searches standard locations for config files named `.mycli.json`, `mycli.config.json`, etc.
 
+Use `.config('mycli', { noConfigFlag: true })` to let users skip file discovery
+with `--no-config` when running the CLI. The flag is available before or after
+the command name. It conflicts with `--config <path>` and `--config=<path>`.
+After `--`, both spellings are passed through as positional arguments.
+
 ### Search Paths
 
 Config discovery is platform-aware. The first match wins; files are never

@@ -41,6 +41,7 @@ interface RuntimeConfigSettings {
 	readonly appName: string;
 	/** Optional format loaders (JSON/YAML/TOML); `undefined` uses built-in JSON. */
 	readonly loaders: readonly ConfigLoader[] | undefined;
+	readonly noConfigFlag?: boolean;
 }
 
 /**
@@ -217,12 +218,17 @@ const PRECHECK_OUTPUT = {
 };
 
 /** Extract and strip valid runtime `--config` forms from argv, returning path + filtered tokens. @internal */
-function extractConfigFlag(argv: readonly string[]): {
+function extractConfigFlag(
+	argv: readonly string[],
+	noConfigFlag = false,
+): {
 	readonly configPath: string | undefined;
 	readonly filteredArgv: readonly string[];
+	readonly skipDiscovery?: true;
 } {
 	const filteredArgv: string[] = [];
 	let configPath: string | undefined;
+	let skipDiscovery = false;
 
 	for (let i = 0; i < argv.length; i += 1) {
 		const arg = argv[i];
@@ -233,6 +239,10 @@ function extractConfigFlag(argv: readonly string[]): {
 		if (arg === '--') {
 			filteredArgv.push(...argv.slice(i));
 			break;
+		}
+		if (noConfigFlag && arg === '--no-config') {
+			skipDiscovery = true;
+			continue;
 		}
 
 		if (configPath === undefined && arg.startsWith('--config=')) {
@@ -261,7 +271,7 @@ function extractConfigFlag(argv: readonly string[]): {
 		filteredArgv.push(arg);
 	}
 
-	return { configPath, filteredArgv };
+	return { configPath, filteredArgv, ...(skipDiscovery ? { skipDiscovery: true } : {}) };
 }
 
 /**
@@ -501,12 +511,19 @@ async function prepareRuntimePreflight(
 	options: PrepareRuntimePreflightOptions,
 ): Promise<RuntimePreflightResult> {
 	const rawArgv = options.adapter.argv.slice(2);
-	const { configPath, filteredArgv } =
+	const { configPath, filteredArgv, skipDiscovery } =
 		options.schema.configSettings !== undefined
-			? extractConfigFlag(rawArgv)
-			: { configPath: undefined, filteredArgv: rawArgv };
+			? extractConfigFlag(rawArgv, options.schema.configSettings.noConfigFlag)
+			: { configPath: undefined, filteredArgv: rawArgv, skipDiscovery: undefined };
 	const rootOutputFlags = readRootOutputFlags(filteredArgv, options.schema.builtins);
 	const jsonMode = resolveRootJsonMode(rootOutputFlags, options.options?.jsonMode);
+	if (skipDiscovery && configPath !== undefined) {
+		return {
+			kind: 'startup-error',
+			error: new CLIError('Cannot use --config with --no-config', { code: 'INVALID_VALUE' }),
+			jsonMode,
+		};
+	}
 	const verbosity = resolveRootVerbosity(rootOutputFlags, options.options?.verbosity) ?? 'normal';
 	const isCompletions = isCompletionsInvocation(options.schema, options.compiled, filteredArgv);
 	const schema = await applyPackageJsonDiscovery(
@@ -524,13 +541,15 @@ async function prepareRuntimePreflight(
 			jsonMode,
 		};
 	}
-	const loadedConfig = await loadRuntimeConfig(
-		schema,
-		options.adapter,
-		configPath,
-		isCompletions,
-		options.options?.config,
-	);
+	const loadedConfig = skipDiscovery
+		? options.options?.config
+		: await loadRuntimeConfig(
+				schema,
+				options.adapter,
+				configPath,
+				isCompletions,
+				options.options?.config,
+			);
 
 	if (loadedConfig instanceof CLIError) {
 		return {
