@@ -6,10 +6,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-### Fixed
-
-- Accept directory paths such as `.`, `..` and `./`, including Windows path separators, as positional arguments to default commands. ([#241](https://github.com/kjanat/dreamcli/pull/241))
-
 ### Release checklist
 
 - [ ] Start the intended version through Beepboop and review its version PR.
@@ -20,6 +16,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - [ ] Confirm generators and formatters leave no unexpected worktree changes, then commit and push the preparation changes.
 - [ ] Verify the version PR's latest commit is signed and all required checks pass before merging. Merging starts publication automatically, with no further approval.
 - [ ] Follow Beepboop's release execution through npm and JSR publication, the version tag and GitHub Release, and the docs deployment.
+
+## [5.2.0] - 2026-11-18
+
+### Added
+
+- Add `.group(name)` to flags and positional arguments to show them under named help sections such as `Output options:` and `Input arguments:`. `.help({ groupOrder })` prioritizes named sections, and `--help --json` and definition documents include each input's group and the configured order. ([#244](https://github.com/kjanat/dreamcli/pull/244))
+- Add `.advanced()` to keep a flag out of default help and show it with `--help=all` for the root or a command. Advanced flags remain available in parsing, shell completion, and JSON help. ([#245](https://github.com/kjanat/dreamcli/pull/245))
+- Add `.constrain()` for relationships between a command's inputs: `conflicts`, `requires`, `exactlyOne`, `atMostOne`, and `allOrNone`. Values from the command line, stdin, environment, config, or prompts count, while defaults do not; rules run before derive, middleware, and the action, appear in help and definition documents, and suppress conflicting flags in shell completions. ([#248](https://github.com/kjanat/dreamcli/pull/248))
+- Add `.validate(schema)` for object-level Standard Schema rules on resolved flags, or on `{ flags, args, sources }` with `{ input: 'resolved' }`. Validation reports issues with their input paths and preserves the values passed to handlers. ([#248](https://github.com/kjanat/dreamcli/pull/248))
+- Add `out.terminalSize` with the terminal's `columns` and `rows` for custom output in action handlers. `.run()` captures it from the runtime adapter, it is `undefined` when unavailable, and `.execute()`, `runCommand()`, and `createOutput()` accept explicit dimensions. ([#247](https://github.com/kjanat/dreamcli/pull/247))
+- Add `configModule()` to discover executable `.mjs`, `.cjs`, and `.js` config files or load one through `--config`; `configModule({ typescript: true })` also registers `.mts`, `.cts`, and `.ts`. Node, Bun, and Deno import the file natively, and the default export must be a plain object. Executable configs run with the CLI's permissions, so the loader is opt-in; `PathConfigLoader` supports custom loading strategies. ([#253](https://github.com/kjanat/dreamcli/pull/253))
+
+### Changed
+
+- Continue a flag's description on the next line when its label would crowd the help table, and move long enum lists to a `Choices:` line below the flag. ([#245](https://github.com/kjanat/dreamcli/pull/245))
+
+### Fixed
+
+- Accept directory paths such as `.`, `..` and `./`, including Windows path separators, as positional arguments to default commands. ([#241](https://github.com/kjanat/dreamcli/pull/241))
+- Register every own string key passed to `.flags(record)`, including non-enumerable properties. Such a flag could previously be dropped silently while the action still typed it as present. ([#249](https://github.com/kjanat/dreamcli/pull/249))
 
 ## [5.1.0] - 2026-11-15
 
@@ -1184,7 +1200,8 @@ The stable 3.0.0 release. It ships the code of 3.0.0-rc.20 plus the fix and docu
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v5.1.0...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v5.2.0...HEAD
+[5.2.0]: https://github.com/kjanat/dreamcli/compare/v5.1.0...v5.2.0
 [5.1.0]: https://github.com/kjanat/dreamcli/compare/v5.0.0...v5.1.0
 [5.0.0]: https://github.com/kjanat/dreamcli/compare/v4.2.0...v5.0.0
 [4.2.0]: https://github.com/kjanat/dreamcli/compare/v4.1.0...v4.2.0
