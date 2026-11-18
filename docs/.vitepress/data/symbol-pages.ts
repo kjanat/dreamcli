@@ -5,8 +5,6 @@
  */
 
 import { join } from 'node:path';
-
-import type { ExampleEntry } from './examples.ts';
 import type {
 	NormalizedApiComment,
 	NormalizedApiCommentTag,
@@ -17,6 +15,7 @@ import type {
 	NormalizedApiType,
 } from './api-model.ts';
 import { replaceDocLinks } from './doc-links.ts';
+import type { ExampleEntry } from './examples.ts';
 
 export interface GeneratedSymbolPage {
 	id: string;
@@ -65,7 +64,7 @@ export function collectSymbolPages(
 				content: replaceDocLinks(
 					renderSymbolPage(entry, exampleLinksBySymbol.get(entry.id) ?? []),
 					({ target, label, code }) => {
-						const text = code ? `\`${label}\`` : label.replace(/[\[\]]/gu, '\\$&');
+						const text = code ? `\`${label}\`` : label.replace(/[[\]]/gu, '\\$&');
 						if (/^https?:\/\//u.test(target)) return `[${text}](<${target}>)`;
 						const [name, member] = target.replace(/\(\)$/u, '').split(/[.#]/u);
 						const candidates = exportsByName.get(name ?? '') ?? [];

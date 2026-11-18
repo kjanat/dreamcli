@@ -3,12 +3,11 @@
  */
 
 import { describe, expect, it } from 'vitest';
-
+import { createDenoDocFixture } from './deno-doc-fixture.ts';
 import {
 	buildDefinitionMetaSchemaDescriptions,
 	renderDefinitionMetaSchemaDescriptions,
 } from './meta-schema-descriptions.ts';
-import { createDenoDocFixture } from './deno-doc-fixture.ts';
 
 const collectModel = createDenoDocFixture();
 

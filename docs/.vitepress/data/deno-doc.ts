@@ -640,7 +640,7 @@ class DenoDocNormalizer {
 					declaration: this.node('', 'typeLiteral', {}, this.members(value)),
 				};
 			case 'fnOrConstructor': {
-				const constructor: unknown = value.constructor;
+				const isConstructor = value['constructor'] === true;
 				return {
 					kind: 'reflection',
 					declaration: this.node(
@@ -649,11 +649,7 @@ class DenoDocNormalizer {
 						{},
 						{
 							signatures: [
-								this.signature(
-									'',
-									constructor === true ? 'constructorSignature' : 'callSignature',
-									value,
-								),
+								this.signature('', isConstructor ? 'constructorSignature' : 'callSignature', value),
 							],
 						},
 					),

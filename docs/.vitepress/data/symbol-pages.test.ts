@@ -6,9 +6,6 @@ import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { collectPublicApiIndex } from './api-index.ts';
-import { collectExamples } from './examples.ts';
-import { examplesRoot, packageJsonPath, rootDirPath, symbolPagesRoot } from './paths.ts';
-import { collectSymbolPages, toSymbolPageRoute } from './symbol-pages.ts';
 import type {
 	NormalizedApiComment,
 	NormalizedApiModel,
@@ -16,6 +13,9 @@ import type {
 	NormalizedApiType,
 } from './api-model.ts';
 import { collectDenoDocModel } from './deno-doc.ts';
+import { collectExamples } from './examples.ts';
+import { examplesRoot, packageJsonPath, rootDirPath, symbolPagesRoot } from './paths.ts';
+import { collectSymbolPages, toSymbolPageRoute } from './symbol-pages.ts';
 
 function createComment(summary: string): NormalizedApiComment {
 	return {

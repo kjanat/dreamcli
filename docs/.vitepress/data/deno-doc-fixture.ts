@@ -2,8 +2,8 @@
  * @module
  */
 import { collectPublicApiIndex } from './api-index.ts';
-import { packageJsonPath } from './paths.ts';
 import { collectDenoDocModel } from './deno-doc.ts';
+import { packageJsonPath } from './paths.ts';
 
 /** Share expensive collection across assertions without caching production docs data. */
 export function createDenoDocFixture(): () => ReturnType<typeof collectDenoDocModel> {
