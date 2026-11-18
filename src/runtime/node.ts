@@ -14,6 +14,7 @@
 
 import type { WriteFn } from '#internals/core/output/index.ts';
 import type { RuntimeAdapter, TerminalSize } from './adapter.ts';
+import { importConfigModule } from './config-module.ts';
 import { createInputReader } from './input.ts';
 import { resolveConfigDirectory, resolveHomeDirectory } from './paths.ts';
 
@@ -283,6 +284,7 @@ function createNodeAdapter(proc?: NodeProcess): RuntimeAdapter {
 		onTerminalResize: (listener) => onNodeTerminalResize(p, listener),
 		exit: (code) => p.exit(code),
 		readFile,
+		importConfigModule,
 		stat,
 		mkdir,
 		homedir,

@@ -24,4 +24,5 @@ declare module 'node:fs/promises' {
 
 declare module 'node:url' {
 	function fileURLToPath(url: string | URL): string;
+	function pathToFileURL(path: string): URL;
 }

@@ -94,11 +94,41 @@ cli('mycli')
 `configFormat(exts, parser)` creates a loader config from the extension list and parse function,
 and `configLoader(loader)` registers that loader with the CLI.
 
-Each extension should only be registered once per chain — registering the same extension
-with different parsers causes duplicate loading.
+When multiple loaders register the same extension, the last registration wins.
 
 The parsed value still has to be a plain object, so YAML scalars,
 arrays, `null`, or multi-document YAML that parses to an array will fail as `CONFIG_PARSE_ERROR`.
+
+## Executable Config Files
+
+Register `configModule()` to discover executable JavaScript files such as `mycli.config.mjs`
+or to accept them via `--config`. Register it only if you trust the files in the discovery paths.
+The runtime executes the selected file and its imports with the CLI's permissions.
+
+```ts twoslash
+import { cli } from '@kjanat/dreamcli';
+import { configModule } from '@kjanat/dreamcli/config';
+
+cli('mycli')
+  .config('mycli', [configModule()])
+  .run();
+```
+
+An ES module must default-export a plain object. A CommonJS module uses `module.exports`.
+
+```js
+// mycli.config.mjs
+export default { deploy: { region: 'eu' } };
+```
+
+`configModule()` registers `.mjs`, `.cjs`, and `.js`. Pass `configModule({ typescript: true })`
+to also register `.mts`, `.cts`, and `.ts`. Node, Bun, and Deno use their native import rules,
+including package settings for ambiguous extensions. On Node, use TypeScript syntax that can
+be stripped without transformation. On Deno, grant read access to the config files you want to
+discover. Module dependencies follow the runtime's usual loading and permission rules.
+
+JSON retains its existing search precedence. A custom `PathConfigLoader` can use a different
+loading strategy when the host runtime needs one.
 
 ## What's Next?
 
