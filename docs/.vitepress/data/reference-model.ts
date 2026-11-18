@@ -6,19 +6,16 @@
 
 import type { PublicApiEntrypoint } from './api-index.ts';
 import { collectPublicApiIndex } from './api-index.ts';
+import { collectDenoDocModel } from './deno-doc.ts';
 import type { ExampleEntry } from './examples.ts';
 import { collectExamples } from './examples.ts';
 import { examplesRoot, packageJsonPath, rootDirPath, symbolPagesRoot } from './paths.ts';
 import type { GeneratedSymbolPage } from './symbol-pages.ts';
 import { collectSymbolPages } from './symbol-pages.ts';
-import { collectTypeDocModel } from './typedoc.ts';
-
-type TypeDocModel = Awaited<ReturnType<typeof collectTypeDocModel>>;
 
 export interface ReferenceModel {
 	examples: readonly ExampleEntry[];
 	publicApi: readonly PublicApiEntrypoint[];
-	typeDoc: TypeDocModel;
 	symbolPages: readonly GeneratedSymbolPage[];
 }
 
@@ -45,13 +42,12 @@ async function buildReferenceModel(): Promise<ReferenceModel> {
 		collectExamples(examplesRoot, rootDirPath),
 		collectPublicApiIndex(packageJsonPath),
 	]);
-	const typeDoc = await collectTypeDocModel(packageJsonPath, publicApi);
-	const symbolPages = collectSymbolPages(typeDoc.normalized, symbolPagesRoot, examples);
+	const api = await collectDenoDocModel(packageJsonPath, publicApi);
+	const symbolPages = collectSymbolPages(api, symbolPagesRoot, examples);
 
 	return {
 		examples,
 		publicApi,
-		typeDoc,
 		symbolPages,
 	};
 }

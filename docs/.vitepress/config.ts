@@ -20,8 +20,8 @@ import { fixTsProcessedLinkcode, transformerJSDocTags } from './vite-plugins/shi
 const projectRoot = normalize(`${import.meta.dirname}/../..`);
 
 // `src/schema.ts` statically imports `../dreamcli.schema.json`, a tracked file
-// regenerated from source. TypeDoc (run by `*.paths.ts` dynamic-route loaders
-// and `*.data.ts` data loaders) typechecks that import, so the schema must exist
+// regenerated from source. The reference inventory (run by dynamic-route and
+// data loaders) resolves that import, so the schema must exist
 // before route/data resolution. VitePress bundles those loaders in a transient
 // esbuild step that bypasses this Vite config's plugins, so the source-artifacts
 // plugin's `buildStart` hook fires too late. Emitting here at config

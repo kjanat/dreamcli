@@ -1,5 +1,5 @@
 /**
- * Generated definition meta-schema descriptions from normalized TypeDoc output.
+ * Generated definition meta-schema descriptions from the normalized API model.
  *
  * @module
  */

@@ -14,8 +14,8 @@ import type {
 	NormalizedApiModel,
 	NormalizedApiNode,
 	NormalizedApiType,
-} from './typedoc.ts';
-import { collectTypeDocModel } from './typedoc.ts';
+} from './api-model.ts';
+import { collectDenoDocModel } from './deno-doc.ts';
 
 function createComment(summary: string): NormalizedApiComment {
 	return {
@@ -67,11 +67,11 @@ describe('symbol page generation', () => {
 	beforeAll(async () => {
 		const publicApi = await collectPublicApiIndex(packageJsonPath);
 		const examples = await collectExamples(examplesRoot, rootDirPath);
-		const { normalized } = await collectTypeDocModel(packageJsonPath, publicApi);
+		const normalized = await collectDenoDocModel(packageJsonPath, publicApi);
 		pages = collectSymbolPages(normalized, symbolPagesRoot, examples);
 	}, 60_000);
 
-	it('renders stable per-symbol routes from the normalized TypeDoc model', () => {
+	it('renders stable per-symbol routes from the normalized API model', () => {
 		const cliPage = pages.find((page) => page.id === '@kjanat/dreamcli:cli');
 		const middlewareInterfacePage = pages.find((page) => page.id === '@kjanat/dreamcli:Middleware');
 		expect(cliPage).toMatchObject({
@@ -120,6 +120,28 @@ describe('symbol page generation', () => {
 		expect(middlewareFactoryPage?.content).toContain('{ args, flags, ctx, out, meta, next }');
 	});
 
+	it('links JSDoc references to public symbols across package entrypoints', () => {
+		const page = (id: string) => pages.find((entry) => entry.id === id)?.content;
+		expect(page('@kjanat/dreamcli:ConfigSettings')).toContain(
+			'](/reference/symbols/config/discoverConfig)',
+		);
+		expect(page('@kjanat/dreamcli:ResolvedManifestSettings')).toContain(
+			'](/reference/symbols/config/discoverManifest)',
+		);
+		expect(page('@kjanat/dreamcli:CLIBuilder')).toContain(
+			'](/reference/symbols/config/inferCliName)',
+		);
+		expect(page('@kjanat/dreamcli:RunResult')).toContain(
+			'](/reference/symbols/testkit/runCommand)',
+		);
+		expect(page('@kjanat/dreamcli:CommandDefinitionDocumentV1')).toContain(
+			'](/reference/symbols/json-schema/generateCommandSchema)',
+		);
+		expect(page('@kjanat/dreamcli:DefinitionDocumentV1')).toContain(
+			'](/reference/symbols/json-schema/generateSchema)',
+		);
+	});
+
 	it('normalizes multiline table cells without double escaping', () => {
 		const parameter = createNode({
 			name: 'options',
@@ -138,7 +160,7 @@ describe('symbol page generation', () => {
 		});
 		const model: NormalizedApiModel = {
 			schemaVersion: '1',
-			typedocSchemaVersion: 'test',
+			collectorVersion: 2,
 			packageName: '@kjanat/dreamcli',
 			entrypoints: [],
 			exports: [

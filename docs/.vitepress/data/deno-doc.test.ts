@@ -4,23 +4,23 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { createTypeDocFixture } from './typedoc-fixture.ts';
+import { createDenoDocFixture } from './deno-doc-fixture.ts';
 
-const collectModel = createTypeDocFixture();
+const collectModel = createDenoDocFixture();
 
-describe('typedoc normalization', () => {
+describe('deno doc normalization', () => {
 	it('normalizes public entrypoints into a DreamCLI-owned docs model', {
 		timeout: 60_000,
 	}, async () => {
-		const { normalized, rawProject } = await collectModel();
+		const normalized = await collectModel();
 
-		expect(rawProject.schemaVersion).toBe(normalized.typedocSchemaVersion);
+		expect(normalized.collectorVersion).toBe(2);
 		expect(normalized.entrypoints).toEqual([
 			{
 				entrypoint: '@kjanat/dreamcli',
 				subpath: '.',
 				sourcePath: 'src/index.ts',
-				hasTypeDoc: true,
+				hasDocumentation: true,
 				exportIds: expect.arrayContaining([
 					'@kjanat/dreamcli:CLIBuilder',
 					'@kjanat/dreamcli:cli',
@@ -32,7 +32,7 @@ describe('typedoc normalization', () => {
 				entrypoint: '@kjanat/dreamcli/completion',
 				subpath: './completion',
 				sourcePath: 'src/completion.ts',
-				hasTypeDoc: true,
+				hasDocumentation: true,
 				exportIds: expect.arrayContaining(['@kjanat/dreamcli/completion:generateCompletion']),
 				missingExports: [],
 			},
@@ -40,7 +40,7 @@ describe('typedoc normalization', () => {
 				entrypoint: '@kjanat/dreamcli/config',
 				subpath: './config',
 				sourcePath: 'src/config.ts',
-				hasTypeDoc: true,
+				hasDocumentation: true,
 				exportIds: expect.arrayContaining(['@kjanat/dreamcli/config:discoverConfig']),
 				missingExports: [],
 			},
@@ -48,7 +48,7 @@ describe('typedoc normalization', () => {
 				entrypoint: '@kjanat/dreamcli/json-schema',
 				subpath: './json-schema',
 				sourcePath: 'src/json-schema.ts',
-				hasTypeDoc: true,
+				hasDocumentation: true,
 				exportIds: expect.arrayContaining(['@kjanat/dreamcli/json-schema:generateSchema']),
 				missingExports: [],
 			},
@@ -56,7 +56,7 @@ describe('typedoc normalization', () => {
 				entrypoint: '@kjanat/dreamcli/prompt',
 				subpath: './prompt',
 				sourcePath: 'src/prompt.ts',
-				hasTypeDoc: true,
+				hasDocumentation: true,
 				exportIds: expect.arrayContaining(['@kjanat/dreamcli/prompt:createTerminalPrompter']),
 				missingExports: [],
 			},
@@ -64,7 +64,7 @@ describe('typedoc normalization', () => {
 				entrypoint: '@kjanat/dreamcli/runtime',
 				subpath: './runtime',
 				sourcePath: 'src/runtime.ts',
-				hasTypeDoc: true,
+				hasDocumentation: true,
 				exportIds: expect.arrayContaining(['@kjanat/dreamcli/runtime:RuntimeAdapter']),
 				missingExports: [],
 			},
@@ -72,7 +72,7 @@ describe('typedoc normalization', () => {
 				entrypoint: '@kjanat/dreamcli/schema',
 				subpath: './schema',
 				sourcePath: 'dreamcli.schema.json',
-				hasTypeDoc: false,
+				hasDocumentation: false,
 				exportIds: [],
 				missingExports: [],
 			},
@@ -80,7 +80,7 @@ describe('typedoc normalization', () => {
 				entrypoint: '@kjanat/dreamcli/testkit',
 				subpath: './testkit',
 				sourcePath: 'src/testkit.ts',
-				hasTypeDoc: true,
+				hasDocumentation: true,
 				exportIds: expect.arrayContaining(['@kjanat/dreamcli/testkit:runCommand']),
 				missingExports: [],
 			},
@@ -88,7 +88,7 @@ describe('typedoc normalization', () => {
 				entrypoint: '@kjanat/dreamcli/version',
 				subpath: './version',
 				sourcePath: 'src/version.ts',
-				hasTypeDoc: true,
+				hasDocumentation: true,
 				exportIds: [
 					'@kjanat/dreamcli/version:DREAMCLI_REVISION',
 					'@kjanat/dreamcli/version:DREAMCLI_VERSION',
@@ -98,10 +98,10 @@ describe('typedoc normalization', () => {
 		]);
 	});
 
-	it('preserves symbol docs, overloads, and nested property types without leaking raw TypeDoc shape', {
+	it('preserves symbol docs, overloads, and nested property types without leaking raw Deno shape', {
 		timeout: 60_000,
 	}, async () => {
-		const { normalized } = await collectModel();
+		const normalized = await collectModel();
 
 		const cliExport = normalized.exports.find((entry) => entry.id === '@kjanat/dreamcli:cli');
 		expect(cliExport?.reflection.kind).toBe('function');
@@ -190,8 +190,8 @@ describe('typedoc normalization', () => {
 		expect(readFileCallSignature?.type).toEqual({
 			kind: 'reference',
 			name: 'Promise',
-			target: expect.any(String),
-			packageName: 'typescript',
+			target: null,
+			packageName: null,
 			qualifiedName: null,
 			externalUrl: null,
 			refersToTypeParameter: false,

@@ -4,7 +4,8 @@
  * @module
  */
 
-import type { NormalizedApiModel, NormalizedApiNode } from './typedoc.ts';
+import type { NormalizedApiModel, NormalizedApiNode } from './api-model.ts';
+import { replaceDocLinks } from './doc-links.ts';
 
 interface MetaSchemaDescriptionNode {
 	readonly description?: string;
@@ -215,7 +216,7 @@ function normalizeSummary(summary: string | undefined): string | undefined {
 		return undefined;
 	}
 
-	const trimmed = summary.trim();
+	const trimmed = replaceDocLinks(summary, ({ label }) => label).trim();
 	return trimmed.length > 0 ? trimmed : undefined;
 }
 
@@ -308,7 +309,7 @@ export function renderDefinitionMetaSchemaDescriptions(
 
 	return `\
 /**
- * Generated definition meta-schema descriptions from normalized TypeDoc output.
+ * Generated definition meta-schema descriptions from the normalized API model.
  *
  * @module
  */

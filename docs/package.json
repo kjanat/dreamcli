@@ -19,7 +19,6 @@
 		"@types/node": "catalog:",
 		"floating-vue": "^5.4.0",
 		"mermaid": "^12.3.0",
-		"typedoc": "^0.28.20",
 		"typescript": "catalog:",
 		"vite": "^8.3.8",
 		"vitepress": "next",

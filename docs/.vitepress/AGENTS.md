@@ -9,7 +9,7 @@ owns client behavior, and `vite-plugins/` wires repo artifacts into the site bui
 
 ```text
 config.ts      # site config + sidebar/nav generation
-data/          # API inventory, TypeDoc normalization, example parsing, docs contract tests
+data/          # API inventory, Deno API normalization, example parsing, docs contract tests
 theme/         # custom client theme, toggles, popovers, Mermaid boot
 twoslash/      # twoslash fixtures/helpers
 vite-plugins/  # source artifact copy + Shiki CSS transforms
@@ -22,7 +22,7 @@ cache/         # generated cache
 | Task                               | Location                                                                       | Notes                                              |
 | ---------------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------- |
 | Sidebar, nav, examples sidebar     | `config.ts`, `data/examples.ts`                                                | `config.ts` calls `collectExampleMeta()`           |
-| API/reference pages                | `data/api-index.ts`, `typedoc.ts`, `symbol-pages.ts`                           | package exports -> TypeDoc -> symbol routes        |
+| API/reference pages                | `data/api-index.ts`, `deno-doc.ts`, `symbol-pages.ts`                           | package exports -> deno doc -> symbol routes        |
 | Shared repo paths and source links | `data/paths.ts`                                                                | `DOCS_GIT_REF` override, else `git rev-parse HEAD` |
 | Schema/meta description pipeline   | `data/meta-schema-descriptions.ts`, `../../scripts/build-meta-descriptions.ts` | docs data feeds source generation                  |
 | Artifact copying                   | `vite-plugins/source-artifacts.ts`                                             | moves root schema into docs dist                   |

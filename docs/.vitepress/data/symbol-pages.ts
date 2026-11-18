@@ -15,7 +15,8 @@ import type {
 	NormalizedApiModel,
 	NormalizedApiNode,
 	NormalizedApiType,
-} from './typedoc.ts';
+} from './api-model.ts';
+import { replaceDocLinks } from './doc-links.ts';
 
 export interface GeneratedSymbolPage {
 	id: string;
@@ -35,6 +36,12 @@ export function collectSymbolPages(
 ): readonly GeneratedSymbolPage[] {
 	const caseInsensitiveCollisions = collectCaseInsensitiveCollisions(model.exports);
 	const exampleLinksBySymbol = collectExampleLinksBySymbol(examples);
+	const exportsByName = new Map<string, NormalizedApiExport[]>();
+	for (const entry of model.exports) {
+		const entries = exportsByName.get(entry.name) ?? [];
+		entries.push(entry);
+		exportsByName.set(entry.name, entries);
+	}
 
 	return model.exports
 		.map((entry) => {
@@ -55,8 +62,36 @@ export function collectSymbolPages(
 					publicKind: entry.publicKind,
 					hasCaseInsensitiveCollision,
 				}),
-				content: renderSymbolPage(entry, exampleLinksBySymbol.get(entry.id) ?? []),
-				summary: summarizeComment(entry.reflection.comment),
+				content: replaceDocLinks(
+					renderSymbolPage(entry, exampleLinksBySymbol.get(entry.id) ?? []),
+					({ target, label, code }) => {
+						const text = code ? `\`${label}\`` : label.replace(/[\[\]]/gu, '\\$&');
+						if (/^https?:\/\//u.test(target)) return `[${text}](<${target}>)`;
+						const [name, member] = target.replace(/\(\)$/u, '').split(/[.#]/u);
+						const candidates = exportsByName.get(name ?? '') ?? [];
+						const linked =
+							candidates.find((candidate) => candidate.entrypoint === entry.entrypoint) ??
+							candidates[0];
+						if (linked === undefined) return text;
+						const route = toSymbolPageRoute(linked.entrypoint, linked.name, {
+							publicKind: linked.publicKind,
+							hasCaseInsensitiveCollision: caseInsensitiveCollisions.has(
+								toCollisionKey(linked.entrypoint, linked.name),
+							),
+						});
+						const anchor =
+							member !== undefined &&
+							linked.reflection.children.some((child) => child.name === member)
+								? `#${member.toLowerCase()}`
+								: '';
+						return `[${text}](${route}${anchor})`;
+					},
+				),
+				summary:
+					entry.reflection.comment === null
+						? null
+						: replaceDocLinks(entry.reflection.comment.summary, ({ label }) => label).trim() ||
+							null,
 			} satisfies GeneratedSymbolPage;
 		})
 		.sort((left, right) => left.id.localeCompare(right.id));
@@ -337,12 +372,16 @@ function mergeUngroupedMembers(
 }
 
 function renderMember(member: NormalizedApiNode): readonly string[] {
-	const summary = summarizeComment(member.comment);
+	const summaries = new Set(
+		[member.comment, ...member.signatures.map((signature) => signature.comment)]
+			.map(summarizeComment)
+			.filter((summary) => summary !== null),
+	);
 	const declaration = renderMemberDeclaration(member);
 	return [
 		`#### \`${member.name}\``,
 		'',
-		...(summary === null ? [] : [summary, '']),
+		...Array.from(summaries).flatMap((summary) => [summary, '']),
 		renderCodeBlock(declaration),
 		'',
 	];
@@ -359,7 +398,13 @@ function renderMemberDeclaration(member: NormalizedApiNode): string {
 		case 'setSignature':
 			return renderAccessorDeclaration(member);
 		case 'constructor':
-			return renderCallableSignature('constructor', member, 'constructor');
+			return (member.signatures.length === 0 ? [member] : member.signatures)
+				.map((signature) => renderCallableSignature('constructor', signature, 'constructor'))
+				.join('\n');
+		case 'interface':
+			return renderInterfaceDeclaration(member.name, member);
+		case 'typeAlias':
+			return renderTypeAliasDeclaration(member.name, member);
 		case 'callSignature':
 			return renderCallableSignature('', member, 'call');
 		case 'indexSignature':
@@ -374,8 +419,9 @@ function renderMemberDeclaration(member: NormalizedApiNode): string {
 }
 
 function renderMethodDeclaration(member: NormalizedApiNode): string {
-	const signature = member.signatures[0] ?? member;
-	return renderCallableSignature(member.name, signature, 'method');
+	return (member.signatures.length === 0 ? [member] : member.signatures)
+		.map((signature) => renderCallableSignature(member.name, signature, 'method'))
+		.join('\n');
 }
 
 function renderAccessorDeclaration(member: NormalizedApiNode): string {
@@ -639,10 +685,11 @@ function toEntrypointReference(entrypoint: string): string {
 }
 
 function collectExampleTags(reflection: NormalizedApiNode): readonly NormalizedApiCommentTag[] {
-	return [
+	const tags = [
 		...extractExampleTags(reflection.comment),
 		...reflection.signatures.flatMap((signature) => extractExampleTags(signature.comment)),
 	];
+	return [...new Map(tags.map((tag) => [tag.content, tag])).values()];
 }
 
 function extractExampleTags(

@@ -8,15 +8,15 @@ import {
 	buildDefinitionMetaSchemaDescriptions,
 	renderDefinitionMetaSchemaDescriptions,
 } from './meta-schema-descriptions.ts';
-import { createTypeDocFixture } from './typedoc-fixture.ts';
+import { createDenoDocFixture } from './deno-doc-fixture.ts';
 
-const collectModel = createTypeDocFixture();
+const collectModel = createDenoDocFixture();
 
 describe('definition meta-schema descriptions', () => {
-	it('extracts root and nested property descriptions from the normalized TypeDoc model', {
+	it('extracts root and nested property descriptions from the normalized API model', {
 		timeout: 60_000,
 	}, async () => {
-		const { normalized } = await collectModel();
+		const normalized = await collectModel();
 		const descriptions = buildDefinitionMetaSchemaDescriptions(normalized);
 
 		expect(descriptions.root.description).toContain('Runtime descriptor for the CLI program.');
@@ -39,7 +39,7 @@ describe('definition meta-schema descriptions', () => {
 	it('renders the generated source module shape consumed by json-schema', {
 		timeout: 60_000,
 	}, async () => {
-		const { normalized } = await collectModel();
+		const normalized = await collectModel();
 		const rendered = renderDefinitionMetaSchemaDescriptions(
 			buildDefinitionMetaSchemaDescriptions(normalized),
 		);
