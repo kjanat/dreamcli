@@ -9,23 +9,16 @@ concurrency:
   group: "autofix-${{ github.repository }}-${{ github.ref }}"
   cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 jobs:
-  branch:
-    if: github.repository == 'kjanat/dreamcli'
-    runs-on: ubuntu-latest
-    timeout-minutes: 1
-    outputs: { master: "${{ steps.branch.outputs.master }}" }
-    steps:
-      - id: branch
-        run: |
-          if [[ "${GITHUB_REF}" == refs/heads/master ]]; then
-            echo 'master=true' >> "${GITHUB_OUTPUT}"
-          else
-            echo 'master=false' >> "${GITHUB_OUTPUT}"
-          fi
-
   autofix:
-    needs: [branch]
-    if: ${{ !fromJSON(needs.branch.outputs.master) && (github.event_name != 'pull_request' || github.event.pull_request.stack == null) }}
+    # Beepboop exclusively owns the maintenance ref. A fork's branch is independent.
+    if: >- # actionlint:ignore case-insensitive-conditions -- also reserve case variants from ordinary autofix
+      ${{ github.repository == 'kjanat/dreamcli' && case(
+        github.ref == 'refs/heads/master' || github.ref == 'refs/heads/maintenance/autofix', false,
+        github.event_name == 'pull_request',
+          github.event.pull_request.stack == null &&
+          (github.event.pull_request.head.repo.full_name != github.repository || github.head_ref != 'maintenance/autofix'),
+        true
+      ) }}
     runs-on: ubuntu-latest
     timeout-minutes: 8
     env: { RUNNER_PM: bun }
@@ -37,8 +30,7 @@ jobs:
       - uses: autofix-ci/action@v1
 
   maintenance-pr:
-    needs: [branch]
-    if: ${{ fromJSON(needs.branch.outputs.master) }}
+    if: github.repository == 'kjanat/dreamcli' && github.ref_protected && github.ref == 'refs/heads/master' # actionlint:ignore case-insensitive-conditions -- master is protected and checkout pins the exact branch
     runs-on: ubuntu-latest
     timeout-minutes: 8
     permissions: { contents: read, id-token: write }
@@ -56,6 +48,7 @@ jobs:
         id: changes
         run: bun scripts/autofix-pr.ts
       - uses: kjanat/beepboop/actions/pull-request@v1
+        # A clean checkout leaves any existing proposal for maintainers to close if obsolete.
         if: steps.changes.outputs.changed == 'true'
         with:
           branch: maintenance/autofix
