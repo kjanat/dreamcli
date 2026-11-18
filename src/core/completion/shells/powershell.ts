@@ -206,7 +206,7 @@ function appendPowerShellPathEntry(
 		lines.push(`\t\t\t\tCanonicalName = ${quotePowerShellString(command.name)}`);
 		lines.push(`\t\t\t\tNames = ${formatPowerShellArray([command.name, ...command.aliases])}`);
 		lines.push(
-			`\t\t\t\tDescription = ${quotePowerShellString(command.description ?? command.name)}`,
+			`\t\t\t\tDescription = ${quotePowerShellString(resolvePlainHelpDescription(command.description ?? command.name))}`,
 		);
 		lines.push('\t\t\t}');
 	}

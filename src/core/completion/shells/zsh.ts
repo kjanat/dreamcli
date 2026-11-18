@@ -295,7 +295,7 @@ function appendZshCommandCandidates(
 	indent: string,
 ): void {
 	for (const command of commands) {
-		const description = command.description ?? command.name;
+		const description = resolvePlainHelpDescription(command.description ?? command.name);
 		for (const alias of [command.name, ...command.aliases]) {
 			lines.push(`${indent}${quoteShellArg(`${alias}:${description}`)}`);
 		}

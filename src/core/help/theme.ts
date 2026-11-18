@@ -14,6 +14,7 @@
 
 import type { Colors, Formatter } from 'ansispeck';
 import { createColors } from 'ansispeck';
+import { stripAnsi } from './ansi.ts';
 
 /**
  * Semantic styling roles for help output.
@@ -139,7 +140,7 @@ function resolveHelpDescription(description: HelpDescription, theme: HelpTheme):
 
 /** Resolve a help description with identity formatters for non-TTY output. @internal */
 function resolvePlainHelpDescription(description: HelpDescription): string {
-	return resolveHelpDescription(description, defaultHelpTheme(createColors(false)));
+	return stripAnsi(resolveHelpDescription(description, defaultHelpTheme(createColors(false))));
 }
 
 // --- Exports
