@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+Planned version: **5.3.0**.
+
+### Added
+
+- Add `.helpTopic(name, group)` to show a single command flag group, including its advanced flags. For example, `demo check --help=runners` shows the `Runners` group. ([#258](https://github.com/kjanat/dreamcli/pull/258))
+
 ### Release checklist
 
 - [ ] Start the intended version through Beepboop and review its version PR.
