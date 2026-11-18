@@ -179,6 +179,31 @@ describe('--version flag', () => {
 	});
 });
 
+describe('variadic named options', () => {
+	it('collects a run of values and supports one flag-shaped first value', async () => {
+		const app = cli('demo').default(
+			command('build')
+				.flag('args', flag.array(flag.string(), { variadic: true }))
+				.flag('push', flag.boolean())
+				.arg('tail', arg.string().variadic().default([]))
+				.action(({ flags, args, out }) =>
+					out.log(JSON.stringify([flags.args, flags.push, args.tail])),
+				),
+		);
+		expect((await app.execute(['--args', 'one', 'two', '--push', '--', 'three'])).stdout).toEqual([
+			'[["one","two"],true,["three"]]\n',
+		]);
+		expect((await app.execute(['--args', '--load', 'target'])).stdout).toEqual([
+			'[["--load","target"],false,[]]\n',
+		]);
+		expect((await app.execute(['--args=one', 'two', '--args=three'])).stdout).toEqual([
+			'[["one","two","three"],false,[]]\n',
+		]);
+		expect((await app.execute(['--args', '--push'])).error?.code).toBe('MISSING_VALUE');
+		expect((await app.execute(['--args', '--'])).error?.code).toBe('MISSING_VALUE');
+	});
+});
+
 // --- Built-in global options in root help (#32)
 
 describe('root help — built-in global options', () => {

@@ -18,7 +18,12 @@ import { readRootOutputFlags } from '#internals/core/cli/root-output-flags.ts';
 import { resolveRootSurface } from '#internals/core/cli/root-surface.ts';
 import { extractConfigFlag } from '#internals/core/cli/runtime-preflight.ts';
 import type { FlagLookupEntry } from '#internals/core/parse/index.ts';
-import { buildFlagLookup, coerceFlagValue, flagExpectsValue } from '#internals/core/parse/index.ts';
+import {
+	buildFlagLookup,
+	coerceFlagValue,
+	flagExpectsValue,
+	variadicLongValueCount,
+} from '#internals/core/parse/index.ts';
 import type { CompletionContext, CompletionHandler } from '#internals/core/schema/completion.ts';
 import { excludesOtherInputs } from '#internals/core/schema/constraints.ts';
 import { getFlagAliasNames, getVisibleNegatedName } from '#internals/core/schema/flag.ts';
@@ -35,6 +40,7 @@ function completionPosition(
 	schema: CLISchema,
 	compiled: CompiledCLI,
 	beforeCursor: readonly string[],
+	cursor?: string,
 ) {
 	const config =
 		schema.configSettings === undefined
@@ -76,7 +82,12 @@ function completionPosition(
 	const activeFlags = command.constraints?.some(excludesOtherInputs)
 		? new Map<string, boolean>()
 		: undefined;
-	for (const token of remaining) {
+	let skip = 0;
+	for (const [index, token] of remaining.entries()) {
+		if (skip > 0) {
+			skip--;
+			continue;
+		}
 		if (pending !== undefined) {
 			pending = undefined;
 			continue;
@@ -109,7 +120,19 @@ function completionPosition(
 				}
 				recordActiveFlag(activeFlags, match.entry, match.inline);
 			}
-			if (match.inline === undefined && flagExpectsValue(match.entry.schema)) pending = match.entry;
+			if (token.startsWith('--') && match.entry.schema.variadic === true) {
+				skip = variadicLongValueCount(remaining, index, lookup, match.inline !== undefined);
+				if (
+					index + skip === remaining.length - 1 &&
+					cursor !== undefined &&
+					!cursor.startsWith('-')
+				) {
+					pending = match.entry;
+					break;
+				}
+			} else if (match.inline === undefined && flagExpectsValue(match.entry.schema)) {
+				pending = match.entry;
+			}
 			continue;
 		}
 		if (args[positional] === undefined && !args[args.length - 1]?.schema.variadic) return undefined;
@@ -253,7 +276,9 @@ async function completeValues(
 		return { exitCode: 0, candidates: [] };
 	}
 	const position =
-		argv.length === 0 ? undefined : completionPosition(schema, compiled, argv.slice(0, -1));
+		argv.length === 0
+			? undefined
+			: completionPosition(schema, compiled, argv.slice(0, -1), argv.at(-1));
 	if (position === undefined) return { exitCode: 1, candidates: [] };
 	const target = findCompletion(position, argv, env);
 	if (target === undefined) {

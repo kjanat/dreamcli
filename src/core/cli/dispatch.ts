@@ -11,7 +11,11 @@
  */
 
 import type { FlagLookupEntry, ParseOptions } from '#internals/core/parse/index.ts';
-import { buildFlagLookup, flagExpectsValue } from '#internals/core/parse/index.ts';
+import {
+	buildFlagLookup,
+	flagExpectsValue,
+	variadicLongValueCount,
+} from '#internals/core/parse/index.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
 import type { CompiledCommand } from './compiled.ts';
 import { collectPropagatedFlagEntries } from './propagate.ts';
@@ -119,7 +123,13 @@ function dispatch(
 			break;
 		}
 		if (token.startsWith('-')) {
-			if (consumesFollowingToken(token, valueFlags)) i++; // skip the flag's value
+			const equals = token.indexOf('=');
+			const name = token.slice(2, equals < 0 ? undefined : equals);
+			if (token.startsWith('--') && valueFlags.get(name)?.schema.variadic === true) {
+				i += variadicLongValueCount(argv, i, valueFlags, equals >= 0);
+			} else if (consumesFollowingToken(token, valueFlags)) {
+				i++;
+			}
 			continue;
 		}
 		cmdIdx = i;

@@ -23,6 +23,7 @@ import {
 	includesBeforeSeparator,
 	requestedHelpMode,
 	requestsHelp,
+	variadicLongValueCount,
 } from '#internals/core/parse/index.ts';
 import type { CommandMeta, CommandSchema } from '#internals/core/schema/command.ts';
 import { declaredFlagNames, flagOrderOverride } from '#internals/core/schema/command.ts';
@@ -346,7 +347,9 @@ function findUnknownFlagBeforePositional(
 			const name = token.slice(2, equalsIndex === -1 ? undefined : equalsIndex);
 			const entry = lookup.get(name);
 			if (entry === undefined) return equalsIndex === -1 ? token : `--${name}`;
-			if (equalsIndex === -1 && flagExpectsValue(entry.schema)) index++;
+			if (entry.schema.variadic === true) {
+				index += variadicLongValueCount(argv, index, lookup, equalsIndex !== -1);
+			} else if (equalsIndex === -1 && flagExpectsValue(entry.schema)) index++;
 			continue;
 		}
 
@@ -418,7 +421,10 @@ function scanRootHead(
 			const equalsIndex = token.indexOf('=');
 			const name = token.slice(2, equalsIndex === -1 ? undefined : equalsIndex);
 			const entry = valueFlags?.get(name);
-			if (entry !== undefined && equalsIndex === -1 && flagExpectsValue(entry.schema)) index++;
+			if (entry?.schema.variadic === true && valueFlags !== undefined) {
+				index += variadicLongValueCount(head, index, valueFlags, equalsIndex !== -1);
+			} else if (entry !== undefined && equalsIndex === -1 && flagExpectsValue(entry.schema))
+				index++;
 			continue;
 		}
 
