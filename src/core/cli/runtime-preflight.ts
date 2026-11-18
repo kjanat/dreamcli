@@ -10,7 +10,7 @@
  */
 
 import type { CompletionOptions, Shell } from '#internals/core/completion/shell.ts';
-import type { FormatLoader } from '#internals/core/config/index.ts';
+import type { ConfigLoader } from '#internals/core/config/index.ts';
 import type { PackageJsonData } from '#internals/core/config/package-json.ts';
 import { CLIError, ParseError } from '#internals/core/errors/index.ts';
 import type { HelpThemeFactory } from '#internals/core/help/index.ts';
@@ -40,7 +40,7 @@ interface RuntimeConfigSettings {
 	/** Application name used to locate config files (e.g. `~/.config/<appName>/`). */
 	readonly appName: string;
 	/** Optional format loaders (JSON/YAML/TOML); `undefined` uses built-in JSON. */
-	readonly loaders: readonly FormatLoader[] | undefined;
+	readonly loaders: readonly ConfigLoader[] | undefined;
 }
 
 /**

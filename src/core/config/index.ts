@@ -3,7 +3,7 @@
  *
  * Probes a prioritised list of candidate paths, reads the first match via
  * {@link RuntimeAdapter.readFile}, and parses the content using an
- * extension-based loader (JSON built-in, others additive via {@link FormatLoader}).
+ * extension-based loader (JSON built-in, others additive via {@link ConfigLoader}).
  *
  * The module is pure — all I/O flows through the adapter, making it fully
  * testable with {@link createTestAdapter}'s virtual filesystem.
@@ -49,6 +49,23 @@ interface FormatLoader {
 	readonly parse: (content: string) => unknown;
 }
 
+/** Load an existing config file by path. Its result must be a plain object. */
+interface PathConfigLoader {
+	/** File extensions this loader handles, without leading dots. */
+	readonly extensions: readonly string[];
+	/** Load the selected file, synchronously or asynchronously. Failures become `CONFIG_PARSE_ERROR`. */
+	readonly load: (path: string, adapter: ConfigAdapter) => unknown;
+}
+
+/** A text parser or a path-based config loader. */
+type ConfigLoader = FormatLoader | PathConfigLoader;
+
+/** Extension options for {@link configModule}. */
+interface ConfigModuleOptions {
+	/** Also discover `.ts`, `.mts`, and `.cts` modules using the runtime's TypeScript support. */
+	readonly typescript?: boolean;
+}
+
 // --- Types — discovery options + result
 
 /** Options for {@link discoverConfig}. */
@@ -63,7 +80,7 @@ interface ConfigDiscoveryOptions {
 	 * Additional format loaders (JSON is built-in).
 	 * Later loaders for the same extension win (allows override).
 	 */
-	readonly loaders?: readonly FormatLoader[];
+	readonly loaders?: readonly ConfigLoader[];
 
 	/**
 	 * Custom search paths (absolute).
@@ -190,8 +207,8 @@ interface ConfigSearchPathOptions {
 	 * @defaultValue `[]`
 	 */
 	readonly systemConfigDirs?: readonly string[];
-	/** Custom {@link FormatLoader}s whose extensions expand the search set. */
-	readonly loaders?: readonly FormatLoader[];
+	/** Custom {@link ConfigLoader}s whose extensions expand the search set. */
+	readonly loaders?: readonly ConfigLoader[];
 }
 
 /**
@@ -263,12 +280,12 @@ function buildConfigSearchPaths(
  * Collect unique extensions from the built-in JSON loader + any custom loaders.
  * JSON always comes first. Order otherwise matches loader registration order.
  *
- * @param loaders - Optional custom {@link FormatLoader}s to append after JSON.
+ * @param loaders - Optional custom {@link ConfigLoader}s to append after JSON.
  * @returns Deduplicated, lowercased extension list (JSON first).
  *
  * @internal
  */
-function buildExtensionList(loaders?: readonly FormatLoader[]): readonly string[] {
+function buildExtensionList(loaders?: readonly ConfigLoader[]): readonly string[] {
 	const seen = new Set<string>();
 	const result: string[] = [];
 
@@ -303,13 +320,13 @@ function buildExtensionList(loaders?: readonly FormatLoader[]): readonly string[
  * Build extension → loader lookup. Later loaders for the same extension
  * override earlier ones (allows user to replace the built-in JSON loader).
  *
- * @param loaders - Optional custom {@link FormatLoader}s (later entries override earlier for same extension).
- * @returns Map from lowercased extension to its {@link FormatLoader}.
+ * @param loaders - Optional custom {@link ConfigLoader}s (later entries override earlier for same extension).
+ * @returns Map from lowercased extension to its {@link ConfigLoader}.
  *
  * @internal
  */
-function buildLoaderMap(loaders?: readonly FormatLoader[]): ReadonlyMap<string, FormatLoader> {
-	const map = new Map<string, FormatLoader>();
+function buildLoaderMap(loaders?: readonly ConfigLoader[]): ReadonlyMap<string, ConfigLoader> {
+	const map = new Map<string, ConfigLoader>();
 	for (const ext of jsonLoader.extensions) {
 		map.set(ext.toLowerCase(), jsonLoader);
 	}
@@ -332,7 +349,7 @@ function buildLoaderMap(loaders?: readonly FormatLoader[]): ReadonlyMap<string, 
  * {@link discoverConfig} without depending on the full runtime adapter shape.
  */
 type ConfigAdapter = Pick<RuntimeAdapter, 'readFile' | 'cwd' | 'configDir'> &
-	Partial<Pick<RuntimeAdapter, 'userConfigDirs' | 'systemConfigDirs'>>;
+	Partial<Pick<RuntimeAdapter, 'userConfigDirs' | 'systemConfigDirs' | 'importConfigModule'>>;
 
 /**
  * Discover and load a config file.
@@ -341,7 +358,7 @@ type ConfigAdapter = Pick<RuntimeAdapter, 'readFile' | 'cwd' | 'configDir'> &
  * let the CLI runtime call this automatically; call it directly when testing
  * config behavior or building custom bootstrapping around {@linkcode RuntimeAdapter}.
  *
- * Pure function — all filesystem I/O flows through `adapter.readFile`.
+ * Probes candidates with `adapter.readFile` and invokes the selected loader.
  * Returns a discriminated union: `{ found: true, ... }` when a config
  * file was found and parsed, `{ found: false }` when no file exists.
  *
@@ -405,7 +422,8 @@ async function discoverConfig(
 		}
 
 		try {
-			const data = loader.parse(content);
+			const data =
+				'parse' in loader ? loader.parse(content) : await loader.load(candidatePath, adapter);
 			if (!isPlainObject(data)) {
 				throw new Error('Config loader must return a plain object');
 			}
@@ -419,7 +437,10 @@ async function discoverConfig(
 					format: ext,
 					message: cause instanceof Error ? cause.message : String(cause),
 				},
-				suggest: 'Check the config file for syntax errors',
+				suggest:
+					'parse' in loader
+						? 'Check the config file for syntax errors'
+						: 'Check that the config loader can load this file and returns a plain object',
 			});
 		}
 	}
@@ -469,6 +490,31 @@ function configFormat(
 	return { extensions, parse };
 }
 
+/**
+ * Opt in to executable config files that export a plain object as their default export.
+ * Registers `.mjs`, `.cjs`, and `.js`. Pass `{ typescript: true }` to also register
+ * `.ts`, `.mts`, and `.cts`. Module format and supported TS syntax follow the host runtime.
+ * Only register this loader when you trust the files at your CLI's config search locations.
+ *
+ * @example
+ * ```ts
+ * cli('myapp').config('myapp', [configModule({ typescript: true })]);
+ * ```
+ */
+function configModule(options?: ConfigModuleOptions): PathConfigLoader {
+	return {
+		extensions: options?.typescript
+			? ['mjs', 'cjs', 'js', 'ts', 'mts', 'cts']
+			: ['mjs', 'cjs', 'js'],
+		load(path, adapter) {
+			if (adapter.importConfigModule === undefined) {
+				throw new Error('The runtime adapter does not support executable config files');
+			}
+			return adapter.importConfigModule(path);
+		},
+	};
+}
+
 // --- Exports
 
 export type {
@@ -485,8 +531,11 @@ export type {
 	ConfigDiscoveryOptions,
 	ConfigDiscoveryResult,
 	ConfigFound,
+	ConfigLoader,
+	ConfigModuleOptions,
 	ConfigNotFound,
 	ConfigSearchPathOptions,
 	FormatLoader,
+	PathConfigLoader,
 };
-export { buildConfigSearchPaths, configFormat, discoverConfig };
+export { buildConfigSearchPaths, configFormat, configModule, discoverConfig };

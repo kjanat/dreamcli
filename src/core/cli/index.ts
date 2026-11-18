@@ -12,7 +12,7 @@
 import type { Colors } from 'ansispeck';
 import type { CompletionOptions, Shell } from '#internals/core/completion/shell.ts';
 import { detectShell, normalizeShell, SHELLS } from '#internals/core/completion/shell.ts';
-import type { FormatLoader } from '#internals/core/config/index.ts';
+import type { ConfigLoader } from '#internals/core/config/index.ts';
 import type { PackageJsonData } from '#internals/core/config/package-json.ts';
 import { CLIError } from '#internals/core/errors/index.ts';
 import { buildRunResult, executeCommand } from '#internals/core/execution/index.ts';
@@ -451,7 +451,7 @@ interface ConfigSettings {
 	readonly appName: string;
 
 	/** Additional format loaders beyond the built-in JSON loader. */
-	readonly loaders: readonly FormatLoader[] | undefined;
+	readonly loaders: readonly ConfigLoader[] | undefined;
 }
 
 /**
@@ -530,7 +530,7 @@ interface ConfigSettingsDefinition {
 	 * Additional format loaders beyond the built-in JSON loader.
 	 * @defaultValue `undefined`
 	 */
-	readonly loaders?: readonly FormatLoader[] | undefined;
+	readonly loaders?: readonly ConfigLoader[] | undefined;
 }
 
 /**
@@ -1323,10 +1323,10 @@ class CLIBuilder {
 	 * `options.config` directly).
 	 *
 	 * @param appName - Name used to build search paths.
-	 * @param loaders - Additional {@link FormatLoader}s (JSON is built-in).
+	 * @param loaders - Additional {@link ConfigLoader}s (JSON is built-in).
 	 * @returns The builder (for chaining).
 	 */
-	config(appName: string, loaders?: readonly FormatLoader[]): CLIBuilder {
+	config(appName: string, loaders?: readonly ConfigLoader[]): CLIBuilder {
 		return rebuild(
 			this,
 			sealCLISchema({
@@ -1342,7 +1342,7 @@ class CLIBuilder {
 	/**
 	 * Register a custom config format loader.
 	 *
-	 * Adds a {@link FormatLoader} incrementally — call multiple times to
+	 * Adds a {@link ConfigLoader} incrementally — call multiple times to
 	 * register multiple formats. Loaders registered later for the same
 	 * extension override earlier ones.
 	 *
@@ -1375,7 +1375,7 @@ class CLIBuilder {
 	 *   .run();
 	 * ```
 	 */
-	configLoader(loader: FormatLoader): CLIBuilder {
+	configLoader(loader: ConfigLoader): CLIBuilder {
 		if (this.schema.configSettings === undefined) {
 			throw new CLIError('.configLoader() requires .config() to be called first', {
 				code: 'INVALID_BUILDER_STATE',

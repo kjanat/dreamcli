@@ -14,6 +14,8 @@ export type {
 	ConfigDiscoveryOptions,
 	ConfigDiscoveryResult,
 	ConfigFound,
+	ConfigLoader,
+	ConfigModuleOptions,
 	ConfigNotFound,
 	ConfigSearchPathOptions,
 	FormatLoader,
@@ -22,10 +24,12 @@ export type {
 	PackageJsonData,
 	PackageRepository,
 	PackageRepositoryUrlOptions,
+	PathConfigLoader,
 } from './core/config/index.ts';
 export {
 	buildConfigSearchPaths,
 	configFormat,
+	configModule,
 	discoverConfig,
 	discoverManifest,
 	inferCliName,

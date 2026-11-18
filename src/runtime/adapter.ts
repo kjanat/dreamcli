@@ -115,6 +115,9 @@ interface RuntimeAdapter {
 	 */
 	readonly readFile: (path: string) => Promise<string | null>;
 
+	/** Import a local executable config and return its default export. */
+	readonly importConfigModule?: (path: string) => Promise<unknown>;
+
 	/**
 	 * Probe what exists at a filesystem path.
 	 *
@@ -266,6 +269,9 @@ interface TestAdapterOptions {
 	 */
 	readonly readFile?: (path: string) => Promise<string | null>;
 
+	/** Optional executable-config loader for a virtual filesystem. */
+	readonly importConfigModule?: RuntimeAdapter['importConfigModule'];
+
 	/**
 	 * Filesystem probe stub for `flag.path()` checks (defaults to returning
 	 * `null` — nothing exists).
@@ -393,6 +399,9 @@ function createTestAdapter(options?: TestAdapterOptions): RuntimeAdapter {
 				throw new ExitError(code);
 			}),
 		readFile: options?.readFile ?? noopReadFile,
+		...(options?.importConfigModule === undefined
+			? {}
+			: { importConfigModule: options.importConfigModule }),
 		stat: options?.stat ?? noopStat,
 		mkdir: options?.mkdir ?? noopMkdir,
 		homedir: options?.homedir ?? '/home/test',
