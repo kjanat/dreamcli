@@ -6,12 +6,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-Planned version: **5.3.0**.
-
-### Added
-
-- Add `.helpTopic(name, group)` to show a single command flag group, including its advanced flags. For example, `demo check --help=runners` shows the `Runners` group. ([#258](https://github.com/kjanat/dreamcli/pull/258))
-
 ### Release checklist
 
 - [ ] Start the intended version through Beepboop and review its version PR.
@@ -22,6 +16,12 @@ Planned version: **5.3.0**.
 - [ ] Confirm generators and formatters leave no unexpected worktree changes, then commit and push the preparation changes.
 - [ ] Verify the version PR's latest commit is signed and all required checks pass before merging. Merging starts publication automatically, with no further approval.
 - [ ] Follow Beepboop's release execution through npm and JSR publication, the version tag and GitHub Release, and the docs deployment.
+
+## [5.3.0] - Unreleased
+
+### Added
+
+- Add `.helpTopic(name, group)` to show a single command flag group, including its advanced flags. For example, `demo check --help=runners` shows the `Runners` group. ([#258](https://github.com/kjanat/dreamcli/pull/258))
 
 ## [5.2.0] - 2026-11-18
 
@@ -1207,6 +1207,7 @@ The stable 3.0.0 release. It ships the code of 3.0.0-rc.20 plus the fix and docu
 - Markdownlint configuration.
 
 [Unreleased]: https://github.com/kjanat/dreamcli/compare/v5.2.0...HEAD
+[5.3.0]: https://github.com/kjanat/dreamcli/compare/v5.2.0...HEAD
 [5.2.0]: https://github.com/kjanat/dreamcli/compare/v5.1.0...v5.2.0
 [5.1.0]: https://github.com/kjanat/dreamcli/compare/v5.0.0...v5.1.0
 [5.0.0]: https://github.com/kjanat/dreamcli/compare/v4.2.0...v5.0.0
