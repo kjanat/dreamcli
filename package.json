@@ -139,7 +139,7 @@
 	"devDependencies": {
 		"@arethetypeswrong/core": "^0.18.5",
 		"@iarna/toml": "^2.2.5",
-		"@kprint/kprint": "0.63.0",
+		"@kprint/kprint": "0.64.0",
 		"@types/bun": "catalog:",
 		"@types/deno": "^2.7.0",
 		"@types/node": "catalog:",
