@@ -501,9 +501,6 @@ function renderParameter(parameter: NormalizedApiNode, includeDefault = true): s
 	const type = parameter.type === null ? 'unknown' : renderType(parameter.type);
 	const defaultValue =
 		includeDefault && parameter.defaultValue !== null ? ` = ${parameter.defaultValue}` : '';
-	if (parameter.type?.kind === 'rest') {
-		return `...${parameter.name}: ${renderType(parameter.type.elementType)}[]`;
-	}
 	if (parameter.flags.includes('isRest')) return `...${parameter.name}: ${type}`;
 
 	return `${parameter.name}${optional && !defaultValue ? '?' : ''}: ${type}${defaultValue}`;
@@ -513,9 +510,6 @@ function renderParameterType(parameter: NormalizedApiNode): string {
 	const optional = isOptionalNode(parameter);
 	const type = parameter.type === null ? 'unknown' : renderType(parameter.type);
 	const defaultValue = parameter.defaultValue === null ? '' : ` = ${parameter.defaultValue}`;
-	if (parameter.type?.kind === 'rest') {
-		return `...${renderType(parameter.type.elementType)}[]`;
-	}
 	if (parameter.flags.includes('isRest')) return `...${type}`;
 
 	return `${type}${optional && !defaultValue ? ' | undefined' : ''}${defaultValue}`;
@@ -558,7 +552,7 @@ function renderType(type: NormalizedApiType): string {
 		case 'reflection':
 			return renderReflectionType(type.declaration);
 		case 'rest':
-			return `...${renderType(type.elementType)}[]`;
+			return `...${wrapIfNeeded(type.elementType)}`;
 		case 'templateLiteral':
 			return `\`${type.head}${type.tail.map((entry) => `\${${renderType(entry.type)}}${entry.text}`).join('')}\``;
 		case 'tuple':

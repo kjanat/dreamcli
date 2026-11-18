@@ -236,7 +236,6 @@ class DenoDocNormalizer {
 					signature.parameters.forEach((param, paramIndex) => {
 						const type = resolved.parameterTypes[paramIndex];
 						if (type === undefined) return;
-						if (param.type?.kind === 'rest') param.flags = [...param.flags, 'isRest'];
 						param.type = { kind: 'unknown', name: type };
 					});
 				});
@@ -389,6 +388,7 @@ class DenoDocNormalizer {
 			...(raw.readonly === true ? ['isReadonly'] : []),
 			...(raw.isStatic === true ? ['isStatic'] : []),
 			...(raw.accessibility === 'protected' ? ['isProtected'] : []),
+			...(kind === 'parameter' && raw.kind === 'rest' ? ['isRest'] : []),
 		];
 		return {
 			reflectionId: this.nextId++,
@@ -445,13 +445,9 @@ class DenoDocNormalizer {
 			string(raw.name) ??
 			string(pattern.name) ??
 			(raw.kind === 'object' ? 'options' : raw.kind === 'array' ? 'items' : 'value');
-		const type = this.optionalType(raw.tsType ?? pattern.tsType);
 		return this.node(name, 'parameter', raw.kind === 'assign' ? { ...raw, optional: true } : raw, {
 			defaultValue: string(raw.right) ?? null,
-			type:
-				raw.kind === 'rest' && type !== null
-					? { kind: 'rest', elementType: type.kind === 'array' ? type.elementType : type }
-					: type,
+			type: this.optionalType(raw.tsType ?? pattern.tsType),
 		});
 	}
 

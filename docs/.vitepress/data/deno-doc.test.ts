@@ -62,6 +62,7 @@ describe('deno doc normalization', () => {
 						' * ```',
 						' */',
 						'export function use(value: string): string { return value; }',
+						'export function logs(...values: string[]): string[] { return values; }',
 					].join('\n'),
 				),
 			]);
@@ -86,6 +87,7 @@ describe('deno doc normalization', () => {
 			expect(page(':use')).toContain('[key }](/reference/symbols/main/EnvKey)');
 			expect(page(':use')).toContain('[the key](/reference/symbols/main/EnvKey) and A \\| B.');
 			expect(page(':use')).toContain('const example = "{@link EnvKey}";');
+			expect(page(':logs')).toContain('function logs(...values: string[]): string[];');
 		} finally {
 			await rm(root, { recursive: true });
 		}

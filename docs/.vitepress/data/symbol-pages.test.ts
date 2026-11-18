@@ -139,6 +139,15 @@ describe('symbol page generation', () => {
 		expect(middlewareFactoryPage?.content).toContain('{ args, flags, ctx, out, meta, next }');
 	});
 
+	it('preserves the two required inputs in constraint method rest tuples', () => {
+		const content = pages.find(({ id }) => id === '@kjanat/dreamcli:ConstraintBuilder')?.content;
+		for (const method of ['exactlyOne', 'atMostOne', 'allOrNone']) {
+			expect(content).toContain(
+				`${method}(...inputs: [InputName<F, A>, InputName<F, A>, ...InputName<F, A>[]]): CommandConstraint;`,
+			);
+		}
+	});
+
 	it('links JSDoc references to public symbols across package entrypoints', () => {
 		const page = (id: string) => pages.find((entry) => entry.id === id)?.content;
 		expect(page('@kjanat/dreamcli:ConfigSettings')).toContain(
