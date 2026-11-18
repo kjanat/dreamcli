@@ -450,7 +450,12 @@ function formatFlagDescription(
 	const parts: string[] = [];
 
 	if (schema.description !== undefined) {
-		parts.push(resolveHelpDescription(schema.description, descriptionTheme));
+		parts.push(
+			resolveHelpDescription(schema.description, descriptionTheme).replace(
+				/[^\S\r\n]*\r?\n\s*/gu,
+				' ',
+			),
+		);
 	}
 
 	// Deprecation annotation — prominent, before other metadata
