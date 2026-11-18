@@ -15,6 +15,8 @@
  */
 
 import { CLIError } from '#internals/core/errors/index.ts';
+import type { ParseOptions } from '#internals/core/parse/index.ts';
+import { buildFlagLookup } from '#internals/core/parse/index.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
 import type { FlagSchema } from '#internals/core/schema/flag.ts';
 import { getFlagAliasNames, getFlagNegatedName } from '#internals/core/schema/flag.ts';
@@ -115,7 +117,7 @@ function reservedTokens(
 }
 
 /** Which declaration on a flag produced a colliding spelling. @internal */
-type CollisionOrigin = 'name' | 'alias' | 'negation';
+type CollisionOrigin = 'name' | 'alias' | 'negation' | 'parity';
 
 /** One declared spelling that lands on a reserved token. @internal */
 interface ReservedCollision {
@@ -158,6 +160,7 @@ function flagSpellings(
  *
  * @param schema - Command to walk, including its nested subcommands.
  * @param reserved - Reserved tokens for the current CLI configuration.
+ * @param flagSettings - Parser settings that determine case-parity spellings.
  * @returns The collision, or `undefined` when the tree is clean.
  *
  * @internal
@@ -165,6 +168,7 @@ function flagSpellings(
 function findReservedCollision(
 	schema: CommandSchema,
 	reserved: ReadonlyMap<string, ReservedFlag>,
+	flagSettings: ParseOptions | undefined,
 ): ReservedCollision | undefined {
 	for (const [flagName, flagSchema] of Object.entries(schema.flags)) {
 		if (!acceptsArgv(flagSchema)) continue;
@@ -181,9 +185,22 @@ function findReservedCollision(
 			};
 		}
 	}
+	const noConfig = reserved.get('no-config');
+	if (noConfig !== undefined && flagSettings?.caseParity !== false) {
+		const entry = buildFlagLookup(schema.flags, flagSettings).get('no-config');
+		if (entry?.parity === true) {
+			return {
+				commandName: schema.name,
+				flagName: entry.name,
+				spelling: '--no-config',
+				origin: 'parity',
+				reserved: noConfig,
+			};
+		}
+	}
 
 	for (const child of schema.commands) {
-		const nested = findReservedCollision(child, reserved);
+		const nested = findReservedCollision(child, reserved, flagSettings);
 		if (nested !== undefined) return nested;
 	}
 
@@ -199,6 +216,8 @@ function subjectOf(collision: ReservedCollision): string {
 			return `defines a '${collision.spelling}' alias on flag '${collision.flagName}'`;
 		case 'negation':
 			return `defines a '${collision.spelling}' negated spelling on flag '${collision.flagName}'`;
+		case 'parity':
+			return `accepts '${collision.spelling}' as a case-parity spelling of flag '${collision.flagName}'`;
 	}
 }
 
@@ -223,6 +242,8 @@ function reservedFlagError(collision: ReservedCollision): CLIError {
  *   callers can pass an absent default command directly.
  * @param builtins - Built-in state; a released built-in reserves nothing.
  *   `undefined` keeps every built-in on.
+ * @param noConfigFlag - Whether config discovery owns `--no-config`.
+ * @param flagSettings - Parser settings that determine case-parity spellings.
  * @throws {@linkcode CLIError} `RESERVED_FLAG` for the first collision found.
  *
  * @internal
@@ -232,12 +253,13 @@ function assertNoReservedFlagCollisions(
 	commands: readonly (CommandSchema | undefined)[],
 	builtins?: BuiltinsConfig,
 	noConfigFlag = false,
+	flagSettings?: ParseOptions,
 ): void {
 	const reserved = reservedTokens(version, builtins, noConfigFlag);
 
 	for (const schema of commands) {
 		if (schema === undefined) continue;
-		const collision = findReservedCollision(schema, reserved);
+		const collision = findReservedCollision(schema, reserved, flagSettings);
 		if (collision !== undefined) throw reservedFlagError(collision);
 	}
 }

@@ -126,8 +126,8 @@ building and the no-commands error; `executeCLI()` renders the six plan kinds: `
   rejects the bare `q`/`h`/`V` alias unconditionally, while the strip and interception match only
   the exact `-q`/`-h`/`-V` tokens, so a short cluster like `-vq` still reaches the command. The
   plain spelling is the one users type; `reserved-flags.test.ts` pins both halves.
-- `runtime-preflight.ts` re-runs the guard when `.manifest()` filesystem discovery injects a version
-  (`discoveredVersionCollision`), the one path that lands a version past every build-time check. It
+- `runtime-preflight.ts` re-runs the guard when `.manifest()` discovery injects a version or a
+  runtime parser override enables case parity for the opt-in `--no-config` flag. It
   returns the `CLIError` as a `startup-error` preflight result instead of throwing, so `.run()`
   renders it through the same branch config failures use.
 - The version half of the guard is bidirectional like the `--completions` guard:

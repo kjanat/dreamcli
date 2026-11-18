@@ -775,6 +775,7 @@ function createCLISchema(definition: CLIDefinition): CLISchema {
 		allCommands,
 		schema.builtins,
 		schema.configSettings?.noConfigFlag,
+		schema.flagSettings,
 	);
 	if (schema.completionsFlag !== undefined) {
 		for (const cmd of allCommands) {
@@ -1356,6 +1357,7 @@ class CLIBuilder {
 				[this.schema.defaultCommand, ...this.schema.commands],
 				this.schema.builtins,
 				true,
+				this.schema.flagSettings,
 			);
 		}
 		return rebuild(
@@ -1547,6 +1549,7 @@ class CLIBuilder {
 			[cmd.schema],
 			this.schema.builtins,
 			this.schema.configSettings?.noConfigFlag,
+			this.schema.flagSettings,
 		);
 		if (this.schema.completionsFlag !== undefined) {
 			assertNoCompletionsFlagCollision(cmd.schema);
@@ -1638,6 +1641,7 @@ class CLIBuilder {
 			[cmd.schema],
 			this.schema.builtins,
 			this.schema.configSettings?.noConfigFlag,
+			this.schema.flagSettings,
 		);
 		if (this.schema.completionsFlag !== undefined) {
 			assertNoCompletionsFlagCollision(cmd.schema);

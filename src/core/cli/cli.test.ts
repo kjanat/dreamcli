@@ -488,6 +488,26 @@ describe('CLIBuilder.run — config discovery opt-out', () => {
 		expect(() => app.command(custom)).toThrow(/reserved.*--no-config/u);
 		expect(() => regular.config('demo', { noConfigFlag: true })).toThrow(/reserved.*--no-config/u);
 	});
+
+	it('rejects a synthesized --no-config spelling when case parity is enabled', async () => {
+		const custom = command('custom')
+			.flag('noConfig', flag.boolean())
+			.action(() => {});
+		expect(() => app.command(custom)).toThrow(/case-parity spelling of flag 'noConfig'/u);
+		expect(() => cli('demo').command(custom).config('demo', { noConfigFlag: true })).toThrow(
+			/case-parity spelling of flag 'noConfig'/u,
+		);
+		const exact = cli('demo', { flags: { caseParity: false } })
+			.config('demo', { noConfigFlag: true })
+			.command(custom);
+		const adapter = createTestAdapter({
+			argv: ['node', 'cli.js', 'custom', '--no-config', '--json'],
+		});
+		await expect(exact.run({ adapter })).rejects.toMatchObject({ code: 0 });
+		await expect(exact.run({ adapter, flags: { caseParity: true } })).rejects.toMatchObject({
+			code: 1,
+		});
+	});
 });
 
 describe('CLIBuilder.run — terminal help width', () => {

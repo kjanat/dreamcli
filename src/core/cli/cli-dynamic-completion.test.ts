@@ -167,6 +167,22 @@ describe('dynamic value completion', () => {
 		}
 	});
 
+	it('completes values after the enabled config discovery opt-out', async () => {
+		const app = cli('app')
+			.config('app', { noConfigFlag: true })
+			.command(
+				command('check')
+					.flag(
+						'region',
+						flag.string().complete(() => ['eu', 'us']),
+					)
+					.action(unexpected),
+			);
+		const result = await app.execute(['__complete', '--', 'check', '--no-config', '--region', 'e']);
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toEqual(['eu\n']);
+	});
+
 	it('preserves the separator left by command dispatch', async () => {
 		const app = cli('app').command(
 			command('deploy')
