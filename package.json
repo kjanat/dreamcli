@@ -147,7 +147,7 @@
 		"@vitest/coverage-v8": "5.1.1",
 		"biome": "npm:@biomejs/biome@^2.6.8",
 		"importmapify": "1.7.0",
-		"knip": "^6.46.0",
+		"knip": "^6.46.1",
 		"publint": "^0.3.25",
 		"runner-run": "0.28.0",
 		"tsdown": "0.23.7",
