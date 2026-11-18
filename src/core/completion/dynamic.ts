@@ -36,10 +36,11 @@ function completionPosition(
 	compiled: CompiledCLI,
 	beforeCursor: readonly string[],
 ) {
-	const configuredArgv =
+	const config =
 		schema.configSettings === undefined
-			? beforeCursor
-			: extractConfigFlag(beforeCursor, schema.configSettings.noConfigFlag).filteredArgv;
+			? undefined
+			: extractConfigFlag(beforeCursor, schema.configSettings.noConfigFlag);
+	const configuredArgv = config?.filteredArgv ?? beforeCursor;
 	const completedArgv = readRootOutputFlags(configuredArgv, schema.builtins).argv;
 	const visibleDefaultCommand = resolveRootSurface(schema).visibleDefaultCommand;
 	const commands =
@@ -242,6 +243,15 @@ async function completeValues(
 	env: CompletionContext['env'],
 	mode: 'all' | 'values' | 'value-only',
 ): Promise<{ readonly exitCode: number; readonly candidates: readonly string[] }> {
+	// Check the complete argv, including a config path at the cursor. A successful
+	// empty response suppresses static fallback. Fish still queries blocked flags
+	// independently from value completion.
+	if (
+		schema.configSettings?.noConfigFlag === true &&
+		extractConfigFlag(argv, true).error !== undefined
+	) {
+		return { exitCode: 0, candidates: [] };
+	}
 	const position =
 		argv.length === 0 ? undefined : completionPosition(schema, compiled, argv.slice(0, -1));
 	if (position === undefined) return { exitCode: 1, candidates: [] };

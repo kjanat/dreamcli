@@ -1,6 +1,6 @@
 /** Tests for runtime value completion without command execution. */
 
-import { describe, expect, expectTypeOf, it } from 'vitest';
+import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { generateCompletion } from '#internals/core/completion/index.ts';
 import { generateSchema } from '#internals/core/json-schema/index.ts';
 import { arg } from '#internals/core/schema/arg.ts';
@@ -737,4 +737,68 @@ describe('dynamic value completion', () => {
 			).not.toContain('__complete');
 		},
 	);
+});
+
+it('skips completion callbacks for conflicting config flags before the application separator', async () => {
+	const complete = vi.fn(() => ['eu']);
+	const app = cli('app')
+		.config('app', { noConfigFlag: true })
+		.command(
+			command('check')
+				.flag('region', flag.enum(['eu', 'us']).complete(complete))
+				.flag('config', flag.string().complete(complete))
+				.flag('offline', flag.boolean())
+				.flag('remote', flag.boolean())
+				.arg('literal', arg.string())
+				.arg('target', arg.string().complete(complete))
+				.constrain((c) => [c.conflicts('offline', 'remote')])
+				.action(unexpected),
+		);
+	for (const explicit of [['--config=settings.json'], ['--config', 'settings.json']]) {
+		for (const flags of [
+			['--no-config', ...explicit],
+			[...explicit, '--no-config'],
+		]) {
+			const result = await app.execute(['__complete', '--', 'check', ...flags, '--region', 'e']);
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual([]);
+		}
+	}
+	for (const cursor of [['--config=e'], ['--config', 'e']]) {
+		const result = await app.execute(['__complete', '--', 'check', '--no-config', ...cursor]);
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toEqual([]);
+	}
+	expect(complete).not.toHaveBeenCalled();
+	const fallback = await app.execute([
+		'__complete',
+		'--',
+		'check',
+		'--config=settings.json',
+		'--rem',
+	]);
+	expect(fallback.exitCode).toBe(1);
+	const blocked = await app.execute([
+		'__complete',
+		'--blocked-flags',
+		'--',
+		'check',
+		'--offline',
+		'--no-config',
+		'--config=settings.json',
+	]);
+	expect(blocked.stdout).toEqual(['remote\n']);
+
+	const literal = await app.execute([
+		'__complete',
+		'--',
+		'check',
+		'--no-config',
+		'--',
+		'--config=settings.json',
+		'e',
+	]);
+	expect(literal.exitCode).toBe(0);
+	expect(literal.stdout).toEqual(['eu\n']);
+	expect(complete).toHaveBeenCalledTimes(1);
 });

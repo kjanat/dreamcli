@@ -219,7 +219,7 @@ const PRECHECK_OUTPUT = {
 	verbosity: 'normal' as const,
 };
 
-/** Extract and strip valid runtime `--config` forms from argv, returning path + filtered tokens. @internal */
+/** Extract runtime config flags and report conflicts before dispatch or completion. @internal */
 function extractConfigFlag(
 	argv: readonly string[],
 	noConfigFlag = false,
@@ -227,6 +227,7 @@ function extractConfigFlag(
 	readonly configPath: string | undefined;
 	readonly filteredArgv: readonly string[];
 	readonly skipDiscovery?: true;
+	readonly error?: CLIError;
 } {
 	const filteredArgv: string[] = [];
 	let configPath: string | undefined;
@@ -273,7 +274,14 @@ function extractConfigFlag(
 		filteredArgv.push(arg);
 	}
 
-	return { configPath, filteredArgv, ...(skipDiscovery ? { skipDiscovery: true } : {}) };
+	return {
+		configPath,
+		filteredArgv,
+		...(skipDiscovery ? { skipDiscovery: true } : {}),
+		...(skipDiscovery && configPath !== undefined
+			? { error: new CLIError('Cannot use --config with --no-config', { code: 'INVALID_VALUE' }) }
+			: {}),
+	};
 }
 
 /**
@@ -523,16 +531,21 @@ async function prepareRuntimePreflight(
 	options: PrepareRuntimePreflightOptions,
 ): Promise<RuntimePreflightResult> {
 	const rawArgv = options.adapter.argv.slice(2);
-	const { configPath, filteredArgv, skipDiscovery } =
+	const { configPath, filteredArgv, skipDiscovery, error } =
 		options.schema.configSettings !== undefined
 			? extractConfigFlag(rawArgv, options.schema.configSettings.noConfigFlag)
-			: { configPath: undefined, filteredArgv: rawArgv, skipDiscovery: undefined };
+			: {
+					configPath: undefined,
+					filteredArgv: rawArgv,
+					skipDiscovery: undefined,
+					error: undefined,
+				};
 	const rootOutputFlags = readRootOutputFlags(filteredArgv, options.schema.builtins);
 	const jsonMode = resolveRootJsonMode(rootOutputFlags, options.options?.jsonMode);
-	if (skipDiscovery && configPath !== undefined) {
+	if (error !== undefined) {
 		return {
 			kind: 'startup-error',
-			error: new CLIError('Cannot use --config with --no-config', { code: 'INVALID_VALUE' }),
+			error,
 			jsonMode,
 		};
 	}
