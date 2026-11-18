@@ -287,6 +287,7 @@ describe('optional feature subpaths', () => {
 		expect(Object.keys(mod).sort()).toEqual([
 			'buildConfigSearchPaths',
 			'configFormat',
+			'configModule',
 			'discoverConfig',
 			'discoverManifest',
 			'inferCliName',
@@ -325,7 +326,7 @@ describe('optional feature subpaths', () => {
 			...Object.keys(await import('#dreamcli/json-schema')),
 			...Object.keys(await import('#dreamcli/prompt')),
 		].filter((name) => !ROOT_KEPT.has(name));
-		expect(moved).toHaveLength(19);
+		expect(moved).toHaveLength(20);
 		for (const name of moved) {
 			expect(mod).not.toHaveProperty(name);
 		}

@@ -10,6 +10,28 @@ import { flag } from '#internals/core/schema/flag.ts';
 import { createAdapter, createTestAdapter, ExitError } from '#internals/runtime/index.ts';
 import { configModule, discoverConfig } from './index.ts';
 
+async function runNativeProbe(probe: string): Promise<string> {
+	if (typeof Deno === 'undefined') {
+		return execFileSync(process.execPath, [probe], { encoding: 'utf8' });
+	}
+	const output = await new Deno.Command(Deno.execPath(), {
+		args: [
+			'run',
+			'-A',
+			'--quiet',
+			'--no-lock',
+			'--config',
+			fileURLToPath(new URL('../../../deno.json', import.meta.url)),
+			probe,
+		],
+		stdout: 'piped',
+		stderr: 'piped',
+	}).output();
+	const decoder = new TextDecoder();
+	if (!output.success) throw new Error(decoder.decode(output.stderr));
+	return decoder.decode(output.stdout);
+}
+
 describe('executable config', () => {
 	it.each([
 		['mjs', 'export default { port: 3000 };'],
@@ -38,18 +60,7 @@ const config = await discoverConfig('app', createAdapter(), {
 console.log(JSON.stringify(config));
 `,
 			);
-			const args = process.versions.deno
-				? [
-						'run',
-						'-A',
-						'--quiet',
-						'--no-lock',
-						'--config',
-						fileURLToPath(new URL('../../../deno.json', import.meta.url)),
-						probe,
-					]
-				: [probe];
-			const output = execFileSync(process.execPath, args, { encoding: 'utf8' });
+			const output = await runNativeProbe(probe);
 			expect(JSON.parse(output)).toEqual({
 				found: true,
 				path,
