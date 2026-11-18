@@ -745,8 +745,13 @@ it('skips completion callbacks for conflicting config flags before the applicati
 		.config('app', { noConfigFlag: true })
 		.command(
 			command('check')
-				.flag('region', flag.string().complete(complete))
-				.arg('paths', arg.string().variadic().optional().complete(complete))
+				.flag('region', flag.enum(['eu', 'us']).complete(complete))
+				.flag('config', flag.string().complete(complete))
+				.flag('offline', flag.boolean())
+				.flag('remote', flag.boolean())
+				.arg('literal', arg.string())
+				.arg('target', arg.string().complete(complete))
+				.constrain((c) => [c.conflicts('offline', 'remote')])
 				.action(unexpected),
 		);
 	for (const explicit of [['--config=settings.json'], ['--config', 'settings.json']]) {
@@ -755,11 +760,34 @@ it('skips completion callbacks for conflicting config flags before the applicati
 			[...explicit, '--no-config'],
 		]) {
 			const result = await app.execute(['__complete', '--', 'check', ...flags, '--region', 'e']);
-			expect(result.exitCode).toBe(1);
+			expect(result.exitCode).toBe(0);
 			expect(result.stdout).toEqual([]);
 		}
 	}
+	for (const cursor of [['--config=e'], ['--config', 'e']]) {
+		const result = await app.execute(['__complete', '--', 'check', '--no-config', ...cursor]);
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toEqual([]);
+	}
 	expect(complete).not.toHaveBeenCalled();
+	const fallback = await app.execute([
+		'__complete',
+		'--',
+		'check',
+		'--config=settings.json',
+		'--rem',
+	]);
+	expect(fallback.exitCode).toBe(1);
+	const blocked = await app.execute([
+		'__complete',
+		'--blocked-flags',
+		'--',
+		'check',
+		'--offline',
+		'--no-config',
+		'--config=settings.json',
+	]);
+	expect(blocked.stdout).toEqual(['remote\n']);
 
 	const literal = await app.execute([
 		'__complete',
