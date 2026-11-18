@@ -389,9 +389,11 @@ describe('prompt sessions', () => {
 	});
 
 	it.each([
+		prompt.input({ message: 'Name' }),
 		prompt.password({ message: 'Password' }),
 		prompt.confirm({ message: 'Continue?' }),
 		prompt.select({ message: 'Target', choices: [{ value: 'production' }] }),
+		prompt.multiselect({ message: 'Targets', choices: [{ value: 'production' }] }),
 	])('gives general input guidance for an unavailable $kind prompt', async (definition) => {
 		const { ask } = createPromptSession({});
 		await expect(ask(definition)).rejects.toMatchObject({

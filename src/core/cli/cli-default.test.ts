@@ -239,7 +239,9 @@ describe('.default()', () => {
 					command('check')
 						.arg('paths', arg.string().variadic().optional())
 						.flag('verbose', flag.boolean().alias('v'))
-						.action(({ args, out }) => out.log(JSON.stringify(args.paths))),
+						.action(({ args, flags, out }) =>
+							out.log(JSON.stringify({ paths: args.paths, verbose: flags.verbose })),
+						),
 					{ route },
 				)
 				.command(
@@ -267,7 +269,7 @@ describe('.default()', () => {
 			const result = await pathApp().execute([path]);
 
 			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toEqual([`${JSON.stringify([path])}\n`]);
+			expect(result.stdout).toEqual([`${JSON.stringify({ paths: [path], verbose: false })}\n`]);
 			expect(result.stderr).toEqual([]);
 		});
 
@@ -276,7 +278,7 @@ describe('.default()', () => {
 			const result = await pathApp().execute(['-v', ...paths]);
 
 			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toEqual([`${JSON.stringify(paths)}\n`]);
+			expect(result.stdout).toEqual([`${JSON.stringify({ paths, verbose: true })}\n`]);
 			expect(result.stderr).toEqual([]);
 		});
 

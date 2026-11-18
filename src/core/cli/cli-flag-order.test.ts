@@ -53,6 +53,20 @@ describe('flag ordering — end to end', () => {
 		expect(help.stdout.join('').match(/--\d+/gu)).toEqual(['--20', '--10']);
 	});
 
+	it('keeps numeric default-command flags ordered after the synthetic completions flag', async () => {
+		const app = cli('mycli')
+			.help({ flagOrder: 'declaration' })
+			.completions({ as: 'flag' })
+			.default(command('run').flag('20', flag.boolean()).flag('10', flag.boolean()));
+		const result = await app.execute(['--help']);
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout.join('').match(/--(?:completions|\d+)/gu)).toEqual([
+			'--completions',
+			'--20',
+			'--10',
+		]);
+	});
+
 	it('honors a runtime sortFlags comparator', async () => {
 		const app = cli('mycli').command(orderedCommand());
 		const result = await app.execute(['run', '--help'], {
@@ -63,6 +77,33 @@ describe('flag ordering — end to end', () => {
 });
 
 describe('input groups in help', () => {
+	it('keeps declaration order through multiple levels of propagation and shadowing', async () => {
+		const leaf = command('leaf').flag('bravo', flag.boolean().group('Leaf'));
+		const middle = command('middle')
+			.flag('omega', flag.boolean().group('Middle').propagate())
+			.flag('shared', flag.boolean().group('Middle').propagate())
+			.command(leaf);
+		const root = command('root')
+			.flag('zebra', flag.boolean().group('Root').propagate())
+			.flag('shared', flag.boolean().group('Shadowed').propagate())
+			.flag('alpha', flag.boolean().group('Root').propagate())
+			.command(middle);
+		const app = cli('mycli').help({ flagOrder: 'declaration' }).command(root);
+		const result = await app.execute(['root', 'middle', 'leaf', '--help']);
+		const help = result.stdout.join('');
+		expect(result.exitCode).toBe(0);
+		expect(help.match(/^\w+ options:$|--(?:zebra|alpha|omega|shared|bravo)/gmu)).toEqual([
+			'Root options:',
+			'--zebra',
+			'--alpha',
+			'Middle options:',
+			'--omega',
+			'--shared',
+			'Leaf options:',
+			'--bravo',
+		]);
+	});
+
 	it('keeps declaration order for numeric flag names, including inherited flags', async () => {
 		const parent = command('parent')
 			.flag('20', flag.boolean().group('First').propagate())
