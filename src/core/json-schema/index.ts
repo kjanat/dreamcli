@@ -295,6 +295,7 @@ type FlagElementFragmentV1 = {
 	readonly deprecated?: string | true;
 	readonly propagate?: true;
 	readonly negation?: FlagNegationFragmentV1;
+	readonly separateValue?: true;
 	readonly duplicates?: DuplicatePolicy;
 };
 
@@ -684,6 +685,7 @@ function serializeFlag(
 				}
 			: {}),
 		...(schema.duplicates !== 'last' ? { duplicates: schema.duplicates } : {}),
+		...(schema.separateValue === true ? { separateValue: true } : {}),
 	};
 }
 
@@ -1524,6 +1526,7 @@ const flagElementFragmentProperties = {
 	deprecated: { oneOf: [{ type: 'string' }, { const: true }] },
 	propagate: { const: true },
 	negation: { $ref: '#/$defs/negation' },
+	separateValue: { const: true },
 	duplicates: { enum: ['last', 'first', 'error'] },
 } as const satisfies FragmentProperties<FlagElementFragmentV1>;
 

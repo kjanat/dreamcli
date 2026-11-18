@@ -179,6 +179,26 @@ describe('--version flag', () => {
 	});
 });
 
+describe('separated boolean values', () => {
+	it('consumes boolean literals but preserves other positionals and the separator', async () => {
+		const app = cli('demo').default(
+			command('run')
+				.flag('enabled', flag.boolean({ separateValue: true }).negatable())
+				.arg('repo', arg.string().variadic().default([]))
+				.action(({ flags, args, out }) => out.log(JSON.stringify([flags.enabled, args.repo]))),
+		);
+		expect((await app.execute(['--enabled', 'false', 'repo'])).stdout).toEqual([
+			'[false,["repo"]]\n',
+		]);
+		expect((await app.execute(['--enabled', 'repo'])).stdout).toEqual(['[true,["repo"]]\n']);
+		expect((await app.execute(['--enabled', '--', 'false'])).stdout).toEqual([
+			'[true,["false"]]\n',
+		]);
+		expect((await app.execute(['--no-enabled', 'false'])).stdout).toEqual(['[false,["false"]]\n']);
+		expect((await app.execute(['--help'])).stdout.join('')).toContain('[boolean]');
+	});
+});
+
 // --- Built-in global options in root help (#32)
 
 describe('root help — built-in global options', () => {

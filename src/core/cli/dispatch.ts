@@ -11,7 +11,11 @@
  */
 
 import type { FlagLookupEntry, ParseOptions } from '#internals/core/parse/index.ts';
-import { buildFlagLookup, flagExpectsValue } from '#internals/core/parse/index.ts';
+import {
+	buildFlagLookup,
+	consumesSeparateBoolean,
+	flagExpectsValue,
+} from '#internals/core/parse/index.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
 import type { CompiledCommand } from './compiled.ts';
 import { collectPropagatedFlagEntries } from './propagate.ts';
@@ -119,7 +123,7 @@ function dispatch(
 			break;
 		}
 		if (token.startsWith('-')) {
-			if (consumesFollowingToken(token, valueFlags)) i++; // skip the flag's value
+			if (consumesFollowingToken(token, valueFlags, argv[i + 1])) i++; // skip the flag's value
 			continue;
 		}
 		cmdIdx = i;
@@ -249,11 +253,18 @@ function dispatch(
  *
  * @internal
  */
-function consumesFollowingToken(token: string, valueFlags: ValueFlagLookup): boolean {
+function consumesFollowingToken(
+	token: string,
+	valueFlags: ValueFlagLookup,
+	next?: string,
+): boolean {
 	if (token.startsWith('--')) {
 		if (token.includes('=')) return false;
 		const entry = valueFlags.get(token.slice(2));
-		return entry !== undefined && flagExpectsValue(entry.schema);
+		return (
+			entry !== undefined &&
+			(flagExpectsValue(entry.schema) || consumesSeparateBoolean(entry, next))
+		);
 	}
 
 	// Short flag group (`-abc`). A value attaches to the trailing flag only; an

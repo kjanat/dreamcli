@@ -766,6 +766,9 @@
           "description": "Whether values from this input must be kept out of user-facing projections.",
           "const": true
         },
+        "separateValue": {
+          "const": true
+        },
         "separator": {
           "type": "string",
           "minLength": 1
@@ -912,6 +915,9 @@
         },
         "propagate": {
           "description": "Whether this flag propagates to subcommands in nested command trees.\n\nWhen `true`, the flag is automatically available to all descendant\ncommands. A child command that defines a flag with the same name\nshadows the propagated parent flag.\n\nDefault: `false`",
+          "const": true
+        },
+        "separateValue": {
           "const": true
         },
         "separator": {

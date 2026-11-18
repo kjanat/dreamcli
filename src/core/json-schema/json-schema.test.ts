@@ -1247,6 +1247,7 @@ describe('generateSchema — definition metadata', () => {
 			}),
 			force: flagDef({
 				kind: 'boolean',
+				separateValue: true,
 				negation: { alias: 'no-force', hidden: true },
 			}),
 			parser: flagDef({

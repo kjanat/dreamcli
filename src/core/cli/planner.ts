@@ -18,6 +18,7 @@ import type { OutputPolicy } from '#internals/core/output/contracts.ts';
 import type { ParseOptions } from '#internals/core/parse/index.ts';
 import {
 	buildFlagLookup,
+	consumesSeparateBoolean,
 	flagExpectsValue,
 	helpFlagMode,
 	includesBeforeSeparator,
@@ -346,7 +347,11 @@ function findUnknownFlagBeforePositional(
 			const name = token.slice(2, equalsIndex === -1 ? undefined : equalsIndex);
 			const entry = lookup.get(name);
 			if (entry === undefined) return equalsIndex === -1 ? token : `--${name}`;
-			if (equalsIndex === -1 && flagExpectsValue(entry.schema)) index++;
+			if (
+				equalsIndex === -1 &&
+				(flagExpectsValue(entry.schema) || consumesSeparateBoolean(entry, argv[index + 1]))
+			)
+				index++;
 			continue;
 		}
 

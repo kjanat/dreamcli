@@ -456,6 +456,8 @@ interface FlagSchema<K extends FlagKind = FlagKind> {
 	 * called (`undefined` otherwise). See {@link FlagNegation}.
 	 */
 	readonly negation: FlagNegation | undefined;
+	/** Whether a long boolean flag may consume a separate boolean literal. */
+	readonly separateValue?: true | undefined;
 	/**
 	 * Duplicate policy for repeated CLI occurrences. See {@link DuplicatePolicy}.
 	 *
@@ -633,6 +635,8 @@ interface BooleanFlagDefinition extends FlagDefinitionBase {
 	 * @defaultValue `undefined`
 	 */
 	readonly negation?: FlagNegation | undefined;
+	/** Allow a separate boolean literal after the long flag. */
+	readonly separateValue?: true | undefined;
 }
 
 /** Definition of an `enum` flag. */
@@ -899,6 +903,7 @@ function assertEligibleFlagElementBuilder(schema: FlagSchema): void {
 		['deprecated', undefined],
 		['propagate', false],
 		['negation', undefined],
+		['separateValue', undefined],
 		['duplicates', 'last'],
 	];
 	for (const [field, allowed] of defaults) {
@@ -1021,6 +1026,7 @@ const KIND_SPECIFIC_FLAG_FIELDS: readonly (readonly [
 	['aggregateStandard', COLLECTION_FLAG_KINDS],
 	['parseFn', ['custom']],
 	['negation', ['boolean']],
+	['separateValue', ['boolean']],
 ];
 
 /**
@@ -2332,7 +2338,7 @@ interface FlagFactory {
 	 *
 	 * @returns A {@link FlagBuilder} for `boolean` values (defaulted to `false`).
 	 */
-	boolean(): FlagBuilder<{
+	boolean(options?: { readonly separateValue?: boolean }): FlagBuilder<{
 		readonly valueType: boolean;
 		readonly presence: 'defaulted';
 		readonly optionalFallback: 'undefined';
@@ -2661,7 +2667,7 @@ const flag: FlagFactory = {
 		);
 	},
 
-	boolean(): FlagBuilder<{
+	boolean(options?: { readonly separateValue?: boolean }): FlagBuilder<{
 		readonly valueType: boolean;
 		readonly presence: 'defaulted';
 		readonly optionalFallback: 'undefined';
@@ -2672,6 +2678,7 @@ const flag: FlagFactory = {
 			createFlagSchema('boolean', {
 				presence: 'defaulted',
 				defaultValue: false,
+				...(options?.separateValue ? { separateValue: true } : {}),
 			}),
 		);
 	},
