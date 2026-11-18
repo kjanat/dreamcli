@@ -5,6 +5,7 @@ on:
   workflow_call:
   workflow_dispatch:
 permissions: { contents: read }
+env: { MAINTENANCE_BRANCH: maintenance/autofix }
 concurrency:
   group: "autofix-${{ github.repository }}-${{ github.ref }}"
   cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
@@ -13,19 +14,28 @@ jobs:
     if: github.repository == 'kjanat/dreamcli'
     runs-on: ubuntu-latest
     timeout-minutes: 1
-    outputs: { master: "${{ steps.branch.outputs.master }}" }
+    outputs:
+      master: ${{ steps.branch.outputs.master }}
+      ordinary: ${{ steps.branch.outputs.ordinary }}
     steps:
       - id: branch
+        env:
+          PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
         run: |
+          master=false
+          ordinary=false
+          # Beepboop exclusively owns the maintenance ref. A fork's branch is independent.
           if [[ "${GITHUB_REF}" == refs/heads/master ]]; then
-            echo 'master=true' >> "${GITHUB_OUTPUT}"
-          else
-            echo 'master=false' >> "${GITHUB_OUTPUT}"
+            master=true
+          elif [[ "${GITHUB_REF}" != "refs/heads/${MAINTENANCE_BRANCH}" ]] &&
+               [[ "${PR_HEAD_REPO}" != "${GITHUB_REPOSITORY}" || "${GITHUB_HEAD_REF}" != "${MAINTENANCE_BRANCH}" ]]; then
+            ordinary=true
           fi
+          printf 'master=%s\nordinary=%s\n' "${master}" "${ordinary}" >> "${GITHUB_OUTPUT}"
 
   autofix:
     needs: [branch]
-    if: ${{ !fromJSON(needs.branch.outputs.master) && (github.event_name != 'pull_request' || github.event.pull_request.stack == null) }}
+    if: ${{ needs.branch.outputs.ordinary == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.stack == null) }}
     runs-on: ubuntu-latest
     timeout-minutes: 8
     env: { RUNNER_PM: bun }
@@ -38,7 +48,7 @@ jobs:
 
   maintenance-pr:
     needs: [branch]
-    if: ${{ fromJSON(needs.branch.outputs.master) }}
+    if: ${{ needs.branch.outputs.master == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 8
     permissions: { contents: read, id-token: write }
@@ -56,9 +66,10 @@ jobs:
         id: changes
         run: bun scripts/autofix-pr.ts
       - uses: kjanat/beepboop/actions/pull-request@v1
+        # A clean checkout leaves any existing proposal for maintainers to close if obsolete.
         if: steps.changes.outputs.changed == 'true'
         with:
-          branch: maintenance/autofix
+          branch: ${{ env.MAINTENANCE_BRANCH }}
           base: master
           title: ${{ steps.changes.outputs.title }}
           body: ${{ steps.changes.outputs.body }}

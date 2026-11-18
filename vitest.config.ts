@@ -16,6 +16,7 @@ export default defineConfig({
 		setupFiles: ['./vitest.setup.ts'],
 		projects: [
 			{ test: { name: 'dreamcli', include: ['src/**/*.test.ts'] } },
+			{ test: { name: 'scripts', include: ['scripts/*.test.ts'] } },
 			{
 				test: {
 					name: 'docs',
