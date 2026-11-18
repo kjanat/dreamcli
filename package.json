@@ -144,7 +144,7 @@
 		"@types/deno": "^2.7.0",
 		"@types/node": "catalog:",
 		"@typescript/native": "catalog:",
-		"@vitest/coverage-v8": "5.1.0",
+		"@vitest/coverage-v8": "5.1.1",
 		"biome": "npm:@biomejs/biome@^2.6.8",
 		"importmapify": "1.7.0",
 		"knip": "^6.45.1",
