@@ -589,8 +589,46 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 		}
 	}
 
-	if (rootOutputFlags.kind === 'failed' && !(helpOwned && requestsHelp(filteredArgv))) {
+	// A routed default is also dispatchable by its name; otherwise it is only the root fallback.
+	const rootCommands =
+		defaultCommand !== undefined && options.schema.defaultCommandRouted
+			? [...options.compiled.commands, defaultCommand]
+			: options.compiled.commands;
+	const result = dispatch(
+		filteredArgv,
+		buildRootCommandMap(rootCommands),
+		[],
+		rootValueFlags,
+		options.schema.flagSettings,
+	);
+	let selectedDefault: CompiledCommand | undefined;
+	if (result.kind === 'unknown' && defaultCommand !== undefined && result.parentPath.length === 0) {
+		// Explicit filesystem syntax is positional input, not a command typo (#238).
+		const pathInput =
+			result.input === '.' ||
+			result.input === '..' ||
+			result.input.includes('/') ||
+			result.input.includes('\\');
+		const suggestion =
+			result.input !== '' && !pathInput
+				? findClosestCommand(result.input, result.candidates)
+				: undefined;
+		if (suggestion === undefined && canDelegateUnknownRootToDefault(defaultCommand, result.input)) {
+			selectedDefault = defaultCommand;
+		}
+	}
+	const selectedCommand = result.kind === 'unknown' ? selectedDefault : result.command;
+	const helpTopics = selectedCommand?.schema.helpTopics;
+	if (rootOutputFlags.kind === 'failed' && !(helpOwned && requestsHelp(filteredArgv, helpTopics))) {
 		return { kind: 'dispatch-error', error: rootOutputFlags.error };
+	}
+	if (selectedDefault !== undefined) {
+		return buildPlannerMatchOutcome(
+			options,
+			selectedDefault,
+			[selectedDefault.schema],
+			filteredArgv,
+		);
 	}
 
 	// A CLI with no commands and no default is misconfigured: report NO_ACTION
@@ -612,48 +650,9 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 		};
 	}
 
-	// A routed default command (`.default(cmd, { route: true })`) is dispatchable
-	// by its own name in addition to the bare/flags-only root surface. It lives
-	// only in `defaultCommand` (kept disjoint from `commands`), so add it to the
-	// root route map here rather than duplicating it into `commands`.
-	const rootCommands =
-		defaultCommand !== undefined && options.schema.defaultCommandRouted
-			? [...options.compiled.commands, defaultCommand]
-			: options.compiled.commands;
-
-	const result = dispatch(
-		filteredArgv,
-		buildRootCommandMap(rootCommands),
-		[],
-		rootValueFlags,
-		options.schema.flagSettings,
-	);
-
 	switch (result.kind) {
 		case 'unknown': {
 			if (defaultCommand !== undefined && result.parentPath.length === 0) {
-				// Explicit filesystem syntax is positional input, not a command typo (#238).
-				const pathInput =
-					result.input === '.' ||
-					result.input === '..' ||
-					result.input.includes('/') ||
-					result.input.includes('\\');
-				const suggestion =
-					result.input !== '' && !pathInput
-						? findClosestCommand(result.input, result.candidates)
-						: undefined;
-				if (
-					suggestion === undefined &&
-					canDelegateUnknownRootToDefault(defaultCommand, result.input)
-				) {
-					return buildPlannerMatchOutcome(
-						options,
-						defaultCommand,
-						[defaultCommand.schema],
-						filteredArgv,
-					);
-				}
-
 				const unknownFlag = findUnknownFlagBeforePositional(
 					filteredArgv,
 					defaultCommand.schema.flags,
@@ -705,18 +704,28 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 			};
 		}
 
-		case 'needs-subcommand':
+		case 'needs-subcommand': {
+			const helpMode = helpOwned
+				? requestedHelpMode(result.remainingArgv, result.command.schema.helpTopics)
+				: undefined;
+			if (typeof helpMode === 'object' && !options.output.jsonMode) {
+				return buildPlannerMatchOutcome(
+					options,
+					result.command,
+					result.commandPath,
+					result.remainingArgv,
+				);
+			}
 			return {
 				kind: 'needs-subcommand',
 				command: result.command,
 				commandPath: result.commandPath,
 				help: {
 					...scopeHelpToCommandPath(options, result.commandPath),
-					...(helpOwned && requestedHelpMode(result.remainingArgv) === 'all'
-						? { showAdvanced: true }
-						: {}),
+					...(helpMode === 'all' ? { showAdvanced: true } : {}),
 				},
 			};
+		}
 
 		case 'match':
 			return buildPlannerMatchOutcome(

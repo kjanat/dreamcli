@@ -164,19 +164,28 @@ function helpFlagMode(token: string): 'short' | 'all' | undefined {
  * dispatch, so a malformed flag value never hides the text explaining the flags.
  *
  * @param argv - Raw argument strings.
+ * @param topics - Registered help topic names and their flag groups, if available.
  * @returns The requested mode, or `undefined` when no help flag occurs.
  */
-function requestedHelpMode(argv: readonly string[]): ReturnType<typeof helpFlagMode> {
+function requestedHelpMode(
+	argv: readonly string[],
+	topics?: CommandSchema['helpTopics'],
+): ReturnType<typeof helpFlagMode> | { readonly name: string; readonly group: string } {
 	for (const token of argv) {
 		if (token === '--') break;
 		const mode = helpFlagMode(token);
 		if (mode !== undefined) return mode;
+		if (topics !== undefined && token.startsWith('--help=')) {
+			const name = token.slice('--help='.length);
+			const group = Object.hasOwn(topics, name) ? topics[name] : undefined;
+			if (group !== undefined) return { name, group };
+		}
 	}
 	return undefined;
 }
 
-function requestsHelp(argv: readonly string[]): boolean {
-	return requestedHelpMode(argv) !== undefined;
+function requestsHelp(argv: readonly string[], topics?: CommandSchema['helpTopics']): boolean {
+	return requestedHelpMode(argv, topics) !== undefined;
 }
 
 /**

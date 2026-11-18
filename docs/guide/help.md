@@ -129,6 +129,29 @@ line and parsing keep positional arguments in declaration order.
 The definition document and `--help --json` include each input's `group` and,
 when configured, the `groupOrder` array.
 
+### Help topics
+
+Register a topic with `.helpTopic(name, group)` when users need a direct link
+to one flag group. The topic name uses lowercase letters, digits, and hyphens,
+starts with a letter, and reserves `all` for full help.
+
+```ts twoslash
+import { cli, command, flag } from '@kjanat/dreamcli';
+
+cli('demo')
+  .command(
+    command('check')
+      .flag('runner-provider', flag.string().group('Runners').advanced())
+      .flag('output', flag.string().group('Output'))
+      .helpTopic('runners', 'Runners')
+      .action(() => {}),
+  )
+  .run();
+```
+
+`demo check --help=runners` displays the `Runners options:` section, including
+its advanced flags. Adding `--json` returns the full command definition.
+
 ### Flag spelling
 
 The parser accepts the kebab-case spelling of a camelCase flag key, so a flag
