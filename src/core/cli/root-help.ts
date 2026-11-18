@@ -8,7 +8,8 @@
  * @internal
  */
 
-import { osc8, padEnd, wrapText } from '#internals/core/help/ansi.ts';
+import { padEnd, wrapText } from '#internals/core/help/ansi.ts';
+import { formatProgramHeader } from '#internals/core/help/header.ts';
 import type { FlagEntry, HelpOptions, HelpTheme } from '#internals/core/help/index.ts';
 import { formatFlagEntriesBlock, formatHelpSections } from '#internals/core/help/index.ts';
 import { resolveHelpTheme } from '#internals/core/help/theme.ts';
@@ -98,7 +99,7 @@ function formatRootHelp(schema: CLISchemaLike, options?: HelpOptions): string {
 	const surfaceCommand = resolveSurfaceCommand(schema, inlineDefaultCommand);
 	const inline = surfaceCommand !== undefined;
 
-	const sections: string[] = [formatHeader(schema, hyperlinks, theme)];
+	const sections: string[] = [formatProgramHeader(schema, hyperlinks, theme)];
 	if (schema.description !== undefined) {
 		sections.push(schema.description);
 	}
@@ -240,30 +241,6 @@ function completionsFlagSchema(shells: readonly string[]): FlagSchema {
 		description: 'Print a shell completion script and exit',
 		enumValues: shells,
 	});
-}
-
-/**
- * Render the header line (`name vX.Y.Z`).
- *
- * When `hyperlinks` is enabled and the schema carries link URLs (via
- * `CLIBuilder.links()`, possibly derived from package.json metadata), the
- * name and version are wrapped in OSC 8 hyperlinks. The header is the only
- * place links are emitted — usage lines, hints, and the commands table stay
- * plain.
- *
- * @param schema - The CLI schema.
- * @param hyperlinks - Whether OSC 8 hyperlinks may be emitted.
- * @param theme - Theme applied to the name and version (inside any hyperlink).
- * @returns The header line.
- * @internal
- */
-function formatHeader(schema: CLISchemaLike, hyperlinks: boolean, theme: HelpTheme): string {
-	const links = hyperlinks ? schema.helpLinks : undefined;
-	const styledName = theme.headerName(schema.name);
-	const name = links?.name !== undefined ? osc8(links.name, styledName) : styledName;
-	if (schema.version === undefined) return name;
-	const version = theme.headerVersion(`v${schema.version}`);
-	return `${name} ${links?.version !== undefined ? osc8(links.version, version) : version}`;
 }
 
 /**

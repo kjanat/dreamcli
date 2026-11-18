@@ -197,6 +197,23 @@ environment variables are set, `NO_HYPERLINKS` wins. The same resolved decision 
 `out.isHyperlinkSupported`, so code rendering its own `out.color.link(...)`
 output can gate on it and keep escapes out of piped or opted-out contexts.
 
+Set `.help({ commandHeader: true })` to show that same program and version
+header in command help and help topics. The header uses the URLs from
+`.links()` or the manifest and follows the same hyperlink policy as root help.
+
+### Color and hyperlink mode flags
+
+When your commands declare enum flags for output modes, bind their long names
+to native help with `.help({ outputFlags: { color: 'color', hyperlinks: 'hyperlinks' } })`.
+For example, `demo check --help --color=always --hyperlinks=never` uses colored
+help without clickable links. The binding works for root, command, and topic
+help, accepts both separate and equals-form values, and stops at `--`.
+
+`always` enables the effect, `never` disables it, and `auto` uses the configured
+policy, environment, and TTY detection. Help reads only the supplied argv
+values. Actions continue to receive the command flags through normal resolution.
+JSON help uses the definition schema and emits no terminal escapes.
+
 ## Theming
 
 Help output is colored by default whenever color is enabled — the same gate as

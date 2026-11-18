@@ -9,7 +9,7 @@
  * @module dreamcli/core/cli
  */
 
-import type { Colors } from 'ansispeck';
+import { type Colors, createColors } from 'ansispeck';
 import type { CompletionOptions, Shell } from '#internals/core/completion/shell.ts';
 import { detectShell, normalizeShell, SHELLS } from '#internals/core/completion/shell.ts';
 import type { ConfigLoader } from '#internals/core/config/index.ts';
@@ -27,6 +27,7 @@ import {
 	resolveHyperlinkOverride,
 } from '#internals/core/output/index.ts';
 import type { ParseOptions } from '#internals/core/parse/index.ts';
+import { requestsHelp } from '#internals/core/parse/index.ts';
 import type { ArgBuilder, ArgConfig } from '#internals/core/schema/arg.ts';
 import { arg } from '#internals/core/schema/arg.ts';
 import type { schemaBrand } from '#internals/core/schema/brand.ts';
@@ -48,11 +49,13 @@ import { exitAfterFlush } from '#internals/runtime/adapter.ts';
 import { createAdapter } from '#internals/runtime/auto.ts';
 import { BACKSLASH, SLASH, stripTrailing } from '#internals/strings.ts';
 import type { Builtins, BuiltinsConfig, BuiltinsDraft } from './builtins.ts';
-import { normalizeBuiltins } from './builtins.ts';
+import { builtinEnabled, normalizeBuiltins } from './builtins.ts';
 import type { CompiledCLI } from './compiled.ts';
 import { assertNoSiblingRouteConflict, commandRoutes, compileCommand } from './compiled.ts';
 import type { HelpLinks } from './help-links.ts';
 import { deriveHelpLinks } from './help-links.ts';
+import type { HelpOutputFlags } from './help-output-flags.ts';
+import { readHelpOutputFlags } from './help-output-flags.ts';
 import type { OutputPolicy } from './planner.ts';
 import { planInvocation } from './planner.ts';
 import type { CLIPlugin } from './plugin.ts';
@@ -377,6 +380,10 @@ interface HelpConfig {
 	readonly width?: number;
 	/** Emit OSC 8 hyperlinks in the header when supported. */
 	readonly hyperlinks?: boolean;
+	/** Apply explicit `always`, `never`, or `auto` values from these long flags to native help. */
+	readonly outputFlags?: HelpOutputFlags;
+	/** Show the program and version header on command and topic help, using `.links()` targets. */
+	readonly commandHeader?: boolean;
 	/**
 	 * Order of flags within each help section.
 	 *
@@ -1227,14 +1234,12 @@ class CLIBuilder {
 	}
 
 	/**
-	 * Make the root-help header clickable with OSC 8 hyperlinks.
+	 * Make help headers clickable with OSC 8 hyperlinks.
 	 *
-	 * Links the program name and version on the first line of root `--help`
-	 * output in terminals that support
-	 * [OSC 8 hyperlinks](https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda).
-	 * The escapes are only emitted when stdout is a TTY (overridable via
-	 * `options.help.hyperlinks`), and only in the header — usage lines, the
-	 * `--help` hint, the commands table, and completion scripts stay plain.
+	 * The first line of root help can link the program name and version.
+	 * Set `.help({ commandHeader: true })` to show those links on command and topic help.
+	 * The output policy uses TTY detection by default, with overrides such as
+	 * `options.help.hyperlinks`. Usage lines and command listings stay plain.
 	 *
 	 * URLs not provided here are derived from manifest metadata when
 	 * `.manifest()` is active (works with both filesystem discovery and
@@ -1963,13 +1968,65 @@ async function executeCLI(
 	// merged flag settings (runtime override wins) that command parsing uses.
 	const planSchema =
 		options?.flags !== undefined ? { ...builder.schema, flagSettings } : builder.schema;
-	const planned = planInvocation({
+	const helpConfig = builder.schema.helpConfig;
+	const ownsHelp = builtinEnabled(builder.schema.builtins, 'help');
+	const helpOutput =
+		ownsHelp && helpConfig?.outputFlags !== undefined
+			? readHelpOutputFlags(argv, helpConfig.outputFlags)
+			: undefined;
+	const planOptions = {
 		schema: planSchema,
 		compiled,
-		argv,
 		help: helpOptions,
 		output,
-	});
+	};
+	const helpArgv =
+		helpOutput !== undefined &&
+		helpOutput.argv !== argv &&
+		argv.some(
+			(token) =>
+				token === '-h' || token === 'help' || token === '--help' || token.startsWith('--help='),
+		)
+			? helpOutput.argv
+			: argv;
+	const proposed = planInvocation({ ...planOptions, argv: helpArgv });
+	const isCommandHelp = (plan: typeof proposed) =>
+		plan.kind === 'match' &&
+		ownsHelp &&
+		requestsHelp(plan.plan.argv, plan.plan.mergedSchema.helpTopics);
+	const planned =
+		helpArgv !== argv &&
+		proposed.kind !== 'root-help' &&
+		proposed.kind !== 'needs-subcommand' &&
+		!isCommandHelp(proposed)
+			? planInvocation({ ...planOptions, argv })
+			: proposed;
+
+	const renderHelpOptions = (help: HelpOptions, commandHelp = false): HelpOptions => {
+		const color = helpOutput?.color;
+		const hyperlinkMode = helpOutput?.hyperlinks;
+		const hyperlinks =
+			hyperlinkMode === 'auto'
+				? (resolveEffectiveHyperlinkOverride(
+						options?.help,
+						helpConfig,
+						options?.env ?? {},
+						helpOutput?.fallbackArgv ?? argv,
+					) ?? out.isTTY)
+				: hyperlinkMode === undefined
+					? help.hyperlinks === true
+					: hyperlinkMode === 'always';
+		return {
+			...help,
+			...(color === 'always' || color === 'never'
+				? { colors: createColors(color === 'always') }
+				: {}),
+			hyperlinks,
+			...(commandHelp && helpConfig?.commandHeader === true
+				? { programHeader: resolveHelpLinksSchema(builder.schema) }
+				: {}),
+		};
+	};
 
 	switch (planned.kind) {
 		case 'root-version':
@@ -2022,7 +2079,10 @@ async function executeCLI(
 					),
 				);
 			} else {
-				const helpText = formatRootHelp(resolveHelpLinksSchema(builder.schema), planned.help);
+				const helpText = formatRootHelp(
+					resolveHelpLinksSchema(builder.schema),
+					renderHelpOptions(planned.help),
+				);
 				out.log(helpText);
 			}
 			return buildRunResult({ exitCode: 0, error: undefined }, captured);
@@ -2054,16 +2114,17 @@ async function executeCLI(
 					),
 				);
 			} else {
-				const helpText = formatHelp(planned.command.schema, planned.help);
+				const helpText = formatHelp(planned.command.schema, renderHelpOptions(planned.help, true));
 				out.log(helpText);
 			}
 			return buildRunResult({ exitCode: 0, error: undefined }, captured);
 		}
 
 		case 'match': {
+			const help = planned.plan.help ?? helpOptions;
 			const commandRunOptions = buildCommandRunOptions(
 				effectiveOptions,
-				planned.plan.help ?? helpOptions,
+				!jsonMode && !out.jsonMode && isCommandHelp(planned) ? renderHelpOptions(help, true) : help,
 				planned.plan.meta,
 			);
 			const result = await executeCommand({
