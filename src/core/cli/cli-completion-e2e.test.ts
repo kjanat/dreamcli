@@ -62,6 +62,21 @@ function hiddenDebugCommand() {
 // === .completions()
 
 describe('.completions()', () => {
+	it('uses the final command tree regardless of registration order', async () => {
+		const root = command('run')
+			.flag('platform', flag.string())
+			.action(() => {});
+		const early = cli('myapp').completions({ rootMode: 'surface' }).default(root).version('2.0.0');
+		const late = cli('myapp').default(root).version('2.0.0').completions({ rootMode: 'surface' });
+
+		const expected = await late.execute(['completions', 'zsh']);
+		const result = await early.execute(['completions', 'zsh']);
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toEqual(expected.stdout);
+		expect(result.stdout.join('')).toContain('--platform');
+		expect(result.stdout.join('')).toContain('v2.0.0');
+	});
+
 	describe('top-level commands', () => {
 		// --- bash
 
