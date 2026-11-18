@@ -20,7 +20,7 @@ describe('command help topics', () => {
 		const app = cli('demo').command(checkCommand().action(action));
 		const focused = await app.execute(['check', '--help=runners']);
 		expect(focused.exitCode).toBe(0);
-		expect(focused.stdout.join('')).toMatch(/^Runners options:\n  --runner-provider[^\n]*\n$/u);
+		expect(focused.stdout.join('')).toMatch(/^Runners options:\n {2}--runner-provider[^\n]*\n$/u);
 		expect(focused.stderr).toEqual([]);
 		expect(action).not.toHaveBeenCalled();
 		const short = await app.execute(['check', '--help']);
@@ -92,7 +92,7 @@ describe('command help topics', () => {
 		const app = cli('demo').command(parent);
 		const group = await app.execute(['parent', '--help=runners']);
 		expect(group.exitCode).toBe(0);
-		expect(group.stdout.join('')).toMatch(/^Runners options:\n  --runner-provider[^\n]*\n$/u);
+		expect(group.stdout.join('')).toMatch(/^Runners options:\n {2}--runner-provider[^\n]*\n$/u);
 		const nested = await app.execute(['parent', 'nested', 'check', '--help=runners']);
 		expect(nested.stdout).toEqual(group.stdout);
 		const nestedWithValue = await app.execute([
