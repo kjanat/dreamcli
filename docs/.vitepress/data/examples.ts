@@ -45,7 +45,7 @@ export interface ExampleMeta {
  * Cheap metadata collection for sidebar generation.
  *
  * Reads only filenames and docblock summaries — no source code loading,
- * no symbol resolution, no TypeDoc. Safe to call in VitePress config.
+ * no symbol resolution, no deno doc. Safe to call in VitePress config.
  */
 export async function collectExampleMeta(examplesRoot: string): Promise<readonly ExampleMeta[]> {
 	const entries = await readdir(examplesRoot, { withFileTypes: true });

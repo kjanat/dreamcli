@@ -40,6 +40,88 @@ export interface PublicApiEntrypoint {
 	kindGroups: readonly PublicApiKindGroup[];
 }
 
+export interface InheritedApiMember {
+	readonly name: string;
+	readonly type: string;
+	readonly summary: string;
+	readonly optional: boolean;
+	readonly isStatic: boolean;
+	readonly signatures: readonly {
+		readonly returnType: string;
+		readonly parameterTypes: readonly string[];
+	}[];
+}
+
+/** Deno's graph lists declared members. The checker supplies resolved inherited properties. */
+export function collectInheritedApiMembers(
+	root: string,
+	entrypoints: readonly PublicApiEntrypoint[],
+	exportIds: ReadonlySet<string>,
+): ReadonlyMap<string, readonly InheritedApiMember[]> {
+	const sources = entrypoints.filter((entry) => extname(entry.sourcePath) === '.ts');
+	const program = createApiProgram(sources.map((entry) => resolve(root, entry.sourcePath)));
+	const checker = program.getTypeChecker();
+	const result = new Map<string, readonly InheritedApiMember[]>();
+	for (const entry of sources) {
+		const source = program.getSourceFile(resolve(root, entry.sourcePath));
+		const module = source === undefined ? undefined : checker.getSymbolAtLocation(source);
+		if (module === undefined) continue;
+		for (const exported of checker.getExportsOfModule(module)) {
+			const id = `${entry.entrypoint}:${exported.name}`;
+			if (!exportIds.has(id)) continue;
+			const symbol = resolveExportSymbol(exported, checker);
+			const declaration = pickDeclaration(symbol);
+			if (declaration === undefined) continue;
+			const formatType = (type: ts.Type) =>
+				checker.typeToString(type, declaration, ts.TypeFormatFlags.NoTruncation);
+			const instance = checker.getDeclaredTypeOfSymbol(symbol);
+			const sides = [{ type: instance, isStatic: false }];
+			if (ts.isClassDeclaration(declaration)) {
+				sides.push({
+					type: checker.getTypeOfSymbolAtLocation(symbol, declaration),
+					isStatic: true,
+				});
+			}
+			result.set(
+				id,
+				sides.flatMap(({ type, isStatic }) =>
+					checker
+						.getPropertiesOfType(type)
+						.filter(
+							(member) =>
+								(member.flags & (ts.SymbolFlags.PropertyOrAccessor | ts.SymbolFlags.Method)) !==
+									0 &&
+								!/^__[@#]/u.test(String(member.escapedName)) &&
+								member.name !== 'prototype' &&
+								!member.declarations?.some(
+									(declaration) =>
+										(ts.getCombinedModifierFlags(declaration) & ts.ModifierFlags.Private) !== 0 ||
+										hasInternalTag(declaration),
+								),
+						)
+						.map((member) => {
+							const type = checker.getTypeOfSymbolAtLocation(member, declaration);
+							return {
+								name: member.name,
+								type: formatType(type),
+								summary: ts.displayPartsToString(member.getDocumentationComment(checker)),
+								optional: (member.flags & ts.SymbolFlags.Optional) !== 0,
+								isStatic,
+								signatures: type.getCallSignatures().map((signature) => ({
+									returnType: formatType(signature.getReturnType()),
+									parameterTypes: signature.parameters.map((param) =>
+										formatType(checker.getTypeOfSymbolAtLocation(param, declaration)),
+									),
+								})),
+							};
+						}),
+				),
+			);
+		}
+	}
+	return result;
+}
+
 const KIND_ORDER: readonly PublicApiSymbolKind[] = [
 	'function',
 	'class',
@@ -226,6 +308,7 @@ function createApiProgram(entrypoints: readonly string[]): ts.Program {
 			esModuleInterop: true,
 			module: ts.ModuleKind.Preserve,
 			moduleResolution: ts.ModuleResolutionKind.Bundler,
+			strictNullChecks: true,
 			target: ts.ScriptTarget.ESNext,
 		},
 	});

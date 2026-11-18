@@ -5,7 +5,7 @@
  *
  * This is a source code artifact (consumed at runtime by the JSON Schema
  * module), not a docs artifact. It extracts JSDoc descriptions from the
- * normalized TypeDoc model and writes them as a typed constant.
+ * normalized documentation model and writes them as a typed constant.
  *
  * @module
  */
@@ -13,6 +13,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 
 import { collectPublicApiIndex } from '../docs/.vitepress/data/api-index.ts';
+import { collectDenoDocModel } from '../docs/.vitepress/data/deno-doc.ts';
 import {
 	buildDefinitionMetaSchemaDescriptions,
 	renderDefinitionMetaSchemaDescriptions,
@@ -21,11 +22,10 @@ import {
 	generatedMetaSchemaDescriptionsPath,
 	packageJsonPath,
 } from '../docs/.vitepress/data/paths.ts';
-import { collectTypeDocModel } from '../docs/.vitepress/data/typedoc.ts';
 
 const publicApi = await collectPublicApiIndex(packageJsonPath);
-const typeDoc = await collectTypeDocModel(packageJsonPath, publicApi);
-const metaSchemaDescriptions = buildDefinitionMetaSchemaDescriptions(typeDoc.normalized);
+const api = await collectDenoDocModel(packageJsonPath, publicApi);
+const metaSchemaDescriptions = buildDefinitionMetaSchemaDescriptions(api);
 const rendered = await formatGeneratedSource(
 	renderDefinitionMetaSchemaDescriptions(metaSchemaDescriptions),
 );
