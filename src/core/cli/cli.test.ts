@@ -180,6 +180,21 @@ describe('--version flag', () => {
 });
 
 describe('separated boolean values', () => {
+	it('routes virtual help after a separated boolean', async () => {
+		const app = cli('demo')
+			.default(
+				command('run')
+					.flag('enabled', flag.boolean({ separateValue: true }))
+					.action(() => {}),
+			)
+			.command(deployCommand());
+		const inline = await app.execute(['--enabled=false', 'help', 'deploy']);
+		const separate = await app.execute(['--enabled', 'false', 'help', 'deploy']);
+		expect(separate.exitCode).toBe(0);
+		expect(separate.stdout).toEqual(inline.stdout);
+		expect(separate.stdout.join('')).toContain('Usage: demo deploy');
+	});
+
 	it('consumes boolean literals but preserves other positionals and the separator', async () => {
 		const app = cli('demo').default(
 			command('run')

@@ -423,7 +423,12 @@ function scanRootHead(
 			const equalsIndex = token.indexOf('=');
 			const name = token.slice(2, equalsIndex === -1 ? undefined : equalsIndex);
 			const entry = valueFlags?.get(name);
-			if (entry !== undefined && equalsIndex === -1 && flagExpectsValue(entry.schema)) index++;
+			if (
+				entry !== undefined &&
+				equalsIndex === -1 &&
+				(flagExpectsValue(entry.schema) || consumesSeparateBoolean(entry, head[index + 1]))
+			)
+				index++;
 			continue;
 		}
 
