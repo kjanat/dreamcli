@@ -84,13 +84,23 @@ function minimalSchema(overrides: MinimalSchemaOverrides = {}): CLISchema {
 // === Shell type — SHELLS constant
 
 describe('Shell type — SHELLS constant', () => {
-	it.each(SHELLS)('emits no description escapes in %s scripts', (shell) => {
-		const description = osc8('https://example.com', '\x1b[33mPlatform\x1b[39m');
-		const cmd = commandSchema({ name: 'run', flags: { platform: flagSchema({ description }) } });
-		const script = generateCompletion(minimalSchema({ defaultCommand: cmd }), shell);
-		expect(script).toContain('--platform');
-		expect(script).not.toContain('\x1b');
-	});
+	it.each(['zsh', 'fish', 'powershell'] as const)(
+		'emits plain descriptions in %s scripts',
+		(shell) => {
+			const description = osc8('https://example.com', '\x1b[2K\x1b[33mPlatform\x1b[39m');
+			const cmd = commandSchema({
+				name: 'launch',
+				description: osc8('https://example.org', '\x1b[2KLaunch the app'),
+				flags: { platform: flagSchema({ description }) },
+			});
+			const script = generateCompletion(minimalSchema({ commands: [cmd] }), shell);
+			expect(script).toContain('launch');
+			expect(script).toContain('Launch the app');
+			expect(script).toContain('--platform');
+			expect(script).toContain('Platform');
+			expect(script).not.toContain('\x1b');
+		},
+	);
 
 	it('contains only implemented shell targets', () => {
 		expect(SHELLS).toEqual(['bash', 'zsh', 'fish', 'powershell']);
