@@ -10,10 +10,11 @@
  * @internal
  */
 
-import { removeArgvToken } from '#internals/core/parse/argv-boundaries.ts';
+import { adjacentArgvValue, removeArgvToken } from '#internals/core/parse/argv-boundaries.ts';
 import type { FlagLookupEntry, ParseOptions } from '#internals/core/parse/index.ts';
 import {
 	buildFlagLookup,
+	consumesSeparateBoolean,
 	flagExpectsValue,
 	variadicLongValueCount,
 } from '#internals/core/parse/index.ts';
@@ -128,7 +129,7 @@ function dispatch(
 			const name = token.slice(2, equals < 0 ? undefined : equals);
 			if (token.startsWith('--') && valueFlags.get(name)?.schema.variadic === true) {
 				i += variadicLongValueCount(argv, i, valueFlags, equals >= 0);
-			} else if (consumesFollowingToken(token, valueFlags)) {
+			} else if (consumesFollowingToken(token, valueFlags, adjacentArgvValue(argv, i))) {
 				i++;
 			}
 			continue;
@@ -260,11 +261,18 @@ function dispatch(
  *
  * @internal
  */
-function consumesFollowingToken(token: string, valueFlags: ValueFlagLookup): boolean {
+function consumesFollowingToken(
+	token: string,
+	valueFlags: ValueFlagLookup,
+	next?: string,
+): boolean {
 	if (token.startsWith('--')) {
 		if (token.includes('=')) return false;
 		const entry = valueFlags.get(token.slice(2));
-		return entry !== undefined && flagExpectsValue(entry.schema);
+		return (
+			entry !== undefined &&
+			(flagExpectsValue(entry.schema) || consumesSeparateBoolean(entry, next))
+		);
 	}
 
 	// Short flag group (`-abc`). A value attaches to the trailing flag only; an

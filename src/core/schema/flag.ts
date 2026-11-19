@@ -456,6 +456,8 @@ interface FlagSchema<K extends FlagKind = FlagKind> {
 	 * called (`undefined` otherwise). See {@link FlagNegation}.
 	 */
 	readonly negation: FlagNegation | undefined;
+	/** Whether a long boolean flag may consume a separate boolean literal. */
+	readonly separateValue: true | undefined;
 	/** Whether one long array flag occurrence consumes multiple argv tokens. */
 	readonly variadic: true | undefined;
 	/**
@@ -635,6 +637,8 @@ interface BooleanFlagDefinition extends FlagDefinitionBase {
 	 * @defaultValue `undefined`
 	 */
 	readonly negation?: FlagNegation | undefined;
+	/** Allow a separate boolean literal after the long flag. */
+	readonly separateValue?: true | undefined;
 }
 
 /** Definition of an `enum` flag. */
@@ -855,6 +859,7 @@ const NORMALIZED_FLAG_SCHEMA_KEYS: readonly (keyof FlagSchema)[] = [
 	'deprecated',
 	'propagate',
 	'negation',
+	'separateValue',
 	'variadic',
 	'duplicates',
 ];
@@ -904,6 +909,7 @@ function assertEligibleFlagElementBuilder(schema: FlagSchema): void {
 		['deprecated', undefined],
 		['propagate', false],
 		['negation', undefined],
+		['separateValue', undefined],
 		['duplicates', 'last'],
 	];
 	for (const [field, allowed] of defaults) {
@@ -1026,6 +1032,7 @@ const KIND_SPECIFIC_FLAG_FIELDS: readonly (readonly [
 	['aggregateStandard', COLLECTION_FLAG_KINDS],
 	['parseFn', ['custom']],
 	['negation', ['boolean']],
+	['separateValue', ['boolean']],
 	['variadic', ['array']],
 ];
 
@@ -1326,6 +1333,7 @@ function assembleFlagSchema<K extends FlagKind>(
 		deprecated: undefined,
 		propagate: propagate ?? false,
 		negation: undefined,
+		separateValue: undefined,
 		variadic: undefined,
 		duplicates: duplicates ?? 'last',
 		...rest,
@@ -2339,12 +2347,14 @@ interface FlagFactory {
 	 *
 	 * @returns A {@link FlagBuilder} for `boolean` values (defaulted to `false`).
 	 */
-	boolean(): FlagBuilder<{
+	boolean<const O extends { readonly separateValue?: boolean } | undefined = undefined>(
+		options?: O,
+	): FlagBuilder<{
 		readonly valueType: boolean;
 		readonly presence: 'defaulted';
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'boolean';
-		readonly elementEligible: true;
+		readonly elementEligible: true extends NonNullable<O>['separateValue'] ? false : true;
 	}>;
 
 	/**
@@ -2670,17 +2680,20 @@ const flag: FlagFactory = {
 		);
 	},
 
-	boolean(): FlagBuilder<{
+	boolean<const O extends { readonly separateValue?: boolean } | undefined = undefined>(
+		options?: O,
+	): FlagBuilder<{
 		readonly valueType: boolean;
 		readonly presence: 'defaulted';
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'boolean';
-		readonly elementEligible: true;
+		readonly elementEligible: true extends NonNullable<O>['separateValue'] ? false : true;
 	}> {
 		return new FlagBuilder(
 			createFlagSchema('boolean', {
 				presence: 'defaulted',
 				defaultValue: false,
+				...(options?.separateValue ? { separateValue: true } : {}),
 			}),
 		);
 	},

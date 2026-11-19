@@ -197,6 +197,78 @@ describe('--version flag', () => {
 	});
 });
 
+describe('separated boolean values', () => {
+	it('preserves positional boolean literals across nested command names', async () => {
+		const app = cli('demo').command(
+			command('parent')
+				.flag('enabled', flag.boolean({ separateValue: true }).propagate())
+				.command(
+					command('child').command(
+						command('leaf')
+							.arg('target', arg.string())
+							.action(({ flags, args, out }) => out.json({ flags, target: args.target })),
+					),
+				),
+		);
+		const bare = await app.execute(['parent', '--enabled', 'child', 'leaf', '0']);
+		expect(bare.exitCode).toBe(0);
+		expect(JSON.parse(bare.stdout.join(''))).toEqual({ flags: { enabled: true }, target: '0' });
+		const explicit = await app.execute(['parent', '--enabled', 'false', 'child', 'leaf', '0']);
+		expect(explicit.exitCode).toBe(0);
+		expect(JSON.parse(explicit.stdout.join(''))).toEqual({
+			flags: { enabled: false },
+			target: '0',
+		});
+	});
+
+	it('does not consume a boolean literal across a stripped root option', async () => {
+		const app = cli('demo').default(
+			command('run')
+				.flag('enabled', flag.boolean({ separateValue: true }))
+				.arg('target', arg.string())
+				.action(({ flags, args, out }) =>
+					out.json({ enabled: flags.enabled, target: args.target }),
+				),
+		);
+		const result = await app.execute(['--enabled', '--json', 'false']);
+		expect(result.exitCode).toBe(0);
+		expect(JSON.parse(result.stdout.join(''))).toEqual({ enabled: true, target: 'false' });
+	});
+
+	it('routes virtual help after a separated boolean', async () => {
+		const app = cli('demo')
+			.default(
+				command('run')
+					.flag('enabled', flag.boolean({ separateValue: true }))
+					.action(() => {}),
+			)
+			.command(deployCommand());
+		const inline = await app.execute(['--enabled=false', 'help', 'deploy']);
+		const separate = await app.execute(['--enabled', 'false', 'help', 'deploy']);
+		expect(separate.exitCode).toBe(0);
+		expect(separate.stdout).toEqual(inline.stdout);
+		expect(separate.stdout.join('')).toContain('Usage: demo deploy');
+	});
+
+	it('consumes boolean literals but preserves other positionals and the separator', async () => {
+		const app = cli('demo').default(
+			command('run')
+				.flag('enabled', flag.boolean({ separateValue: true }).negatable())
+				.arg('repo', arg.string().variadic().default([]))
+				.action(({ flags, args, out }) => out.log(JSON.stringify([flags.enabled, args.repo]))),
+		);
+		expect((await app.execute(['--enabled', 'false', 'repo'])).stdout).toEqual([
+			'[false,["repo"]]\n',
+		]);
+		expect((await app.execute(['--enabled', 'repo'])).stdout).toEqual(['[true,["repo"]]\n']);
+		expect((await app.execute(['--enabled', '--', 'false'])).stdout).toEqual([
+			'[true,["false"]]\n',
+		]);
+		expect((await app.execute(['--no-enabled', 'false'])).stdout).toEqual(['[false,["false"]]\n']);
+		expect((await app.execute(['--help'])).stdout.join('')).toContain('[boolean]');
+	});
+});
+
 describe('variadic named options', () => {
 	it.each([['--config', 'settings.json'], ['--config=settings.json'], ['--no-config']])(
 		'keeps stripped config options as boundaries (%j)',

@@ -328,7 +328,9 @@ function formatFlagLeft(
 	];
 
 	const label = theme.flag(forms.join(', '));
-	if (schema.kind === 'boolean' || schema.kind === 'count') return { left: label };
+	if ((schema.kind === 'boolean' && schema.separateValue !== true) || schema.kind === 'count') {
+		return { left: label };
+	}
 
 	const hint = formatValueHint(schema);
 	const left = `${label} ${theme.placeholder(hint)}`;
@@ -379,6 +381,7 @@ function formatValueHint(schema: FlagSchema): string {
 			return `<${elemHint}>...`;
 		}
 		case 'boolean':
+			return schema.separateValue === true ? '[boolean]' : '';
 		case 'count':
 			return '';
 		case 'custom':

@@ -14,6 +14,8 @@ import { builtinEnabled } from '#internals/core/cli/builtins.ts';
 import type { CLISchema } from '#internals/core/cli/index.ts';
 import { collectPropagatedFlags } from '#internals/core/cli/propagate.ts';
 import { resolveRootSurface } from '#internals/core/cli/root-surface.ts';
+import type { ParseOptions } from '#internals/core/parse/index.ts';
+import { buildFlagLookup } from '#internals/core/parse/index.ts';
 import { excludesOtherInputs } from '#internals/core/schema/constraints.ts';
 import { createFlagSchema } from '#internals/core/schema/flag.ts';
 import type { CommandSchema, FlagSchema } from '#internals/core/schema/index.ts';
@@ -337,6 +339,16 @@ function hasCompletionConflicts(schema: CLISchema): boolean {
 	);
 }
 
+/** Long, positive spellings that may consume a separate boolean literal. */
+function separateBooleanForms(
+	flags: Readonly<Record<string, FlagSchema>>,
+	parseOptions: ParseOptions | undefined,
+): string[] {
+	return [...buildFlagLookup(flags, parseOptions)].flatMap(([spelling, entry]) =>
+		!entry.negated && entry.schema.separateValue === true ? [`--${spelling}`] : [],
+	);
+}
+
 // --- Exports
 
 export { getVisibleNegatedName } from '#internals/core/schema/flag.ts';
@@ -348,6 +360,7 @@ export {
 	quoteShellArg,
 	resolveRootCompletionSurface,
 	sanitizeShellIdentifier,
+	separateBooleanForms,
 	versionTag,
 	walkCommandTree,
 };

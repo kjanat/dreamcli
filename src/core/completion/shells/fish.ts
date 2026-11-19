@@ -30,6 +30,7 @@ import {
 	quoteShellArg,
 	resolveRootCompletionSurface,
 	sanitizeShellIdentifier,
+	separateBooleanForms,
 	versionTag,
 	walkCommandTree,
 } from './shared.ts';
@@ -95,7 +96,15 @@ function generateFishCompletion(schema: CLISchema, options?: CompletionOptions):
 		lines.push('');
 	}
 
-	emitFishPathHelpers(lines, pathFuncName, pathIsFuncName, visibleCommands, nodes, rootSurface);
+	emitFishPathHelpers(
+		lines,
+		pathFuncName,
+		pathIsFuncName,
+		visibleCommands,
+		nodes,
+		rootSurface,
+		schema.flagSettings,
+	);
 
 	appendFishCommandCompletions(lines, commandName, pathIsFuncName, '', visibleCommands);
 	appendFishFlagCompletions(
@@ -156,8 +165,9 @@ function emitFishPathHelpers(
 	}[],
 	nodes: readonly CommandNode[],
 	rootSurface: RootCompletionSurface,
+	flagSettings: CLISchema['flagSettings'],
 ): void {
-	const valueFlags = collectFishValueFlagPatterns(nodes, rootSurface);
+	const valueFlags = collectFishValueFlagPatterns(nodes, rootSurface, flagSettings);
 
 	lines.push(`function ${pathFuncName}`);
 	lines.push('\tset -l words (commandline -xpc)');
@@ -171,12 +181,25 @@ function emitFishPathHelpers(
 	lines.push('\t\t\tset expect_value 0');
 	lines.push('\t\t\tcontinue');
 	lines.push('\t\tend');
+	if (valueFlags.separate.length > 0) {
+		lines.push('\t\tif test $expect_value -eq 2');
+		lines.push('\t\t\tset expect_value 0');
+		lines.push('\t\t\tif contains -- "$word" true false 1 0');
+		lines.push('\t\t\t\tcontinue');
+		lines.push('\t\t\tend');
+		lines.push('\t\tend');
+	}
 	lines.push('\t\tswitch $word');
 	lines.push("\t\t\tcase '--'");
 	lines.push('\t\t\t\tbreak');
 	if (valueFlags.exact.length > 0) {
 		lines.push(`\t\t\tcase ${valueFlags.exact.map(quoteShellArg).join(' ')}`);
 		lines.push('\t\t\t\tset expect_value 1');
+		lines.push('\t\t\t\tcontinue');
+	}
+	if (valueFlags.separate.length > 0) {
+		lines.push(`\t\t\tcase ${valueFlags.separate.map(quoteShellArg).join(' ')}`);
+		lines.push('\t\t\t\tset expect_value 2');
 		lines.push('\t\t\t\tcontinue');
 	}
 	if (valueFlags.prefix.length > 0) {
@@ -315,9 +338,11 @@ function appendFishFlagCompletions(
 function collectFishValueFlagPatterns(
 	nodes: readonly CommandNode[],
 	rootSurface: RootCompletionSurface,
+	flagSettings: CLISchema['flagSettings'],
 ): {
 	readonly exact: readonly string[];
 	readonly prefix: readonly string[];
+	readonly separate: readonly string[];
 } {
 	const exact = new Set<string>();
 	const prefix = new Set<string>();
@@ -348,6 +373,13 @@ function collectFishValueFlagPatterns(
 	return {
 		exact: [...exact],
 		prefix: [...prefix],
+		separate: [
+			...new Set(
+				[rootSurface.defaultFlags, ...nodes.map((node) => node.mergedFlags)].flatMap((flags) =>
+					separateBooleanForms(flags, flagSettings),
+				),
+			),
+		],
 	};
 }
 

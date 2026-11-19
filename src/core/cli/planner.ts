@@ -15,10 +15,11 @@ import { normalizeShell } from '#internals/core/completion/shell.ts';
 import { CLIError, ParseError } from '#internals/core/errors/index.ts';
 import type { HelpOptions } from '#internals/core/help/index.ts';
 import type { OutputPolicy } from '#internals/core/output/contracts.ts';
-import { sliceArgvHead } from '#internals/core/parse/argv-boundaries.ts';
+import { adjacentArgvValue, sliceArgvHead } from '#internals/core/parse/argv-boundaries.ts';
 import type { ParseOptions } from '#internals/core/parse/index.ts';
 import {
 	buildFlagLookup,
+	consumesSeparateBoolean,
 	flagExpectsValue,
 	helpFlagMode,
 	includesBeforeSeparator,
@@ -351,7 +352,12 @@ function findUnknownFlagBeforePositional(
 			if (entry === undefined) return equalsIndex === -1 ? token : `--${name}`;
 			if (entry.schema.variadic === true) {
 				index += variadicLongValueCount(argv, index, lookup, equalsIndex !== -1);
-			} else if (equalsIndex === -1 && flagExpectsValue(entry.schema)) index++;
+			} else if (
+				equalsIndex === -1 &&
+				(flagExpectsValue(entry.schema) ||
+					consumesSeparateBoolean(entry, adjacentArgvValue(argv, index)))
+			)
+				index++;
 			continue;
 		}
 
@@ -425,7 +431,12 @@ function scanRootHead(
 			const entry = valueFlags?.get(name);
 			if (entry?.schema.variadic === true && valueFlags !== undefined) {
 				index += variadicLongValueCount(head, index, valueFlags, equalsIndex !== -1);
-			} else if (entry !== undefined && equalsIndex === -1 && flagExpectsValue(entry.schema))
+			} else if (
+				entry !== undefined &&
+				equalsIndex === -1 &&
+				(flagExpectsValue(entry.schema) ||
+					consumesSeparateBoolean(entry, adjacentArgvValue(head, index)))
+			)
 				index++;
 			continue;
 		}

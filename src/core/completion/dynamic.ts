@@ -17,10 +17,12 @@ import { collectPropagatedFlags } from '#internals/core/cli/propagate.ts';
 import { readRootOutputFlags } from '#internals/core/cli/root-output-flags.ts';
 import { resolveRootSurface } from '#internals/core/cli/root-surface.ts';
 import { extractConfigFlag } from '#internals/core/cli/runtime-preflight.ts';
+import { adjacentArgvValue } from '#internals/core/parse/argv-boundaries.ts';
 import type { FlagLookupEntry } from '#internals/core/parse/index.ts';
 import {
 	buildFlagLookup,
 	coerceFlagValue,
+	consumesSeparateBoolean,
 	flagExpectsValue,
 	variadicLongValueCount,
 } from '#internals/core/parse/index.ts';
@@ -114,6 +116,13 @@ function completionPosition(
 			const match = matchFlag(token, lookup);
 			if (match === undefined || (match.entry.negated && match.inline !== undefined))
 				return undefined;
+			const next = adjacentArgvValue(remaining, index);
+			const separate =
+				match.inline === undefined &&
+				token.startsWith('--') &&
+				consumesSeparateBoolean(match.entry, next)
+					? next
+					: undefined;
 			if (activeFlags !== undefined) {
 				if (!token.startsWith('--')) {
 					for (const ch of token.slice(1)) {
@@ -122,7 +131,7 @@ function completionPosition(
 						recordActiveFlag(activeFlags, entry, undefined);
 					}
 				}
-				recordActiveFlag(activeFlags, match.entry, match.inline);
+				recordActiveFlag(activeFlags, match.entry, match.inline ?? separate);
 			}
 			if (token.startsWith('--') && match.entry.schema.variadic === true) {
 				skip = variadicLongValueCount(remaining, index, lookup, match.inline !== undefined);
@@ -135,7 +144,10 @@ function completionPosition(
 					pending = match.entry;
 					break;
 				}
-			} else if (match.inline === undefined && flagExpectsValue(match.entry.schema)) {
+			} else if (
+				match.inline === undefined &&
+				(flagExpectsValue(match.entry.schema) || separate !== undefined)
+			) {
 				pending = match.entry;
 			}
 			continue;

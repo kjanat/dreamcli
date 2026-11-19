@@ -38,7 +38,7 @@ import type { StdinBinding } from '#internals/core/schema/stdin.ts';
 import { acceptsArgv, stdinReadsOnDash } from '#internals/core/schema/stdin.ts';
 import type { ValueFailure } from '#internals/core/schema/value.ts';
 import { argValueSchema, decodeValue, flagValueSchema } from '#internals/core/schema/value.ts';
-import { hasArgvBoundary } from './argv-boundaries.ts';
+import { adjacentArgvValue, hasArgvBoundary } from './argv-boundaries.ts';
 import type { Occurrence } from './occurrences.ts';
 import {
 	INCREMENT_OCCURRENCE,
@@ -562,6 +562,15 @@ function projectFlags(occurrences: ReadonlyMap<string, FlagOccurrences>): Record
  */
 function flagExpectsValue(schema: FlagSchema): boolean {
 	return schema.kind !== 'boolean' && schema.kind !== 'count';
+}
+
+/** Whether a separated token is an explicitly supported long boolean value. @internal */
+function consumesSeparateBoolean(entry: FlagLookupEntry, next: string | undefined): boolean {
+	return (
+		!entry.negated &&
+		entry.schema.separateValue === true &&
+		(next === 'true' || next === 'false' || next === '1' || next === '0')
+	);
 }
 
 /** Whether argv would tokenize a value as a positional. */
@@ -1100,10 +1109,13 @@ function parseLongFlag(
 	}
 
 	if (!flagExpectsValue(flagSchema)) {
-		// Boolean or count flag — consumes no value token
-		if (token.value !== undefined) {
+		const next = adjacentArgvValue(argv, startIdx);
+		const separate =
+			token.value === undefined && consumesSeparateBoolean(entry, next) ? next : undefined;
+		const raw = token.value ?? separate;
+		if (raw !== undefined) {
 			try {
-				const item = flagTokenOccurrence(canonicalName, token.value, flagSchema, displayName);
+				const item = flagTokenOccurrence(canonicalName, raw, flagSchema, displayName);
 				recordFlagOccurrence(
 					occurrences,
 					canonicalName,
@@ -1122,7 +1134,7 @@ function parseLongFlag(
 				{ kind: 'value', value: true },
 			]);
 		}
-		return startIdx + 1;
+		return startIdx + (separate === undefined ? 1 : 2);
 	}
 
 	if (flagSchema.variadic === true) {
@@ -1456,6 +1468,7 @@ export {
 	buildFlagLookup,
 	camelToKebab,
 	coerceFlagValue,
+	consumesSeparateBoolean,
 	flagExpectsValue,
 	helpFlagMode,
 	includesBeforeSeparator,
