@@ -1,9 +1,8 @@
 /**
  * Config file discovery and loading.
  *
- * Probes a prioritised list of candidate paths, reads the first match via
- * {@link RuntimeAdapter.readFile}, and parses the content using an
- * extension-based loader (JSON built-in, others additive via {@link ConfigLoader}).
+ * Probes candidate paths in order. The first match is parsed as text or loaded
+ * by path according to its registered {@link ConfigLoader}.
  *
  * The module is pure — all I/O flows through the adapter, making it fully
  * testable with {@link createTestAdapter}'s virtual filesystem.
@@ -62,6 +61,8 @@ type ConfigLoader = FormatLoader | PathConfigLoader;
 
 /** Extension options for {@link configModule}. */
 interface ConfigModuleOptions {
+	/** Evaluate the module and its dependencies anew on each discovery and receive structured-cloned data. */
+	readonly fresh?: boolean;
 	/** Also discover `.ts`, `.mts`, and `.cts` modules using the runtime's TypeScript support. */
 	readonly typescript?: boolean;
 }
@@ -348,8 +349,16 @@ function buildLoaderMap(loaders?: readonly ConfigLoader[]): ReadonlyMap<string, 
  * Exported so custom hosts and tests can type the minimal adapter required by
  * {@link discoverConfig} without depending on the full runtime adapter shape.
  */
-type ConfigAdapter = Pick<RuntimeAdapter, 'readFile' | 'cwd' | 'configDir'> &
-	Partial<Pick<RuntimeAdapter, 'userConfigDirs' | 'systemConfigDirs' | 'importConfigModule'>>;
+type ConfigAdapter = Pick<
+	RuntimeAdapter,
+	| 'readFile'
+	| 'cwd'
+	| 'configDir'
+	| 'configFileExists'
+	| 'importConfigModule'
+	| 'importFreshConfigModule'
+> &
+	Partial<Pick<RuntimeAdapter, 'userConfigDirs' | 'systemConfigDirs'>>;
 
 /**
  * Discover and load a config file.
@@ -358,11 +367,13 @@ type ConfigAdapter = Pick<RuntimeAdapter, 'readFile' | 'cwd' | 'configDir'> &
  * let the CLI runtime call this automatically; call it directly when testing
  * config behavior or building custom bootstrapping around {@linkcode RuntimeAdapter}.
  *
- * Probes candidates with `adapter.readFile` and invokes the selected loader.
+ * Path loaders use the adapter's optional file-existence probe. Text loaders and
+ * adapters without that probe use `readFile`.
  * Returns a discriminated union: `{ found: true, ... }` when a config
  * file was found and parsed, `{ found: false }` when no file exists.
  *
  * @throws {CLIError} code `CONFIG_NOT_FOUND` — explicit `configPath` doesn't exist
+ * @throws {CLIError} code `CONFIG_READ_ERROR` — probing a path loader's candidate failed
  * @throws {CLIError} code `CONFIG_PARSE_ERROR` — file exists but fails to parse
  * @throws {CLIError} code `CONFIG_UNKNOWN_FORMAT` — no loader for the file extension
  *
@@ -395,9 +406,27 @@ async function discoverConfig(
 				}));
 
 	for (const candidatePath of searchPaths) {
-		const content = await adapter.readFile(candidatePath);
+		const ext = getExtension(candidatePath);
+		const loader = loaderMap.get(ext);
+		let content = '';
+		let exists: boolean;
+		if (loader && !('parse' in loader) && adapter.configFileExists) {
+			try {
+				exists = await adapter.configFileExists(candidatePath, options?.configPath !== undefined);
+			} catch (cause) {
+				throw new CLIError(`Cannot access config file: ${candidatePath}`, {
+					code: 'CONFIG_READ_ERROR',
+					cause,
+					details: { path: candidatePath },
+				});
+			}
+		} else {
+			const text = await adapter.readFile(candidatePath);
+			exists = text !== null;
+			if (text !== null) content = text;
+		}
 
-		if (content === null) {
+		if (!exists) {
 			// Explicit --config path must exist
 			if (options?.configPath !== undefined) {
 				throw new CLIError(`Config file not found: ${candidatePath}`, {
@@ -410,9 +439,6 @@ async function discoverConfig(
 		}
 
 		// File found — resolve loader by extension
-		const ext = getExtension(candidatePath);
-		const loader = loaderMap.get(ext);
-
 		if (loader === undefined) {
 			throw new CLIError(`No loader registered for config format: .${ext}`, {
 				code: 'CONFIG_UNKNOWN_FORMAT',
@@ -507,6 +533,11 @@ function configModule(options?: ConfigModuleOptions): PathConfigLoader {
 			? ['mjs', 'cjs', 'js', 'ts', 'mts', 'cts']
 			: ['mjs', 'cjs', 'js'],
 		load(path, adapter) {
+			if (options?.fresh) {
+				if (!adapter.importFreshConfigModule)
+					throw new Error('The runtime adapter does not support fresh executable config files');
+				return adapter.importFreshConfigModule(path);
+			}
 			if (adapter.importConfigModule === undefined) {
 				throw new Error('The runtime adapter does not support executable config files');
 			}

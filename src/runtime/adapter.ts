@@ -115,8 +115,14 @@ interface RuntimeAdapter {
 	 */
 	readonly readFile: (path: string) => Promise<string | null>;
 
+	/** Probe a path-loader candidate without reading its contents. Explicit paths report access errors. */
+	readonly configFileExists?: (path: string, explicit: boolean) => Promise<boolean>;
+
 	/** Import a local executable config and return its default export. */
 	readonly importConfigModule?: (path: string) => Promise<unknown>;
+
+	/** Evaluate a config in a new module graph and return its data to this host. */
+	readonly importFreshConfigModule?: (path: string) => Promise<unknown>;
 
 	/**
 	 * Probe what exists at a filesystem path.
@@ -271,6 +277,8 @@ interface TestAdapterOptions {
 
 	/** Optional executable-config loader for a virtual filesystem. */
 	readonly importConfigModule?: RuntimeAdapter['importConfigModule'];
+	readonly importFreshConfigModule?: RuntimeAdapter['importFreshConfigModule'];
+	readonly configFileExists?: RuntimeAdapter['configFileExists'];
 
 	/**
 	 * Filesystem probe stub for `flag.path()` checks (defaults to returning
@@ -399,6 +407,10 @@ function createTestAdapter(options?: TestAdapterOptions): RuntimeAdapter {
 				throw new ExitError(code);
 			}),
 		readFile: options?.readFile ?? noopReadFile,
+		...(options?.configFileExists && { configFileExists: options.configFileExists }),
+		...(options?.importFreshConfigModule && {
+			importFreshConfigModule: options.importFreshConfigModule,
+		}),
 		...(options?.importConfigModule === undefined
 			? {}
 			: { importConfigModule: options.importConfigModule }),

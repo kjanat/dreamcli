@@ -26,7 +26,7 @@ import type { WriteFn } from '#internals/core/output/index.ts';
 import type { EnvAccessHint } from '#internals/core/resolve/env-access.ts';
 import { ENV_ACCESS_HINT } from '#internals/core/resolve/env-access.ts';
 import type { RuntimeAdapter, TerminalSize } from './adapter.ts';
-import { importConfigModule } from './config-module.ts';
+import { importConfigModule, importFreshConfigModule } from './config-module.ts';
 import { createInputReader } from './input.ts';
 import { resolveConfigDirectory, resolveHomeDirectory } from './paths.ts';
 
@@ -352,7 +352,16 @@ function createDenoAdapter(ns?: DenoNamespace): RuntimeAdapter {
 		onTerminalResize: (listener) => onDenoTerminalResize(d, listener),
 		exit: (code) => d.exit(code),
 		readFile,
+		configFileExists: async (path, explicit) => {
+			try {
+				return (await stat(path)) === 'file';
+			} catch (error) {
+				if (!explicit && isDenoPermissionError(error)) return false;
+				throw error;
+			}
+		},
 		importConfigModule,
+		importFreshConfigModule,
 		stat,
 		mkdir: (path) => d.mkdir(path, { recursive: true }),
 		homedir,

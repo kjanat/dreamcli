@@ -132,6 +132,47 @@ function runDeno(
 	}
 }
 
+describe.skipIf(deno === undefined)('executable config read permissions', () => {
+	it('loads only permitted config files and keeps fresh modules under the same grant', () => {
+		const dir = mkdtempSync(join(tmpdir(), 'dreamcli-deno-config-'));
+		try {
+			const config = join(dir, 'app.mjs');
+			const other = join(dir, 'other.txt');
+			writeFileSync(config, 'export default { port: 1 };');
+			writeFileSync(other, 'private fixture');
+			const probe = `
+import { configModule, discoverConfig } from ${JSON.stringify(new URL('../config.ts', import.meta.url).href)};
+import { createDenoAdapter } from ${JSON.stringify(runtimeUrl)};
+const [configPath, mode] = Deno.args;
+const options = mode === 'auto' ? { searchPaths: [configPath] } : { configPath };
+// --no-prompt masks the interactive permission request. Detect the attempted snapshot itself.
+let snapshots = 0;
+Deno.env.toObject = () => { snapshots++; throw new Error('unexpected environment snapshot'); };
+try {
+  const result = await discoverConfig('app', createDenoAdapter(), { ...options, loaders: [configModule({ fresh: true })] });
+  console.log(JSON.stringify(result.found ? result.data : null));
+} catch (error) { console.log(error.code); }
+if (snapshots !== 0) throw new Error('Config discovery enumerated the environment');
+`;
+			const check = (permission: string, mode = 'explicit') => {
+				const result = runDeno(probe, [permission], [config, mode]);
+				expect(result.code).toBe(0);
+				return result.stdout.trim();
+			};
+			expect(check(`--allow-read=${config}`)).toBe('{"port":1}');
+			expect(check(`--deny-read=${config}`)).toBe('CONFIG_READ_ERROR');
+			expect(check(`--deny-read=${config}`, 'auto')).toBe('null');
+			writeFileSync(
+				config,
+				`export default { value: await Deno.readTextFile(${JSON.stringify(other)}) };`,
+			);
+			expect(check(`--allow-read=${config}`)).toBe('CONFIG_PARSE_ERROR');
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	}, 60_000);
+});
+
 const adapterProbe = `
 import { createDenoAdapter } from ${JSON.stringify(runtimeUrl)};
 const { env } = createDenoAdapter();

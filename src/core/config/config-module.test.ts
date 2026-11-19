@@ -53,29 +53,40 @@ describe('executable config', () => {
 				`
 import { configModule, discoverConfig } from ${JSON.stringify(new URL('../../config.ts', import.meta.url).href)};
 import { createAdapter } from ${JSON.stringify(new URL('../../runtime.ts', import.meta.url).href)};
+for (const fresh of [false, true]) {
 const config = await discoverConfig('app', createAdapter(), {
   configPath: ${JSON.stringify(path)},
-  loaders: [configModule({ typescript: true })],
+  loaders: [configModule({ typescript: true, fresh })],
 });
 console.log(JSON.stringify(config));
+}
 `,
 			);
 			const output = await runNativeProbe(probe);
-			expect(JSON.parse(output)).toEqual({
+			const expected = {
 				found: true,
 				path,
 				data: { port: 3000 },
 				format: extension,
-			});
+			};
+			expect(
+				output
+					.trim()
+					.split('\n')
+					.map((line) => JSON.parse(line)),
+			).toEqual([expected, expected]);
 		} finally {
 			await rm(directory, { recursive: true, force: true });
 		}
 	});
 
-	it('lets a custom loader resolve a config by path without a module-capable adapter', async () => {
+	it('loads an existing path without opening it through the text reader', async () => {
 		const path = '/project/app.config.custom';
 		const adapter = createTestAdapter({
-			readFile: async (candidate) => (candidate === path ? '' : null),
+			configFileExists: async (candidate) => candidate === path,
+			readFile: async () => {
+				throw new Error('unexpected read');
+			},
 		});
 		await expect(
 			discoverConfig('app', adapter, {
@@ -83,6 +94,50 @@ console.log(JSON.stringify(config));
 				loaders: [{ extensions: ['custom'], load: async (file) => ({ file }) }],
 			}),
 		).resolves.toEqual({ found: true, path, data: { file: path }, format: 'custom' });
+	});
+
+	it('isolates fresh loads across edits, failed imports and mutations', async () => {
+		const directory = await mkdtemp(join(tmpdir(), 'dreamcli-config-'));
+		try {
+			const path = join(directory, 'app.mjs');
+			const dep = join(directory, 'shared.mjs');
+			const probe = join(directory, 'probe.mts');
+			await writeFile(dep, 'export const port = 1;');
+			const source = "import { port } from './shared.mjs'; export default { nested: { port } };";
+			await writeFile(path, source);
+			await writeFile(
+				probe,
+				`
+import assert from 'node:assert/strict';
+import { writeFile } from 'node:fs/promises';
+import { configModule, discoverConfig } from ${JSON.stringify(new URL('../../config.ts', import.meta.url).href)};
+import { createAdapter } from ${JSON.stringify(new URL('../../runtime.ts', import.meta.url).href)};
+const adapter = createAdapter();
+const path = ${JSON.stringify(path)};
+const load = async (fresh) => (await discoverConfig('app', adapter, {
+  configPath: path, loaders: [configModule({ fresh })],
+})).data;
+const cached = await load(false);
+const first = await load(true);
+first.nested.port = 99;
+assert.equal((await load(true)).nested.port, 1);
+await writeFile(${JSON.stringify(dep)}, 'export const port = 2;');
+assert.equal((await load(true)).nested.port, 2);
+await writeFile(path, 'throw new Error("bad config");');
+await assert.rejects(load(true), { code: 'CONFIG_PARSE_ERROR' });
+await writeFile(path, 'export default { port: 3 };');
+assert.deepEqual(await load(true), { port: 3 });
+assert.equal(await load(false), cached);
+assert.equal(cached.nested.port, 1);
+await writeFile(path, 'export default { callback() {} };');
+await assert.rejects(load(true), { code: 'CONFIG_PARSE_ERROR' });
+console.log('ok');
+`,
+			);
+			expect((await runNativeProbe(probe)).trim()).toBe('ok');
+		} finally {
+			await rm(directory, { recursive: true, force: true });
+		}
 	});
 
 	it('opts into discovery via the CLI and retains JSON precedence within the same location', async () => {
