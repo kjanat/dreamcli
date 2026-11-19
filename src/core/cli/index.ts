@@ -27,7 +27,6 @@ import {
 	resolveHyperlinkOverride,
 } from '#internals/core/output/index.ts';
 import type { ParseOptions } from '#internals/core/parse/index.ts';
-import { requestsHelp } from '#internals/core/parse/index.ts';
 import type { ArgBuilder, ArgConfig } from '#internals/core/schema/arg.ts';
 import { arg } from '#internals/core/schema/arg.ts';
 import type { schemaBrand } from '#internals/core/schema/brand.ts';
@@ -49,15 +48,14 @@ import { exitAfterFlush } from '#internals/runtime/adapter.ts';
 import { createAdapter } from '#internals/runtime/auto.ts';
 import { BACKSLASH, SLASH, stripTrailing } from '#internals/strings.ts';
 import type { Builtins, BuiltinsConfig, BuiltinsDraft } from './builtins.ts';
-import { builtinEnabled, normalizeBuiltins } from './builtins.ts';
+import { normalizeBuiltins } from './builtins.ts';
 import type { CompiledCLI } from './compiled.ts';
 import { assertNoSiblingRouteConflict, commandRoutes, compileCommand } from './compiled.ts';
 import type { HelpLinks } from './help-links.ts';
 import { deriveHelpLinks } from './help-links.ts';
 import type { HelpOutputFlags } from './help-output-flags.ts';
-import { readHelpOutputFlags } from './help-output-flags.ts';
 import type { OutputPolicy } from './planner.ts';
-import { planInvocation } from './planner.ts';
+import { isPlannedHelp, planInvocationWithHelpOutput } from './planner.ts';
 import type { CLIPlugin } from './plugin.ts';
 import { plugin } from './plugin.ts';
 import { assertNoReservedFlagCollisions } from './reserved-flags.ts';
@@ -2041,38 +2039,10 @@ async function executeCLI(
 	const planSchema =
 		options?.flags !== undefined ? { ...builder.schema, flagSettings } : builder.schema;
 	const helpConfig = builder.schema.helpConfig;
-	const ownsHelp = builtinEnabled(builder.schema.builtins, 'help');
-	const helpOutput =
-		ownsHelp && helpConfig?.outputFlags !== undefined
-			? readHelpOutputFlags(argv, helpConfig.outputFlags)
-			: undefined;
-	const planOptions = {
-		schema: planSchema,
-		compiled,
-		help: helpOptions,
-		output,
-	};
-	const helpArgv =
-		helpOutput !== undefined &&
-		helpOutput.argv !== argv &&
-		argv.some(
-			(token) =>
-				token === '-h' || token === 'help' || token === '--help' || token.startsWith('--help='),
-		)
-			? helpOutput.argv
-			: argv;
-	const proposed = planInvocation({ ...planOptions, argv: helpArgv });
-	const isCommandHelp = (plan: typeof proposed) =>
-		plan.kind === 'match' &&
-		ownsHelp &&
-		requestsHelp(plan.plan.argv, plan.plan.mergedSchema.helpTopics);
-	const planned =
-		helpArgv !== argv &&
-		proposed.kind !== 'root-help' &&
-		proposed.kind !== 'needs-subcommand' &&
-		!isCommandHelp(proposed)
-			? planInvocation({ ...planOptions, argv })
-			: proposed;
+	const { plan: planned, helpOutput } = planInvocationWithHelpOutput(
+		{ schema: planSchema, compiled, argv, help: helpOptions, output },
+		helpConfig?.outputFlags,
+	);
 
 	const renderHelpOptions = (help: HelpOptions, commandHelp = false): HelpOptions => {
 		const color = helpOutput?.color;
@@ -2199,7 +2169,9 @@ async function executeCLI(
 			const help = planned.plan.help ?? helpOptions;
 			const commandRunOptions = buildCommandRunOptions(
 				effectiveOptions,
-				!jsonMode && !out.jsonMode && isCommandHelp(planned) ? renderHelpOptions(help, true) : help,
+				!jsonMode && !out.jsonMode && isPlannedHelp(planned, planSchema.builtins)
+					? renderHelpOptions(help, true)
+					: help,
 				planned.plan.meta,
 			);
 			const result = await executeCommand({

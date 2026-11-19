@@ -28,7 +28,8 @@ import { builtinEnabled } from './builtins.ts';
 import type { CompiledCLI } from './compiled.ts';
 import type { HelpLinks } from './help-links.ts';
 import { deriveHelpLinks } from './help-links.ts';
-import { planInvocation } from './planner.ts';
+import type { HelpOutputFlags } from './help-output-flags.ts';
+import { isPlannedHelp, planInvocation, planInvocationWithHelpOutput } from './planner.ts';
 import { assertNoReservedFlagCollisions } from './reserved-flags.ts';
 import {
 	readRootOutputFlags,
@@ -105,6 +106,7 @@ interface RuntimePreflightSchemaLike {
 				readonly inlineDefault?: boolean;
 				readonly showDefaultInCommands?: boolean;
 				readonly footer?: boolean;
+				readonly outputFlags?: HelpOutputFlags;
 				readonly width?: number;
 				readonly hyperlinks?: boolean;
 				readonly theme?: HelpThemeFactory;
@@ -581,15 +583,31 @@ async function prepareRuntimePreflight(
 			jsonMode,
 		};
 	}
-	const loadedConfig = skipDiscovery
-		? options.options?.config
-		: await loadRuntimeConfig(
-				schema,
-				options.adapter,
-				configPath,
-				isCompletions,
-				options.options?.config,
-			);
+	const isHelp =
+		schema.configSettings !== undefined &&
+		isPlannedHelp(
+			planInvocationWithHelpOutput(
+				{
+					schema: { ...schema, flagSettings: options.options?.flags ?? schema.flagSettings },
+					compiled: options.compiled,
+					argv: filteredArgv,
+					help: { binName: schema.name },
+					output: PRECHECK_OUTPUT,
+				},
+				schema.helpConfig?.outputFlags,
+			).plan,
+			schema.builtins,
+		);
+	const loadedConfig =
+		skipDiscovery || isHelp
+			? options.options?.config
+			: await loadRuntimeConfig(
+					schema,
+					options.adapter,
+					configPath,
+					isCompletions,
+					options.options?.config,
+				);
 
 	if (loadedConfig instanceof CLIError) {
 		return {

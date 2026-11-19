@@ -34,6 +34,8 @@ import type { BuiltinsConfig } from './builtins.ts';
 import { builtinEnabled } from './builtins.ts';
 import type { CompiledCLI, CompiledCommand } from './compiled.ts';
 import { dispatch, findClosestCommand } from './dispatch.ts';
+import type { HelpOutputFlags } from './help-output-flags.ts';
+import { readHelpOutputFlags } from './help-output-flags.ts';
 import type { CLIPlugin } from './plugin.ts';
 import { collectPropagatedFlagEntries } from './propagate.ts';
 import { readRootOutputFlags } from './root-output-flags.ts';
@@ -757,6 +759,44 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 	}
 }
 
+/** Whether execution renders framework help for the selected route. */
+function isPlannedHelp(plan: InvocationPlan, builtins: BuiltinsConfig | undefined): boolean {
+	return (
+		plan.kind === 'root-help' ||
+		plan.kind === 'needs-subcommand' ||
+		(plan.kind === 'match' &&
+			builtinEnabled(builtins, 'help') &&
+			requestsHelp(plan.plan.argv, plan.plan.mergedSchema.helpTopics))
+	);
+}
+
+/** Normalize help-only output flags using the same routing in preflight and execution. */
+function planInvocationWithHelpOutput(
+	options: PlanInvocationOptions,
+	flags: HelpOutputFlags | undefined,
+) {
+	const { argv, schema } = options;
+	const helpOutput =
+		flags !== undefined && builtinEnabled(schema.builtins, 'help')
+			? readHelpOutputFlags(argv, flags)
+			: undefined;
+	const helpArgv =
+		helpOutput !== undefined &&
+		helpOutput.argv !== argv &&
+		argv.some(
+			(token) =>
+				token === '-h' || token === 'help' || token === '--help' || token.startsWith('--help='),
+		)
+			? helpOutput.argv
+			: argv;
+	const proposed = planInvocation({ ...options, argv: helpArgv });
+	const plan =
+		helpArgv !== argv && !isPlannedHelp(proposed, schema.builtins)
+			? planInvocation(options)
+			: proposed;
+	return { plan, helpOutput };
+}
+
 export type {
 	CommandExecutionPlan,
 	DispatchErrorOutcome,
@@ -775,6 +815,8 @@ export {
 	buildCommandExecutionPlan,
 	buildRootCommandMap,
 	canDelegateUnknownRootToDefault,
+	isPlannedHelp,
 	mergeCommandSchema,
 	planInvocation,
+	planInvocationWithHelpOutput,
 };
