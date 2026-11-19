@@ -20,7 +20,6 @@ import { flagExpectsValue } from '#internals/core/parse/index.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type { FlagSchema } from '#internals/core/schema/index.ts';
 import { acceptsArgv } from '#internals/core/schema/stdin.ts';
-import { flagValueSchema, valueEnumValues } from '#internals/core/schema/value.ts';
 import type { CommandNode, CompletionOptions } from './shared.ts';
 import {
 	getVisibleNegatedName,
@@ -29,6 +28,7 @@ import {
 	quoteShellArg,
 	resolveRootCompletionSurface,
 	sanitizeShellIdentifier,
+	staticFlagCandidates,
 	versionTag,
 	walkCommandTree,
 } from './shared.ts';
@@ -376,8 +376,7 @@ function buildZshFlagSpecsFromFlags(
 		const negatedForms = negated !== undefined ? [`--${negated}`] : [];
 		const allForms = [...shortFlags, longFlag, ...longAliases, ...negatedForms];
 
-		const values =
-			schema.kind === 'keyValue' ? undefined : valueEnumValues(flagValueSchema(schema));
+		const values = staticFlagCandidates(schema);
 		let valuePart = '';
 		if (!flagExpectsValue(schema)) {
 			// Boolean and count flags take no argument value

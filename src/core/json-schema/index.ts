@@ -307,6 +307,7 @@ type FlagElementFragmentV1 = {
  * only for non-sensitive inputs when the value survives a JSON round-trip.
  */
 type FlagDefinitionFragmentV1 = FlagElementFragmentV1 & {
+	readonly completionValues?: readonly string[];
 	readonly defaultDescription?: string | false;
 	readonly sensitive?: true;
 	/** Named options section in command help. */
@@ -656,6 +657,9 @@ function serializeFlag(
 			: {}),
 		...(schema.group !== undefined ? { group: schema.group } : {}),
 		...(schema.advanced ? { advanced: true } : {}),
+		...(schema.completionValues !== undefined
+			? { completionValues: [...schema.completionValues] }
+			: {}),
 		...(schema.enumValues !== undefined ? { enumValues: [...schema.enumValues] } : {}),
 		...(schema.numberConstraints !== undefined
 			? { numberConstraints: { ...schema.numberConstraints } }
@@ -1536,6 +1540,7 @@ const flagElementFragmentProperties = {
 /** Property schemas supported by a top-level flag definition. */
 const flagFragmentProperties = {
 	...flagElementFragmentProperties,
+	completionValues: { type: 'array', items: { type: 'string' } },
 	defaultDescription: { oneOf: [{ type: 'string' }, { const: false }] },
 	sensitive: { const: true },
 	group: { type: 'string' },

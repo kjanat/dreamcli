@@ -839,3 +839,36 @@ it('does not block alternatives after a separately disabled boolean', async () =
 	]);
 	expect(result.stdout).toEqual([]);
 });
+
+describe('static flag completion', () => {
+	const values = ['extract', 'lookup', 'full'] as const;
+	const run = command('run')
+		.flag('dry-run', flag.string().complete(values))
+		.flag('custom', flag.custom((raw) => String(raw).toUpperCase()).complete(values))
+		.action(({ flags, out }) => out.json(flags));
+	const app = cli('tool').command(run);
+
+	it.each(['bash', 'zsh', 'fish', 'powershell'] as const)('embeds suggestions in %s', (shell) => {
+		const script = generateCompletion(app.schema, shell);
+		for (const candidate of values) expect(script).toContain(candidate);
+		expect(script).not.toContain('__complete');
+	});
+
+	it('leaves parsing to the original flag codec', async () => {
+		const result = await app.execute(['run', '--dry-run=true', '--custom=false']);
+		expect(result.exitCode).toBe(0);
+		expect(JSON.parse(result.stdout.join(''))).toEqual({ 'dry-run': 'true', custom: 'FALSE' });
+	});
+
+	it('uses the last completion source and copies static suggestions', () => {
+		const candidates = ['one'];
+		const callback = () => ['dynamic'];
+		const fixed = flag.string().complete(callback).complete(candidates);
+		candidates.push('two');
+		expect(fixed.schema.completionValues).toEqual(['one']);
+		expect(fixed.schema.completion).toBeUndefined();
+		const dynamic = fixed.complete(callback);
+		expect(dynamic.schema.completion).toBe(callback);
+		expect(dynamic.schema.completionValues).toBeUndefined();
+	});
+});

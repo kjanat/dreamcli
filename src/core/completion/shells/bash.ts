@@ -20,7 +20,6 @@ import { flagExpectsValue } from '#internals/core/parse/index.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type { CommandSchema, FlagSchema } from '#internals/core/schema/index.ts';
 import { acceptsArgv } from '#internals/core/schema/stdin.ts';
-import { flagValueSchema, valueEnumValues } from '#internals/core/schema/value.ts';
 import type { CommandNode, CompletionOptions, RootCompletionSurface } from './shared.ts';
 import {
 	getVisibleNegatedName,
@@ -30,6 +29,7 @@ import {
 	resolveRootCompletionSurface,
 	sanitizeShellIdentifier,
 	separateBooleanForms,
+	staticFlagCandidates,
 	versionTag,
 	walkCommandTree,
 } from './shared.ts';
@@ -439,10 +439,12 @@ function formatBashEnumCompletion(
 	const lines: string[] = [];
 	const needsDollarQuoting = values.some((v) => !/^[a-zA-Z0-9_\-.]+$/.test(v));
 	if (needsDollarQuoting) {
-		const escaped = values.map(escapeBashDollarQuote);
-		const joined = escaped.join('\\n');
-		lines.push(`${indent}local IFS=$'\\n'`);
-		lines.push(`${indent}COMPREPLY=($(compgen -W $'${joined}' -- "$${currentVar}"))`);
+		const words = values.map((value) => `$'${escapeBashDollarQuote(value)}'`).join(' ');
+		lines.push(`${indent}local candidate`);
+		lines.push(`${indent}COMPREPLY=()`);
+		lines.push(`${indent}for candidate in ${words}; do`);
+		lines.push(`${indent}\t[[ "$candidate" == "$${currentVar}"* ]] && COMPREPLY+=("$candidate")`);
+		lines.push(`${indent}done`);
 	} else {
 		lines.push(`${indent}COMPREPLY=($(compgen -W '${values.join(' ')}' -- "$${currentVar}"))`);
 	}
@@ -558,8 +560,7 @@ function collectEnumCasesFromFlags(
 	const cases: EnumCase[] = [];
 	for (const [name, schema] of Object.entries(flags)) {
 		if (!acceptsArgv(schema)) continue;
-		const values =
-			schema.kind === 'keyValue' ? undefined : valueEnumValues(flagValueSchema(schema));
+		const values = staticFlagCandidates(schema);
 		if (values === undefined) continue;
 		const flagForms = [
 			`--${name}`,

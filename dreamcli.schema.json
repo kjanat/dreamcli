@@ -648,6 +648,13 @@
             "type": "string"
           }
         },
+        "completionValues": {
+          "description": "Static shell completion suggestions for this flag.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "configPath": {
           "description": "Dotted config path for v0.2+ resolution (e.g. `'deploy.region'`).",
           "type": "string"

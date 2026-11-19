@@ -123,7 +123,7 @@
 		"publish:preview": "bunx pkg-pr-new publish --bun --comment=update --packageManager=bun,npm",
 		"schema:emit": "bun scripts/emit-definition-schema.ts",
 		"test": "vitest run",
-		"test:bun": "bun --bun vitest run",
+		"test:bun": "bun --bun vitest run --pool threads",
 		"test:gh": "run --dir examples/gh test",
 		"test:node": "npx -y vitest run",
 		"test:watch": "vitest",
@@ -146,7 +146,7 @@
 		"@typescript/native": "catalog:",
 		"@vitest/coverage-v8": "5.1.1",
 		"biome": "npm:@biomejs/biome@^2.6.8",
-		"importmapify": "1.7.0",
+		"importmapify": "2.0.0",
 		"knip": "^6.46.1",
 		"publint": "^0.3.25",
 		"runner-run": "0.28.0",
@@ -183,6 +183,7 @@
 		"@types/node": ">=26.6.5",
 		"@typescript/native": "npm:typescript@^7.0.2",
 		"typescript": ">=6.0.3,<7",
-		"vitest": "^5.0.5"
-	}
+		"vitest": "^5.1.1"
+	},
+	"trustedDependencies": ["@kprint/kprint"]
 }

@@ -840,7 +840,7 @@ describe('generateBashCompletion', () => {
 			expect(script).not.toContain('IFS');
 		});
 
-		it('uses $-quoting with IFS for values containing spaces', () => {
+		it('keeps values containing spaces together', () => {
 			const schema = minimalSchema({
 				commands: [
 					commandSchema({
@@ -856,8 +856,7 @@ describe('generateBashCompletion', () => {
 			});
 			const script = generateBashCompletion(schema);
 
-			expect(script).toContain("local IFS=$'\\n'");
-			expect(script).toContain("compgen -W $'hello world\\nfoo'");
+			expect(script).toContain("for candidate in $'hello world' $'foo'");
 		});
 
 		it('escapes single quotes in enum values', () => {
@@ -876,7 +875,6 @@ describe('generateBashCompletion', () => {
 			});
 			const script = generateBashCompletion(schema);
 
-			expect(script).toContain("local IFS=$'\\n'");
 			expect(script).toContain("it\\'s");
 		});
 
@@ -896,7 +894,6 @@ describe('generateBashCompletion', () => {
 			});
 			const script = generateBashCompletion(schema);
 
-			expect(script).toContain("local IFS=$'\\n'");
 			expect(script).toContain('C:\\\\Users');
 		});
 
@@ -917,8 +914,7 @@ describe('generateBashCompletion', () => {
 			const script = generateBashCompletion(schema);
 
 			// All values use $'...' quoting because at least one needs it
-			expect(script).toContain("local IFS=$'\\n'");
-			expect(script).toContain("compgen -W $'");
+			expect(script).toContain("for candidate in $'");
 			expect(script).toContain("it\\'s here");
 			expect(script).toContain('C:\\\\path');
 			expect(script).toContain('normal');
@@ -2482,8 +2478,8 @@ describe('generateFishCompletion — script structure', () => {
 		const script = generateFishCompletion(schema);
 
 		expect(script).toContain('-a us-east');
-		expect(script).toContain("-a 'eu west'");
-		expect(script).toContain("-a 'qa'\\''s'");
+		expect(script).toContain("-a '\\'eu west\\''");
+		expect(script).toContain("-a '\\'qa\\\\\\'s\\''");
 	});
 
 	it('keeps hidden aliases in value-flag path parsing but not suggestions', () => {
