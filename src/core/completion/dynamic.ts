@@ -104,6 +104,13 @@ function completionPosition(
 			const match = matchFlag(token, lookup);
 			if (match === undefined || (match.entry.negated && match.inline !== undefined))
 				return undefined;
+			const next = remaining[index + 1];
+			const separate =
+				match.inline === undefined &&
+				token.startsWith('--') &&
+				consumesSeparateBoolean(match.entry, next)
+					? next
+					: undefined;
 			if (activeFlags !== undefined) {
 				if (!token.startsWith('--')) {
 					for (const ch of token.slice(1)) {
@@ -112,12 +119,11 @@ function completionPosition(
 						recordActiveFlag(activeFlags, entry, undefined);
 					}
 				}
-				recordActiveFlag(activeFlags, match.entry, match.inline);
+				recordActiveFlag(activeFlags, match.entry, match.inline ?? separate);
 			}
 			if (
 				match.inline === undefined &&
-				(flagExpectsValue(match.entry.schema) ||
-					(token.startsWith('--') && consumesSeparateBoolean(match.entry, remaining[index + 1])))
+				(flagExpectsValue(match.entry.schema) || separate !== undefined)
 			)
 				pending = match.entry;
 			continue;

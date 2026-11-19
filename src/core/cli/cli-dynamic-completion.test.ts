@@ -802,3 +802,23 @@ it('skips completion callbacks for conflicting config flags before the applicati
 	expect(literal.stdout).toEqual(['eu\n']);
 	expect(complete).toHaveBeenCalledTimes(1);
 });
+it('does not block alternatives after a separately disabled boolean', async () => {
+	const app = cli('demo')
+		.command(
+			command('check')
+				.flag('offline', flag.boolean({ separateValue: true }))
+				.flag('remote', flag.boolean())
+				.constrain((c) => [c.conflicts('offline', 'remote')])
+				.action(() => {}),
+		)
+		.completions();
+	const result = await app.execute([
+		'__complete',
+		'--blocked-flags',
+		'--',
+		'check',
+		'--offline',
+		'false',
+	]);
+	expect(result.stdout).toEqual([]);
+});

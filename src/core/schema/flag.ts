@@ -457,7 +457,7 @@ interface FlagSchema<K extends FlagKind = FlagKind> {
 	 */
 	readonly negation: FlagNegation | undefined;
 	/** Whether a long boolean flag may consume a separate boolean literal. */
-	readonly separateValue?: true | undefined;
+	readonly separateValue: true | undefined;
 	/**
 	 * Duplicate policy for repeated CLI occurrences. See {@link DuplicatePolicy}.
 	 *
@@ -855,6 +855,7 @@ const NORMALIZED_FLAG_SCHEMA_KEYS: readonly (keyof FlagSchema)[] = [
 	'deprecated',
 	'propagate',
 	'negation',
+	'separateValue',
 	'duplicates',
 ];
 
@@ -1326,6 +1327,7 @@ function assembleFlagSchema<K extends FlagKind>(
 		deprecated: undefined,
 		propagate: propagate ?? false,
 		negation: undefined,
+		separateValue: undefined,
 		duplicates: duplicates ?? 'last',
 		...rest,
 		envIndexed:
