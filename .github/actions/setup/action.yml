@@ -1,5 +1,9 @@
 name: bun-deno-runner-kprint
 description: A GitHub Action to setup Bun and Deno environments for running scripts, with runner/run bins.
+inputs:
+  bun-version-file:
+    description: Read a pinned Bun version from this file instead of using canary.
+    required: false
 runs:
   using: composite
   steps:
@@ -10,7 +14,8 @@ runs:
     - uses: denoland/setup-deno@v2
     - uses: oven-sh/setup-bun@v2
       with:
-        bun-version: canary
+        bun-version: ${{ !inputs.bun-version-file && 'canary' || '' }}
+        bun-version-file: ${{ inputs.bun-version-file }}
         no-cache: true
     - uses: actions/setup-node@v7
       with: { node-version: latest }

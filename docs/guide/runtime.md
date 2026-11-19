@@ -34,6 +34,20 @@ Instead, a `RuntimeAdapter` provides:
 
 Runtime detection is automatic — dreamcli picks the right adapter at startup.
 
+## Bundling an npm CLI
+
+A script that imports `DEFINITION_SCHEMA_VERSION` can bundle to a single constant. A script that
+uses `readFlags()` retains parsing, resolution, and flag help. A full `cli().run()` application
+also needs its built-in behavior, including JSON help. Choose the entry point that matches the
+program you want to ship. All three are available from `@kjanat/dreamcli`.
+
+Tree shaking removes unused code at build time. Code splitting distributes the retained code
+across output files, so count every emitted chunk when measuring a deployment. Runtime lazy
+loading defers evaluation until a feature is used. For example, a direct Node invocation loads
+the JSON Schema generator on `--help --json`. Bundlers that select the package's `module`
+condition see static ESM imports instead. They can discard an unused feature entirely or
+include it in the same file as the CLI that uses it.
+
 ## Terminal Width
 
 When `cli().run()` renders help, DreamCLI uses the runtime adapter's terminal width if stdout is a TTY and no explicit help width is configured. Direct `formatHelp()` calls and `cli().execute()` keep the deterministic 80-column fallback.

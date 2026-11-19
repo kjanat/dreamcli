@@ -10,7 +10,7 @@
  * @module dreamcli/core/help/ansi
  */
 
-import { createColors, strip } from 'ansispeck';
+import { createColors, type LinkFormatter, strip } from 'ansispeck';
 
 // --- Escape stripping
 
@@ -55,7 +55,7 @@ function visibleWidth(text: string): number {
 
 // --- OSC 8 hyperlinks
 
-const emitLink = createColors(false, true).link;
+let emitLink: LinkFormatter | undefined;
 
 /**
  * Wrap `text` in an [OSC 8 hyperlink](https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda)
@@ -77,6 +77,7 @@ const emitLink = createColors(false, true).link;
  * ```
  */
 function osc8(url: string | URL, text?: string): string {
+	emitLink ??= createColors(false, true).link;
 	return emitLink(url, text);
 }
 

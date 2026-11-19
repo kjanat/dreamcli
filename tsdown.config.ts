@@ -6,6 +6,8 @@ import { engines, version } from './package.json' with { type: 'json' };
 import { emitDefinitionSchema } from './scripts/emit-definition-schema.ts';
 
 export const entries = {
+	'feature-loaders': 'src/core/feature-loaders.ts',
+	'bundle-features': 'scripts/packaging/bundle-features.ts',
 	index: 'src/index.ts',
 	completion: 'src/completion.ts',
 	config: 'src/config.ts',
@@ -16,7 +18,9 @@ export const entries = {
 	version: 'src/version.ts',
 } satisfies UserConfig['entry'];
 
-const LAZY_MODULES = [
+const SEPARATE_MODULES = [
+	/\/src\/core\/feature-loaders\.ts$/,
+	/\/src\/core\/json-schema\/constants\.ts$/,
 	/\/src\/core\/completion\/(index|dynamic|shells\/[^/]+)\.ts$/,
 	/\/src\/core\/json-schema\/(index|meta-descriptions\.generated)\.ts$/,
 	/\/src\/core\/config\/(index|package-json)\.ts$/,
@@ -29,7 +33,7 @@ function isCoreModule(id: string): boolean {
 	return (
 		/\/src\/(core|runtime)\/.+\.ts$|\/src\/strings\.ts$/.test(path) &&
 		!path.endsWith('.d.ts') &&
-		!LAZY_MODULES.some((pattern) => pattern.test(path))
+		!SEPARATE_MODULES.some((pattern) => pattern.test(path))
 	);
 }
 
@@ -39,10 +43,12 @@ export default defineConfig({
 		__DREAMCLI_REVISION__: JSON.stringify((await Bun.$`git rev-parse --short HEAD`.text()).trim()),
 	},
 	entry: entries,
+	external: ['#internals/core/feature-loaders.ts'],
 	format: 'esm',
 	target: [`node${engines.node.replace('>=', '')}`, `deno${engines.deno.replace('>=', '')}`],
 	dts: {
 		enabled: true,
+		entry: ['src/*.ts'],
 		tsc: { newContext: true },
 		resolver: 'oxc',
 		oxc: {
@@ -54,6 +60,8 @@ export default defineConfig({
 	exports: {
 		packageJson: true,
 		customExports(exports) {
+			delete exports['./feature-loaders'];
+			delete exports['./bundle-features'];
 			for (const [key, path] of Object.entries(exports)) {
 				if (typeof path !== 'string') {
 					delete exports[key];
@@ -74,8 +82,19 @@ export default defineConfig({
 		codegen: { removeWhitespace: true },
 	},
 	outputOptions: {
+		paths: { '#internals/core/feature-loaders.ts': '#dreamcli-features' },
 		codeSplitting: {
-			groups: [{ name: 'core', test: isCoreModule }],
+			groups: [
+				// Optional features import the shared core. Keep their callers out of it
+				// so the bundler's static feature imports stay acyclic.
+				{
+					name: 'execution',
+					includeDependenciesRecursively: false,
+					test: /[\\/]core[\\/](?:cli[\\/](?:index|runtime-preflight)|(?:execution|testkit)[\\/]index)\.ts$/,
+					priority: 1,
+				},
+				{ name: 'core', test: isCoreModule },
+			],
 		},
 	},
 	publint: { enabled: 'local-only', level: 'suggestion', strict: true },

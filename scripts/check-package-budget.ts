@@ -32,7 +32,8 @@ const BUDGET: Budget = {
 	runtimeJsBytes: 420_000,
 	declarationBytes: 480_000,
 	hotPathBytes: 360_000,
-	hotPathModules: 2,
+	// Root facade, shared core, schema identifiers, execution, native feature loaders.
+	hotPathModules: 5,
 };
 
 const HOT_PATH_ENTRIES = ['package/dist/index.mjs'];
@@ -111,13 +112,20 @@ interface StaticImports {
 	readonly external: readonly string[];
 }
 
-function staticImports(transpiler: Bun.Transpiler, from: string, code: Buffer): StaticImports {
+function staticImports(
+	transpiler: Bun.Transpiler,
+	from: string,
+	code: Buffer,
+	featureLoaders: string | undefined,
+): StaticImports {
 	const local: string[] = [];
 	const external: string[] = [];
 	for (const item of transpiler.scanImports(code)) {
 		if (item.kind !== 'import-statement') continue;
 		if (item.path.startsWith('.')) {
 			local.push(posix.normalize(posix.join(dirname(from), item.path)));
+		} else if (item.path === '#dreamcli-features' && featureLoaders !== undefined) {
+			local.push(posix.join('package', featureLoaders));
 		} else if (!item.path.startsWith('node:')) {
 			external.push(item.path);
 		}
@@ -132,6 +140,10 @@ interface HotPath {
 
 function hotPath(entries: readonly TarEntry[], roots: readonly string[]): HotPath {
 	const byPath = new Map(entries.map((entry) => [entry.path, entry]));
+	const manifest = byPath.get('package/package.json');
+	if (!manifest) throw new Error('packed package.json is missing');
+	const featureLoaders = JSON.parse(manifest.body.toString()).imports?.['#dreamcli-features']
+		?.default;
 	const transpiler = new Bun.Transpiler({ loader: 'js' });
 	const seen = new Set<string>();
 	const externals = new Set<string>();
@@ -144,7 +156,7 @@ function hotPath(entries: readonly TarEntry[], roots: readonly string[]): HotPat
 		const entry = byPath.get(path);
 		if (entry === undefined) throw new Error(`hot path root or import is missing: ${path}`);
 		modules.push(entry);
-		const imports = staticImports(transpiler, path, entry.body);
+		const imports = staticImports(transpiler, path, entry.body, featureLoaders);
 		queue.push(...imports.local);
 		for (const external of imports.external) externals.add(external);
 	}

@@ -19,7 +19,7 @@ import { ParseError } from '#internals/core/errors/index.ts';
 import type { Verbosity } from '#internals/core/output/contracts.ts';
 import { hasArgvBoundary, markArgvBoundaries } from '#internals/core/parse/argv-boundaries.ts';
 import { coerceFlagValue } from '#internals/core/parse/index.ts';
-import { flag } from '#internals/core/schema/flag.ts';
+import { type FlagSchema, flag } from '#internals/core/schema/flag.ts';
 import type { BuiltinsConfig } from './builtins.ts';
 import { BUILTIN_SPECS, builtinEnabled } from './builtins.ts';
 
@@ -63,7 +63,7 @@ type RootTokenMatch =
 	| { readonly kind: 'invalid'; readonly name: RootOutputFlagName; readonly error: ParseError };
 
 /** The schema root `--json`/`--quiet` share with a command-level boolean flag. */
-const rootBooleanSchema = flag.boolean().schema;
+let rootBooleanSchema: FlagSchema | undefined;
 
 /** The built-ins whose tokens this module reads, in stable order. */
 const ROOT_OUTPUT_NAMES: readonly RootOutputFlagName[] = ['json', 'quiet'];
@@ -86,6 +86,7 @@ const ROOT_SHORT_SPELLINGS: ReadonlyMap<string, RootOutputFlagName> = spellingIn
 /** Coerce an inline `=value` the way a command-level boolean flag coerces it. */
 function coerceRootValue(name: RootOutputFlagName, spelling: string, raw: string): RootTokenMatch {
 	try {
+		rootBooleanSchema ??= flag.boolean().schema;
 		const value = coerceFlagValue(name, raw, rootBooleanSchema, spelling);
 		return { kind: 'flag', name, selection: value === true ? 'on' : 'off' };
 	} catch (error: unknown) {
