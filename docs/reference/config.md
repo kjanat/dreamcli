@@ -57,10 +57,17 @@ configFormat(['yaml', 'yml'], parseYaml);
 configFormat(['toml'], parseTOML);
 ```
 
+## `configModule(options?)`
+
+Register executable JavaScript configs with `configModule()`. Set `typescript: true` to include
+TypeScript extensions and `fresh: true` to reload a config and its dependencies on each discovery.
+The default uses native module caching. See [executable config files](/guide/config#executable-config-files)
+for the ownership and permissions of each mode.
+
 ## `discoverConfig(appName, adapter, options?)`
 
-Low-level config discovery helper behind `cli(...).config(...)`. It searches standard paths, reads
-the first matching file via the provided adapter, and returns either `{ found: true, ... }` with
+Low-level config discovery helper behind `cli(...).config(...)`. It searches standard paths, loads
+the first matching file via its registered loader, and returns either `{ found: true, ... }` with
 parsed config data or `{ found: false }` when no config file exists.
 
 ```ts twoslash

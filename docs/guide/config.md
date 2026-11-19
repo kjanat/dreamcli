@@ -132,8 +132,37 @@ including package settings for ambiguous extensions. On Node, use TypeScript syn
 be stripped without transformation. On Deno, grant read access to the config files you want to
 discover. Module dependencies follow the runtime's usual loading and permission rules.
 
-JSON retains its existing search precedence. A custom `PathConfigLoader` can use a different
-loading strategy when the host runtime needs one.
+By default, the runtime caches the imported module. Two discoveries of the same file in one
+process return its exported object, including any functions or class instances inside it.
+Treat that object and its children as borrowed, read-only values. Restart the process to pick
+up edits or retry a module that threw during evaluation.
+
+For a watcher or editor integration that needs to see edits between runs, opt into fresh loads:
+
+```ts twoslash
+import { configModule, discoverConfig } from '@kjanat/dreamcli/config';
+import { createAdapter } from '@kjanat/dreamcli/runtime';
+
+const adapter = createAdapter();
+const loaders = [configModule({ fresh: true, typescript: true })];
+const reload = () => discoverConfig('mycli', adapter, { loaders });
+
+await reload();
+// After saving mycli.config.ts or a module it imports:
+await reload();
+```
+
+Each fresh load runs in a new worker and returns the exported data through structured cloning.
+Edits to local dependencies take effect on the next load, including after an evaluation error.
+Use plain records, arrays, and data values in this mode. Functions cause `CONFIG_PARSE_ERROR`;
+class prototypes and property descriptors do not survive cloning. The worker terminates after
+loading. On Deno it inherits the parent's permissions.
+
+JSON retains its existing search precedence. For a `PathConfigLoader`, native adapters check
+the candidate's existence before passing its path to `load`. Custom adapters can supply
+`configFileExists` for the same behavior. Adapters that supply only `readFile` use that to
+probe candidates. On Deno, automatic discovery skips inaccessible paths and an explicitly
+selected executable config that cannot be probed reports `CONFIG_READ_ERROR`.
 
 ## What's Next?
 
