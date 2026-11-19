@@ -1195,6 +1195,7 @@ describe('generateSchema — definition metadata', () => {
 				presence: 'defaulted',
 				defaultValue: 'us',
 				defaultDescription: 'United States',
+				completionValues: ['eu'],
 				aliases: [{ name: 'r', hidden: false }],
 				envVar: 'REGION',
 				configPath: 'release.region',
@@ -1290,7 +1291,10 @@ describe('generateSchema — definition metadata', () => {
 		expect(Object.keys(flagElementMetaProperties).sort()).toEqual(
 			Object.keys(flagMetaProperties)
 				.filter(
-					(field) => !['defaultDescription', 'sensitive', 'group', 'advanced'].includes(field),
+					(field) =>
+						!['defaultDescription', 'sensitive', 'group', 'advanced', 'completionValues'].includes(
+							field,
+						),
 				)
 				.sort(),
 		);

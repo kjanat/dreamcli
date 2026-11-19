@@ -20,7 +20,6 @@ import { excludesOtherInputs } from '#internals/core/schema/constraints.ts';
 import { getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type { FlagSchema } from '#internals/core/schema/index.ts';
 import { acceptsArgv } from '#internals/core/schema/stdin.ts';
-import { flagValueSchema, valueEnumValues } from '#internals/core/schema/value.ts';
 import type { CommandNode, CompletionOptions, RootCompletionSurface } from './shared.ts';
 import {
 	getVisibleNegatedName,
@@ -31,6 +30,7 @@ import {
 	resolveRootCompletionSurface,
 	sanitizeShellIdentifier,
 	separateBooleanForms,
+	staticFlagCandidates,
 	versionTag,
 	walkCommandTree,
 } from './shared.ts';
@@ -319,11 +319,12 @@ function appendFishFlagCompletions(
 		if (schema.completion !== undefined) {
 			parts.push(`-a '(${dynamicFunction})'`);
 		}
-		const values =
-			schema.kind === 'keyValue' ? undefined : valueEnumValues(flagValueSchema(schema));
-		if (values !== undefined && schema.completion === undefined) {
+		const values = staticFlagCandidates(schema);
+		if (values !== undefined && values.length > 0 && schema.completion === undefined) {
 			for (const enumValue of values) {
-				lines.push([...parts, `-a ${quoteShellArg(enumValue)}`].join(' '));
+				// Fish expands the argument to -a again when completing.
+				const literal = quoteFishWord(enumValue);
+				lines.push([...parts, `-a ${quoteFishWord(literal)}`].join(' '));
 			}
 			continue;
 		}
@@ -381,6 +382,11 @@ function collectFishValueFlagPatterns(
 			),
 		],
 	};
+}
+
+function quoteFishWord(value: string): string {
+	if (/^[a-zA-Z0-9_.-]+$/.test(value)) return value;
+	return `'${value.replace(/[\\']/g, '\\$&')}'`;
 }
 
 function buildFishCondition(pathIsFuncName: string, path: string): string {

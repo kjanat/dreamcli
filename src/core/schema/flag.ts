@@ -299,6 +299,8 @@ interface FlagSchema<K extends FlagKind = FlagKind> {
 	readonly [schemaBrand]: 'flag';
 	/** Callback used to complete this input's values. */
 	readonly completion?: CompletionHandler | undefined;
+	/** Static shell completion suggestions for this flag. */
+	readonly completionValues?: readonly string[] | undefined;
 	/** What kind of value this flag accepts. */
 	readonly kind: K;
 	/** Current presence state. */
@@ -496,6 +498,8 @@ type FlagDefinitionFields = Omit<FlagSchemaFieldOverrides, 'elementSchema'> & {
 interface FlagDefinitionBase {
 	/** Callback used to complete this input's values. */
 	readonly completion?: CompletionHandler | undefined;
+	/** Static shell completion suggestions for this flag. */
+	readonly completionValues?: readonly string[] | undefined;
 	/**
 	 * Presence state.
 	 * @defaultValue `'optional'`
@@ -905,6 +909,7 @@ function assertEligibleFlagElementBuilder(schema: FlagSchema): void {
 		['unique', false],
 		['prompt', undefined],
 		['completion', undefined],
+		['completionValues', undefined],
 		['aggregateStandard', undefined],
 		['deprecated', undefined],
 		['propagate', false],
@@ -936,13 +941,15 @@ function assertValidFlagElementSchema(schema: FlagSchema): void {
 			? 'advanced'
 			: schema.group !== undefined
 				? 'group'
-				: schema.completion !== undefined
-					? 'completion'
-					: schema.sensitive
-						? 'sensitive'
-						: schema.defaultDescription !== undefined
-							? 'defaultDescription'
-							: undefined;
+				: schema.completionValues !== undefined
+					? 'completionValues'
+					: schema.completion !== undefined
+						? 'completion'
+						: schema.sensitive
+							? 'sensitive'
+							: schema.defaultDescription !== undefined
+								? 'defaultDescription'
+								: undefined;
 	if (unsupportedField === undefined) return;
 
 	throw new CLIError(`Flag element schema field '${unsupportedField}' is not supported`, {
@@ -1055,6 +1062,11 @@ const KIND_SPECIFIC_FLAG_FIELDS: readonly (readonly [
  */
 function assertValidFlagDefinition(kind: FlagKind, fields: FlagDefinitionFields): void {
 	assertKnownFlagKind(kind);
+	if (fields.completion !== undefined && fields.completionValues !== undefined) {
+		throw new CLIError('Choose a static candidate list or a completion callback', {
+			code: 'INVALID_SCHEMA',
+		});
+	}
 
 	for (const [field, requiredKinds] of KIND_SPECIFIC_FLAG_FIELDS) {
 		if (requiredKinds.includes(kind)) continue;
@@ -1478,17 +1490,25 @@ class FlagBuilder<C extends FlagConfig> {
 	}
 
 	/**
-	 * Compute value candidates when the user requests shell completion.
+	 * Suggest flag values from a static list or compute them at completion time.
+	 * Static suggestions are embedded in the shell script and do not constrain validation.
 	 *
 	 * The callback runs without the command action, middleware, prompts, or
 	 * config discovery. Return complete values; DreamCLI filters by prefix.
 	 * Candidates containing control characters are omitted.
 	 *
-	 * @param handler - Callback receiving the input and partial command line.
-	 * @returns A new builder with the completion callback.
+	 * @param candidates - Suggested values or a callback receiving the partial command line.
+	 * @returns A new builder with the selected completion source.
 	 */
-	complete(handler: CompletionHandler): FlagBuilder<WithoutElementEligibility<C>> {
-		return new FlagBuilder({ ...this.schema, completion: handler });
+	complete(
+		candidates: CompletionHandler | readonly string[],
+	): FlagBuilder<WithoutElementEligibility<C>> {
+		return new FlagBuilder({
+			...this.schema,
+			...(typeof candidates === 'function'
+				? { completion: candidates, completionValues: undefined }
+				: { completion: undefined, completionValues: [...candidates] }),
+		});
 	}
 
 	// -- Presence modifiers --------------------------------------------------

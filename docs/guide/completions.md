@@ -121,6 +121,19 @@ Completion scripts generated from schema include:
 - Enum flag values (choices)
 - Argument descriptions
 
+## Static suggestions
+
+Pass a list to `.complete()` to embed suggested flag values in the generated shell script.
+
+```ts twoslash
+import { flag } from '@kjanat/dreamcli';
+
+const dryRun = flag.string().complete(['extract', 'lookup', 'full']);
+```
+
+Tab offers those three values. An explicit `--dry-run=true` still supplies the string `'true'`.
+Custom flags likewise keep their own decoding and validation rules.
+
 ## Dynamic values
 
 Use `.complete()` on a flag or positional argument when its candidates depend on data that changes

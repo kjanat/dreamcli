@@ -20,6 +20,7 @@ import { excludesOtherInputs } from '#internals/core/schema/constraints.ts';
 import { createFlagSchema } from '#internals/core/schema/flag.ts';
 import type { CommandSchema, FlagSchema } from '#internals/core/schema/index.ts';
 import { acceptsArgv } from '#internals/core/schema/stdin.ts';
+import { flagValueSchema, valueEnumValues } from '#internals/core/schema/value.ts';
 import { DREAMCLI_REVISION, DREAMCLI_VERSION } from '#internals/version.ts';
 
 // --- Version tag for generated script headers
@@ -315,6 +316,16 @@ function quoteShellArg(value: string): string {
 	return `'${value.replace(/'/g, "'\\''")}'`;
 }
 
+/** Values to embed in the generated script for this flag. */
+function staticFlagCandidates(schema: FlagSchema): readonly string[] | undefined {
+	if (schema.completionValues !== undefined) {
+		return [...new Set(schema.completionValues)].filter(
+			(value) => value.length > 0 && !/\p{Cc}/u.test(value),
+		);
+	}
+	return schema.kind === 'keyValue' ? undefined : valueEnumValues(flagValueSchema(schema));
+}
+
 function hasDynamicCompletion(schema: CLISchema): boolean {
 	const visit = (command: CommandSchema): boolean =>
 		command.constraints?.some(excludesOtherInputs) ||
@@ -361,6 +372,7 @@ export {
 	resolveRootCompletionSurface,
 	sanitizeShellIdentifier,
 	separateBooleanForms,
+	staticFlagCandidates,
 	versionTag,
 	walkCommandTree,
 };

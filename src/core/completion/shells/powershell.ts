@@ -18,7 +18,6 @@ import { flagExpectsValue } from '#internals/core/parse/index.ts';
 import { getFlagAliasNames, getFlagNegatedName } from '#internals/core/schema/flag.ts';
 import type { FlagSchema } from '#internals/core/schema/index.ts';
 import { acceptsArgv } from '#internals/core/schema/stdin.ts';
-import { flagValueSchema, valueEnumValues } from '#internals/core/schema/value.ts';
 import type { CommandNode, CompletionOptions, RootCompletionSurface } from './shared.ts';
 import {
 	getVisibleNegatedName,
@@ -28,6 +27,7 @@ import {
 	resolveRootCompletionSurface,
 	sanitizeShellIdentifier,
 	separateBooleanForms,
+	staticFlagCandidates,
 	versionTag,
 	walkCommandTree,
 } from './shared.ts';
@@ -264,9 +264,7 @@ function appendPowerShellPathEntry(
 		lines.push(
 			`\t\t\t\tDescription = ${quotePowerShellString(schema.description === undefined ? name : resolvePlainHelpDescription(schema.description))}`,
 		);
-		lines.push(
-			`\t\t\t\tEnumValues = ${formatPowerShellArray((schema.kind === 'keyValue' ? undefined : valueEnumValues(flagValueSchema(schema))) ?? [])}`,
-		);
+		lines.push(`\t\t\t\tEnumValues = ${formatPowerShellArray(staticFlagCandidates(schema) ?? [])}`);
 		lines.push('\t\t\t}');
 	}
 	lines.push('\t\t)');
