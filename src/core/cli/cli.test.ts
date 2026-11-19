@@ -611,6 +611,37 @@ describe('CLIBuilder.run — config discovery opt-out', () => {
 		});
 	});
 
+	it.each([
+		{ argv: ['--help'], text: 'Usage: demo' },
+		{ argv: ['check', '--help=runners'], text: '--runner' },
+		{ argv: ['help', 'check'], text: 'Usage: demo check' },
+		{ argv: ['--help-color', 'never', 'check', '--help=runners'], text: '--runner' },
+		{ argv: ['check', '--config', 'missing.json', '--help'], text: 'Usage: demo check' },
+	])('renders help without reading config ($argv)', async ({ argv, text }) => {
+		const helpApp = cli('demo')
+			.config('demo')
+			.help({ outputFlags: { color: 'help-color' } })
+			.command(
+				command('check')
+					.helpTopic('runners', 'Runners')
+					.flag('runner', flag.string().group('Runners'))
+					.action(() => {}),
+			);
+		const stdout: string[] = [];
+		const readFile = vi.fn(async (path: string) =>
+			path === '/test/.demo.json' ? '{invalid' : null,
+		);
+		const adapter = createTestAdapter({
+			argv: ['node', 'cli.js', ...argv],
+			cwd: '/test',
+			readFile,
+			stdout: (line) => stdout.push(line),
+		});
+		await expect(helpApp.run({ adapter })).rejects.toMatchObject({ code: 0 });
+		expect(readFile).not.toHaveBeenCalled();
+		expect(stdout.join('')).toContain(text);
+	});
+
 	it('treats --no-config after -- as a positional argument and loads config', async () => {
 		const stdout: string[] = [];
 		const adapter = createTestAdapter({
