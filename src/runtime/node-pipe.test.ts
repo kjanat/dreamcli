@@ -4,7 +4,7 @@
  * @module
  */
 
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 
 const PAYLOAD_BYTES = 1_000_000;
@@ -46,6 +46,41 @@ function runChild(exitCode: number, closeReader: boolean, writes = 1): Promise<C
 }
 
 describe.skipIf('Deno' in globalThis)('createNodeAdapter through a pipe', () => {
+	it('survives the late Writable error after flush rejects', () => {
+		const script = `
+			import assert from 'node:assert/strict';
+			import { Writable } from 'node:stream';
+			import { createNodeAdapter } from ${JSON.stringify(nodeAdapterUrl)};
+			const failure = new Error('write failed');
+			const destruction = Promise.withResolvers();
+			let emitted = false;
+			const stdout = new Writable({
+				write(_chunk, _encoding, callback) { callback(failure); },
+				destroy(error, callback) { void destruction.promise.then(() => callback(error)); },
+			});
+			const emit = stdout.emit.bind(stdout);
+			stdout.emit = (event, ...args) => {
+				if (event === 'error' && args[0] === failure) emitted = true;
+				return emit(event, ...args);
+			};
+			const adapter = createNodeAdapter({ ...process, stdout, stderr: process.stderr });
+			adapter.stdout('output');
+			await assert.rejects(adapter.flush(), error => error === failure);
+			assert.equal(emitted, false);
+			destruction.resolve();
+			await new Promise(resolve => setImmediate(resolve));
+			assert.equal(emitted, true);
+			process.stdout.write('late error handled\\n');
+		`;
+		const args =
+			process.versions.bun === undefined ? ['--input-type=module', '-e', script] : ['-e', script];
+		const result = spawnSync(process.execPath, args, { encoding: 'utf8', timeout: 3000 });
+
+		expect(result.error).toBeUndefined();
+		expect(result.status, result.stderr).toBe(0);
+		expect(result.stdout).toBe('late error handled\n');
+	});
+
 	it('delivers every byte before exiting', async () => {
 		const result = await runChild(0, false);
 

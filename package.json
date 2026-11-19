@@ -191,5 +191,5 @@
 		"typescript": ">=6.0.3,<7",
 		"vitest": "^5.1.1"
 	},
-	"trustedDependencies": ["@kprint/kprint"]
+	"trustedDependencies": ["@kprint/kprint", "esbuild", "workerd"]
 }
