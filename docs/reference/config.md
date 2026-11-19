@@ -61,7 +61,8 @@ configFormat(['toml'], parseTOML);
 
 Register executable JavaScript configs with `configModule()`. Set `typescript: true` to include
 TypeScript extensions and `fresh: true` to reload a config and its dependencies on each discovery.
-The default uses native module caching. See [executable config files](/guide/config#executable-config-files)
+Native fresh loads accept `timeoutMs`, a positive integer in milliseconds that defaults to 30,000.
+The default loading mode uses native module caching. See [executable config files](/guide/config#executable-config-files)
 for the ownership and permissions of each mode.
 
 ## `discoverConfig(appName, adapter, options?)`

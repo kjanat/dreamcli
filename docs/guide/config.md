@@ -156,7 +156,9 @@ Each fresh load runs in a new worker and returns the exported data through struc
 Edits to local dependencies take effect on the next load, including after an evaluation error.
 Use plain records, arrays, and data values in this mode. Functions cause `CONFIG_PARSE_ERROR`;
 class prototypes and property descriptors do not survive cloning. The worker terminates after
-loading. On Deno it inherits the parent's permissions.
+loading. If evaluation stalls, the native adapter terminates the worker after 30 seconds
+and discovery reports `CONFIG_PARSE_ERROR`. Set a shorter deadline for an editor reload with
+`configModule({ fresh: true, timeoutMs: 2_000 })`. On Deno the worker inherits the parent's permissions.
 
 JSON retains its existing search precedence. For a `PathConfigLoader`, native adapters check
 the candidate's existence before passing its path to `load`. Custom adapters can supply
