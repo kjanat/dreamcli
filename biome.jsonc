@@ -20,7 +20,7 @@
 			},
 			"suspicious": {
 				"noExplicitAny": "warn",
-				"noConfusingVoidType": "info"
+				"noConfusingVoidType": "off"
 			},
 			"complexity": {
 				"noUselessFragments": "warn",
