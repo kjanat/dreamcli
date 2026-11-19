@@ -288,7 +288,7 @@ function extractConfigFlag(
 		filteredArgv,
 		...(skipDiscovery ? { skipDiscovery: true } : {}),
 		...(skipDiscovery && configPath !== undefined
-			? { error: new CLIError('Cannot use --config with --no-config', { code: 'INVALID_VALUE' }) }
+			? { error: new ParseError('Cannot use --config with --no-config', { code: 'INVALID_VALUE' }) }
 			: {}),
 	};
 }
