@@ -771,20 +771,24 @@ it('skips completion callbacks for conflicting config flags before the applicati
 				.constrain((c) => [c.conflicts('offline', 'remote')])
 				.action(unexpected),
 		);
+	const modes = [[], ['--values'], ['--value-only']];
+	const expectSuppressed = async (...argv: string[]) => {
+		for (const mode of modes) {
+			const result = await app.execute(['__complete', ...mode, '--', 'check', ...argv]);
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toEqual([]);
+		}
+	};
 	for (const explicit of [['--config=settings.json'], ['--config', 'settings.json']]) {
 		for (const flags of [
 			['--no-config', ...explicit],
 			[...explicit, '--no-config'],
 		]) {
-			const result = await app.execute(['__complete', '--', 'check', ...flags, '--region', 'e']);
-			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toEqual([]);
+			await expectSuppressed(...flags, '--region', 'e');
 		}
 	}
 	for (const cursor of [['--config=e'], ['--config', 'e']]) {
-		const result = await app.execute(['__complete', '--', 'check', '--no-config', ...cursor]);
-		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toEqual([]);
+		await expectSuppressed('--no-config', ...cursor);
 	}
 	expect(complete).not.toHaveBeenCalled();
 	const fallback = await app.execute([
@@ -818,6 +822,18 @@ it('skips completion callbacks for conflicting config flags before the applicati
 	expect(literal.exitCode).toBe(0);
 	expect(literal.stdout).toEqual(['eu\n']);
 	expect(complete).toHaveBeenCalledTimes(1);
+	for (const mode of modes) {
+		const result = await app.execute([
+			'__complete',
+			...mode,
+			'--',
+			'check',
+			'--no-config',
+			'--region=e',
+		]);
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toEqual([mode[0] === '--value-only' ? 'eu\n' : '--region=eu\n']);
+	}
 });
 it('does not block alternatives after a separately disabled boolean', async () => {
 	const app = cli('demo')

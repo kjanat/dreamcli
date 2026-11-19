@@ -74,6 +74,11 @@ const cases = [
 	{ line: 'dcfixture adopt -nwi', argv: ['adopt', '-nwidget'] },
 	{ line: 'dcfixture adopt --mode=fa', argv: ['adopt', '--mode=fast'] },
 	{ line: 'dcfixture adopt --mode fa', argv: ['adopt', '--mode', 'fast'] },
+	{ line: 'dcfixture adopt --no-config --mo', argv: ['adopt', '--no-config', '--mode'] },
+	{
+		line: 'dcfixture adopt --no-config --config=settings.json --mo',
+		argv: ['adopt', '--no-config', '--config=settings.json', '--mo'],
+	},
 	{ line: 'dcfixture adopt --literal="sp', argv: ['adopt', '--literal=space value'] },
 	{ line: 'dcfixture adopt "--literal=sp', argv: ['adopt', '--literal=space value'] },
 	{ line: "dcfixture adopt --literal='sp", argv: ['adopt', '--literal=space value'] },
@@ -107,6 +112,7 @@ describe.skipIf(prerequisites.length > 0)(
 				const script = join(directory, 'completion.bash');
 				const literals = ['space value', "quote'value", 'shell$(false)', 'key=value'];
 				const app = cli('dcfixture')
+					.config('dcfixture', { noConfigFlag: true })
 					.default(
 						command('default').flag(
 							'value-only',
@@ -145,6 +151,7 @@ describe.skipIf(prerequisites.length > 0)(
 						"import settings from './fixture-data.json' with { type: 'json' };",
 						'const { cli, command, flag } = await import(settings.source);',
 						"await cli('dcfixture')",
+						".config('dcfixture', { noConfigFlag: true })",
 						".default(command('default').flag('value-only', flag.string().complete(() => ['widget'])))",
 						".command(command('adopt')",
 						".flag('name', flag.string().alias('n').complete(({ prefix }) => [prefix.includes('sub:') ? 'tenant:sub:widget' : prefix.includes(':') ? 'tenant:widget' : 'widget']))",
