@@ -138,6 +138,8 @@ type DispatchOutcome =
  * propagated ancestor flags are collected and child definitions shadow them.
  */
 interface CommandExecutionPlan {
+	/** Canonical route selected by dispatch, including the leaf command. */
+	readonly commandPath: readonly CommandSchema[];
 	/** Compiled command node that owns the handler and execution steps. */
 	readonly command: CompiledCommand;
 	/** Command schema with propagated ancestor flags merged in. */
@@ -273,6 +275,7 @@ function buildCommandExecutionPlan(
 ): CommandExecutionPlan {
 	return {
 		command: options.command,
+		commandPath: options.commandPath,
 		mergedSchema: mergeCommandSchema(options.command, options.commandPath),
 		argv: options.argv,
 		meta: options.meta,

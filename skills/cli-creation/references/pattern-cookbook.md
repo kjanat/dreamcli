@@ -3,6 +3,21 @@
 The baseline recipes target DreamCLI 4.0. Check the package installed in the consumer project
 for the APIs used by later recipes.
 
+## Preview a command for approval
+
+For a host that needs resolved inputs first, use `const result = await app.inspect(argv, { env,
+config, stdinData })` when the installed CLI builder exposes it. Handle built-ins and errors by
+`result.kind`. For a match, display the relevant flags and provenance, retain the handle, then
+call `await result.execute()` on approval. Calling `app.execute(argv)` here would resolve the
+inputs and run the transforms again.
+
+Inject scripted answers for a deterministic preview. Supply a filesystem probe or interactive
+prompter only when the host intends to use it during resolution. In tests, count action calls
+before approval and after two concurrent calls on the same handle. Check the ordinary
+`RunResult` for command-level validation or action failures.
+
+See `examples/command-inspection.ts` and the site guide at `/guide/command-inspection`.
+
 ## Migrate a legacy switch
 
 Use an alias for a spelling change. For a change in argument shape such as `--from-stdin` to

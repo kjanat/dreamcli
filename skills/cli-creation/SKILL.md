@@ -80,6 +80,7 @@ Paths are relative to the dreamcli repository root.
 - `examples/multi-command.ts` — grouped-command defaults.
 - `examples/testing.ts` — `runCommand()` patterns.
 - `examples/flag-types.ts` — the v3 typed-flag family.
+- `examples/command-inspection.ts` — preview resolved inputs and resume an approved command once.
 - `examples/argv-transforms.ts` — migrate a legacy switch to a flag/value pair while preserving piped input and literal arguments.
 - `examples/parser-control.ts` — negation, duplicates, spelling parity.
 - `examples/output-extras.ts` — colors, hyperlinks, `setExitCode`.
@@ -98,6 +99,7 @@ Paths are relative to the dreamcli repository root.
 - Tests explicitly unwanted → add `--no-test`.
 - npm/tsx or Deno instructions → keep generated code unchanged and give the
   runtime alternatives from `references/runtime-notes.md`.
+- Embedding a CLI behind a preview or approval UI → check the installed builder for `.inspect()` and use the command-inspection recipe in `references/pattern-cookbook.md`.
 - Preserving a legacy spelling → use `.alias()` when the value syntax is identical. When the
   old spelling expands to multiple tokens, use the argv-transform recipe in
   `references/pattern-cookbook.md`. Test both forms through the registered CLI.
