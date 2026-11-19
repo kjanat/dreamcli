@@ -1,13 +1,89 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { ParseContext } from '#internals/core/parse/context.ts';
+import { createOccurrenceRecorder, type ParseContext } from '#internals/core/parse/context.ts';
 import { arg } from '#internals/core/schema/arg.ts';
-import { command } from '#internals/core/schema/command.ts';
+import { command, group } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { middleware } from '#internals/core/schema/middleware.ts';
 import { runCommand } from '#internals/core/testkit/index.ts';
 import { cli, plugin } from './index.ts';
 
 describe('parse.flag()', () => {
+	it('keeps earlier history immutable while recording subsequent flags', () => {
+		const { context, record } = createOccurrenceRecorder({});
+		record('debug', '--debug', 0, false);
+		const first = context.flag('debug');
+		record('debug', '--no-debug', 1, true);
+		expect(first.occurrences).toEqual([{ spelling: '--debug', index: 0, negated: false }]);
+		expect(Object.isFrozen(first.occurrences)).toBe(true);
+		expect(context.flag('debug').count).toBe(2);
+	});
+
+	it('retains typed spellings and leaf indexes across nested invocations', async () => {
+		const contexts: ParseContext[] = [];
+		const app = cli('demo').command(
+			group('report')
+				.flag('dry-run', flag.boolean().propagate())
+				.command(
+					command('export')
+						.flag('output', flag.string().alias('o').alias('destination'))
+						.action(({ parse }) => {
+							contexts.push(parse);
+						}),
+				),
+		);
+		expect((await app.execute(['report', 'export', '--json', '-oFile', '--dryRun'])).exitCode).toBe(
+			0,
+		);
+		expect((await app.execute(['report', 'export', '--destination=Elsewhere'])).exitCode).toBe(0);
+		const [first, second] = contexts;
+		expect.assert(first);
+		expect.assert(second);
+		expect(first.flag('output').occurrences).toEqual([
+			{ spelling: '-o', index: 0, negated: false },
+		]);
+		expect(first.flag('dry-run').occurrences).toEqual([
+			{ spelling: '--dryRun', index: 1, negated: false },
+		]);
+		expect(second.flag('output').occurrences).toEqual([
+			{ spelling: '--destination', index: 0, negated: false },
+		]);
+		expect(second.flag('dry-run').present).toBe(false);
+	});
+
+	it('publishes deferred flag history only after successful interactive resolution', async () => {
+		const resolved = vi.fn();
+		const action = vi.fn();
+		const app = cli('demo')
+			.plugin(plugin({ afterResolve: resolved }))
+			.command(
+				command('login')
+					.flag(
+						'token',
+						flag
+							.custom((raw) => {
+								if (raw !== 'valid') throw new Error('Invalid token');
+								return true;
+							})
+							.sensitive(),
+					)
+					.interactive(() => ({ token: { kind: 'password', message: 'Token' } }))
+					.action(({ parse }) => action(parse.flag('token'))),
+			);
+		expect((await app.execute(['login', '--token=valid'])).exitCode).toBe(0);
+		expect(action).toHaveBeenCalledWith({
+			present: true,
+			count: 1,
+			occurrences: [{ spelling: '--token', index: 0, negated: false }],
+		});
+		const invalid = await app.execute(['login', '--token=private-value', '--json']);
+		expect(invalid.exitCode).not.toBe(0);
+		const output = [...invalid.stdout, ...invalid.stderr].join('');
+		expect(output).toContain('--token');
+		expect(output).not.toContain('private-value');
+		expect(resolved).toHaveBeenCalledTimes(1);
+		expect(action).toHaveBeenCalledTimes(1);
+	});
+
 	it('distinguishes explicit negation from an override with the same resolved value and source', async () => {
 		const observed = vi.fn();
 		const cmd = command('build')

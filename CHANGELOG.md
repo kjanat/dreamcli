@@ -6,17 +6,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-### Added
-
-- Reload executable configs and their local dependencies on each discovery with `configModule({ fresh: true })`. Native adapters now probe path loaders without reading the file as text.
-- Inspect an invocation with `cli.inspect()` and resume its resolved command once with `match.execute()`.
-- Plugins can rewrite leaf-command arguments with `transformArgv` and pass metadata to command callbacks through `parse.metadata`.
-- Read flag spellings, counts, and negations from `parse.flag(name)` in command callbacks and post-resolution plugin hooks.
-
-### Fixed
-
-- Fresh executable configs return their export even when a dependency sends worker messages. Stalled loads terminate after 30 seconds by default, configurable with `timeoutMs`.
-
 ### Release checklist
 
 - [ ] Start the intended version through Beepboop and review its version PR.
@@ -27,6 +16,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - [ ] Confirm generators and formatters leave no unexpected worktree changes, then commit and push the preparation changes.
 - [ ] Verify the version PR's latest commit is signed and all required checks pass before merging. Merging starts publication automatically, with no further approval.
 - [ ] Follow Beepboop's release execution through npm and JSR publication, the version tag and GitHub Release, and the docs deployment.
+
+## [5.6.0] - 2026-11-19
+
+### Added
+
+- Reload executable configs and their local dependencies on each discovery with `configModule({ fresh: true })`. Native adapters now probe path loaders without reading the file as text.
+- Inspect an invocation with `cli.inspect()` and resume its resolved command once with `match.execute()`.
+- Plugins can rewrite leaf-command arguments with `transformArgv` and pass metadata to command callbacks through `parse.metadata`.
+- Read flag spellings, counts, and negations from `parse.flag(name)` in command callbacks and post-resolution plugin hooks.
+- Embed static flag suggestions in generated shell completions. ([#293](https://github.com/kjanat/dreamcli/pull/293))
+
+### Changed
+
+- Let bundlers tree-shake unused CLI features from consumer applications. ([#294](https://github.com/kjanat/dreamcli/pull/294))
+- Update the repository's Bun toolchain to 1.4.5. ([#292](https://github.com/kjanat/dreamcli/pull/292))
+
+### Fixed
+
+- Fresh executable configs return their export even when a dependency sends worker messages. Stalled loads terminate after 30 seconds by default, configurable with `timeoutMs`.
+- Keep flag occurrence snapshots immutable while allowing the parser to record subsequent flags.
+
+### Maintenance
+
+- Stabilize Writable flush tests and verify that Node and Bun survive a late stream error after flush rejects. ([#291](https://github.com/kjanat/dreamcli/pull/291), [#302](https://github.com/kjanat/dreamcli/pull/302))
+- Verify that conflicting config flags suppress Bash fallback and return empty replies across completion modes. ([#301](https://github.com/kjanat/dreamcli/pull/301))
+- Cover flag occurrence snapshots, nested command spellings, and sensitive input in interactive resolution.
 
 ## [5.5.0] - 2026-11-19
 
@@ -1249,7 +1264,8 @@ The stable 3.0.0 release. It ships the code of 3.0.0-rc.20 plus the fix and docu
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v5.5.0...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v5.6.0...HEAD
+[5.6.0]: https://github.com/kjanat/dreamcli/compare/v5.5.0...v5.6.0
 [5.5.0]: https://github.com/kjanat/dreamcli/compare/v5.4.0...v5.5.0
 [5.4.0]: https://github.com/kjanat/dreamcli/compare/v5.3.0...v5.4.0
 [5.3.0]: https://github.com/kjanat/dreamcli/compare/v5.2.0...v5.3.0
