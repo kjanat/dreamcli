@@ -15,6 +15,7 @@ import { detectShell, normalizeShell, SHELLS } from '#internals/core/completion/
 import type { ConfigLoader } from '#internals/core/config/index.ts';
 import type { PackageJsonData } from '#internals/core/config/package-json.ts';
 import { CLIError } from '#internals/core/errors/index.ts';
+import type { CommandExecutionRequest } from '#internals/core/execution/index.ts';
 import { buildRunResult, executeCommand } from '#internals/core/execution/index.ts';
 import {
 	loadCompletion,
@@ -59,7 +60,9 @@ import { assertNoSiblingRouteConflict, commandRoutes, compileCommand } from './c
 import type { HelpLinks } from './help-links.ts';
 import { deriveHelpLinks } from './help-links.ts';
 import type { HelpOutputFlags } from './help-output-flags.ts';
-import type { OutputPolicy } from './planner.ts';
+import type { InspectResult } from './inspection.ts';
+import { inspectCommand } from './inspection.ts';
+import type { CommandExecutionPlan, OutputPolicy } from './planner.ts';
 import { isPlannedHelp, planInvocationWithHelpOutput } from './planner.ts';
 import type { CLIPlugin } from './plugin.ts';
 import { plugin } from './plugin.ts';
@@ -1841,6 +1844,45 @@ class CLIBuilder {
 	}
 
 	/**
+	 * Inspect routing and resolved inputs without rendering or running the command.
+	 * Uses supplied inputs and callbacks. A match's execute() resumes the same invocation once.
+	 */
+	async inspect(argv: readonly string[], options?: CLIExecuteOptions): Promise<InspectResult> {
+		if (argv[0] === '__complete') return { kind: 'dynamic-completion', argv: argv.slice(1) };
+		const { planned, captured, commandRequest, helpOptions } = prepareCLI(this, argv, options);
+		switch (planned.kind) {
+			case 'root-version':
+			case 'dispatch-error':
+				return planned;
+			case 'root-help':
+				return {
+					kind: 'root-help',
+					schema: this.schema,
+					mode: planned.help.showAdvanced ? 'all' : 'short',
+				};
+			case 'needs-subcommand':
+				return {
+					kind: 'command-help',
+					schema: planned.command.schema,
+					path: planned.commandPath.map((command) => command.name),
+					mode: planned.help.showAdvanced ? 'all' : 'short',
+				};
+			case 'root-completions': {
+				const shell = planned.shell ?? detectShell(options?.env ?? {});
+				return shell === undefined
+					? { kind: 'dispatch-error', error: missingShellError(helpOptions.binName) }
+					: { kind: 'root-completions', shell };
+			}
+			case 'match':
+				return inspectCommand(
+					commandRequest(planned.plan),
+					captured,
+					planned.plan.commandPath.map((command) => command.name),
+				);
+		}
+	}
+
+	/**
 	 * Run the CLI program as a production entry point.
 	 *
 	 * Reads argv from the runtime adapter, dispatches to the matched
@@ -1969,6 +2011,118 @@ async function executeCLI(
 		}
 		return buildRunResult({ exitCode: result.exitCode, error: undefined }, captured);
 	}
+	const {
+		planned,
+		out,
+		captured,
+		jsonMode,
+		envPrefix,
+		helpOptions,
+		renderHelpOptions,
+		commandRequest,
+	} = prepareCLI(builder, argv, options);
+	switch (planned.kind) {
+		case 'root-version':
+			out.log(planned.version);
+			return buildRunResult({ exitCode: 0, error: undefined }, captured);
+
+		case 'root-completions': {
+			const shell = planned.shell ?? detectShell(options?.env ?? {});
+			if (shell === undefined) {
+				const error = missingShellError(helpOptions.binName);
+				if (jsonMode) {
+					out.json({ error: error.toJSON() });
+				} else {
+					out.error(error.message);
+					out.error(`Suggestion: ${error.suggest}`);
+				}
+				return buildRunResult({ exitCode: error.exitCode, error }, captured);
+			}
+			const completionSchema =
+				helpOptions.binName === undefined || helpOptions.binName === builder.schema.name
+					? builder.schema
+					: { ...builder.schema, name: helpOptions.binName };
+			const generateCompletion = await loadCompletion();
+			const script = generateCompletion(completionSchema, shell, planned.options);
+			if (jsonMode) {
+				out.json({ shell, script });
+			} else {
+				out.log(script);
+			}
+			return buildRunResult({ exitCode: 0, error: undefined }, captured);
+		}
+
+		case 'root-help': {
+			if (jsonMode) {
+				const { generateSchema } = await loadJsonSchema();
+				out.json(
+					generateSchema(
+						builder.schema,
+						{
+							envPrefix,
+							groupOrder: planned.help.groupOrder,
+						},
+						{
+							name: planned.help.binName ?? builder.schema.name,
+							version: planned.help.version ?? builder.schema.version,
+						},
+					),
+				);
+			} else {
+				const helpText = formatRootHelp(
+					resolveHelpLinksSchema(builder.schema),
+					renderHelpOptions(planned.help),
+				);
+				out.log(helpText);
+			}
+			return buildRunResult({ exitCode: 0, error: undefined }, captured);
+		}
+
+		case 'dispatch-error': {
+			if (jsonMode) {
+				out.json({ error: planned.error.toJSON() });
+			} else {
+				out.error(planned.error.message);
+				if (planned.error.suggest !== undefined && planned.error.code !== 'NO_ACTION') {
+					out.error(`Suggestion: ${planned.error.suggest}`);
+				}
+			}
+			return buildRunResult({ exitCode: planned.error.exitCode, error: planned.error }, captured);
+		}
+
+		case 'needs-subcommand': {
+			if (jsonMode) {
+				const { generateCommandSchema } = await loadJsonSchema();
+				out.json(
+					generateCommandSchema(
+						planned.command.schema,
+						{ envPrefix, groupOrder: planned.help.groupOrder },
+						{
+							name: planned.help.binName ?? planned.command.schema.name,
+							version: planned.help.version,
+						},
+					),
+				);
+			} else {
+				const helpText = formatHelp(planned.command.schema, renderHelpOptions(planned.help, true));
+				out.log(helpText);
+			}
+			return buildRunResult({ exitCode: 0, error: undefined }, captured);
+		}
+
+		case 'match': {
+			const result = await executeCommand(commandRequest(planned.plan));
+			return buildRunResult(result, captured);
+		}
+	}
+}
+
+/** Share routing, option precedence and the command handoff between inspection and execution. */
+function prepareCLI(
+	builder: CLIBuilder,
+	argv: readonly string[],
+	options?: InternalCLIExecuteOptions,
+) {
 	// -- Detect global --json / --quiet before building output ----------------
 	const rootOutputFlags = readRootOutputFlags(argv, builder.schema.builtins);
 	const jsonMode = resolveRootJsonMode(rootOutputFlags, options?.jsonMode);
@@ -2078,124 +2232,47 @@ async function executeCLI(
 		};
 	};
 
-	switch (planned.kind) {
-		case 'root-version':
-			out.log(planned.version);
-			return buildRunResult({ exitCode: 0, error: undefined }, captured);
-
-		case 'root-completions': {
-			const shell = planned.shell ?? detectShell(options?.env ?? {});
-			if (shell === undefined) {
-				const error = new CLIError('Could not detect shell', {
-					code: 'MISSING_VALUE',
-					suggest: `Pass one explicitly, e.g. '${helpOptions.binName} --completions zsh'`,
-				});
-				if (jsonMode) {
-					out.json({ error: error.toJSON() });
-				} else {
-					out.error(error.message);
-					out.error(`Suggestion: ${error.suggest}`);
-				}
-				return buildRunResult({ exitCode: error.exitCode, error }, captured);
-			}
-			const completionSchema =
-				helpOptions.binName === undefined || helpOptions.binName === builder.schema.name
-					? builder.schema
-					: { ...builder.schema, name: helpOptions.binName };
-			const generateCompletion = await loadCompletion();
-			const script = generateCompletion(completionSchema, shell, planned.options);
-			if (jsonMode) {
-				out.json({ shell, script });
-			} else {
-				out.log(script);
-			}
-			return buildRunResult({ exitCode: 0, error: undefined }, captured);
+	const commandRequest = (plan: CommandExecutionPlan): CommandExecutionRequest => {
+		if (completionCommands.has(plan.command.schema)) {
+			completionSchemas.set(plan.meta, builder.schema);
 		}
+		const help = plan.help ?? helpOptions;
+		const commandRunOptions = buildCommandRunOptions(
+			effectiveOptions,
+			!jsonMode && !out.jsonMode && isPlannedHelp({ kind: 'match', plan }, planSchema.builtins)
+				? renderHelpOptions(help, true)
+				: help,
+			plan.meta,
+		);
+		return {
+			command: {
+				handler: plan.command.handler,
+				steps: plan.command.steps,
+			},
+			argv: plan.argv,
+			out,
+			schema: plan.mergedSchema,
+			meta: plan.meta,
+			options: commandRunOptions,
+		};
+	};
+	return {
+		planned,
+		out,
+		captured,
+		jsonMode,
+		envPrefix,
+		helpOptions,
+		renderHelpOptions,
+		commandRequest,
+	};
+}
 
-		case 'root-help': {
-			if (jsonMode) {
-				const { generateSchema } = await loadJsonSchema();
-				out.json(
-					generateSchema(
-						builder.schema,
-						{
-							envPrefix,
-							groupOrder: planned.help.groupOrder,
-						},
-						{
-							name: planned.help.binName ?? builder.schema.name,
-							version: planned.help.version ?? builder.schema.version,
-						},
-					),
-				);
-			} else {
-				const helpText = formatRootHelp(
-					resolveHelpLinksSchema(builder.schema),
-					renderHelpOptions(planned.help),
-				);
-				out.log(helpText);
-			}
-			return buildRunResult({ exitCode: 0, error: undefined }, captured);
-		}
-
-		case 'dispatch-error': {
-			if (jsonMode) {
-				out.json({ error: planned.error.toJSON() });
-			} else {
-				out.error(planned.error.message);
-				if (planned.error.suggest !== undefined && planned.error.code !== 'NO_ACTION') {
-					out.error(`Suggestion: ${planned.error.suggest}`);
-				}
-			}
-			return buildRunResult({ exitCode: planned.error.exitCode, error: planned.error }, captured);
-		}
-
-		case 'needs-subcommand': {
-			if (jsonMode) {
-				const { generateCommandSchema } = await loadJsonSchema();
-				out.json(
-					generateCommandSchema(
-						planned.command.schema,
-						{ envPrefix, groupOrder: planned.help.groupOrder },
-						{
-							name: planned.help.binName ?? planned.command.schema.name,
-							version: planned.help.version,
-						},
-					),
-				);
-			} else {
-				const helpText = formatHelp(planned.command.schema, renderHelpOptions(planned.help, true));
-				out.log(helpText);
-			}
-			return buildRunResult({ exitCode: 0, error: undefined }, captured);
-		}
-
-		case 'match': {
-			if (completionCommands.has(planned.plan.command.schema)) {
-				completionSchemas.set(planned.plan.meta, builder.schema);
-			}
-			const help = planned.plan.help ?? helpOptions;
-			const commandRunOptions = buildCommandRunOptions(
-				effectiveOptions,
-				!jsonMode && !out.jsonMode && isPlannedHelp(planned, planSchema.builtins)
-					? renderHelpOptions(help, true)
-					: help,
-				planned.plan.meta,
-			);
-			const result = await executeCommand({
-				command: {
-					handler: planned.plan.command.handler,
-					steps: planned.plan.command.steps,
-				},
-				argv: planned.plan.argv,
-				out,
-				schema: planned.plan.mergedSchema,
-				meta: planned.plan.meta,
-				options: commandRunOptions,
-			});
-			return buildRunResult(result, captured);
-		}
-	}
+function missingShellError(bin: string | undefined): CLIError {
+	return new CLIError('Could not detect shell', {
+		code: 'MISSING_VALUE',
+		suggest: `Pass one explicitly, e.g. '${bin} --completions zsh'`,
+	});
 }
 
 const RUNTIME_BINARIES = new Set(['bun', 'deno', 'node', 'tsx']);

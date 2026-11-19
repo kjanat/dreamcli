@@ -64,6 +64,7 @@ export {
 	plugin,
 	resolveRenderContext,
 } from './core/cli/index.ts';
+export type { InspectedCommand, InspectResult } from './core/cli/inspection.ts';
 export type { CompletionOptions, Shell } from './core/completion/shell.ts';
 export { SHELLS } from './core/completion/shell.ts';
 export type {

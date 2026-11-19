@@ -14,7 +14,7 @@ import type {
 	CLIPlugin,
 	ResolvedCommandParams,
 } from '#internals/core/cli/plugin.ts';
-import { CLIError } from '#internals/core/errors/index.ts';
+import { CLIError, ParseError } from '#internals/core/errors/index.ts';
 import {
 	loadJsonSchema,
 	loadPromptSession,
@@ -107,17 +107,18 @@ interface CommandExecutionResult {
  * and error wrapping. Both CLI dispatch and testkit `runCommand` converge here.
  * @internal
  */
-async function executeCommand(request: CommandExecutionRequest): Promise<CommandExecutionResult> {
-	const { argv, command, meta, options, out, schema } = request;
-	clearRequestedExitCode(out);
+async function executeCommand(
+	request: CommandExecutionRequest,
+	prepared?: PreparedCommandInputs,
+): Promise<CommandExecutionResult> {
+	const { command, meta, options, out, schema } = request;
+	if (!prepared) clearRequestedExitCode(out);
 	// Filled once resolution completes, so a handler failure after a skipped
 	// check still reports the skip alongside the error.
 	let skippedPathChecks: readonly SkippedPathCheck[] = [];
 
 	try {
-		const helpMode = builtinEnabled(options?.builtins, 'help')
-			? requestedHelpMode(argv, schema.helpTopics)
-			: undefined;
+		const helpMode = prepared ? undefined : commandHelpMode(request);
 		if (helpMode !== undefined) {
 			// `options.jsonMode` carries the resolved JSON mode from the CLI/testkit
 			// layer (root `--json` is stripped from argv pre-dispatch) — an injected
@@ -173,46 +174,14 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 
 		const handler = command.handler;
 		if (handler === undefined) {
-			const error = new CLIError(`Command '${schema.name}' has no action handler`, {
-				code: 'NO_ACTION',
-				suggest: `Add an .action() handler to the '${schema.name}' command`,
-			});
+			const error = missingActionError(schema);
 			out.error(error.message);
 			return { exitCode: 1, error };
 		}
 
-		const transformed = await prepareCommandArgv(options?.plugins, {
-			argv,
-			command: schema,
-			meta,
-			out,
-		});
-
-		const { parsed, context: parse } = parseForExecution(
-			schema,
-			transformed.argv,
-			transformed.metadata,
-			options?.flags,
-		);
-		const stdinData =
-			options?.readStdin &&
-			!pendingFlagErrors(parsed.flags)?.size &&
-			invocationSelectsStdin(schema.flags, schema.args, parsed)
-				? await options.readStdin()
-				: options?.stdinData;
-
-		const effectivePrompter = options?.prompter ?? (await scriptedPrompter(options?.answers));
-		const resolveOptions: ResolveOptions = {
-			...(stdinData !== undefined ? { stdinData } : {}),
-			...(options?.env !== undefined ? { env: options.env } : {}),
-			...(options?.config !== undefined ? { config: options.config } : {}),
-			...(effectivePrompter !== undefined ? { prompter: effectivePrompter } : {}),
-			...(options?.stat !== undefined ? { stat: options.stat } : {}),
-			...(options?.mkdir !== undefined ? { mkdir: options.mkdir } : {}),
-			...(options?.pathChecks !== undefined ? { pathChecks: options.pathChecks } : {}),
-			...(options?.envPrefix !== undefined ? { envPrefix: options.envPrefix } : {}),
-		};
-		const resolved = await resolve(schema, parsed, resolveOptions);
+		const inputs = prepared ?? (await prepareCommandInputs(request));
+		if (inputs.kind === 'command-error') throw inputs.error;
+		const { resolved, parse, effectivePrompter } = inputs;
 		skippedPathChecks = resolved.skippedPathChecks;
 		const resolvedParams: ResolvedCommandParams = {
 			parse,
@@ -251,32 +220,101 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 
 		return { exitCode: getRequestedExitCode(out) ?? 0, error: undefined, skippedPathChecks };
 	} catch (error: unknown) {
-		if (error instanceof CLIError) {
-			if (options?.jsonMode === true) {
-				out.json({ error: error.toJSON() });
-			} else {
-				out.error(error.message);
-				if (error.suggest !== undefined) {
-					out.error(`Suggestion: ${error.suggest}`);
-				}
-			}
-			return { exitCode: error.exitCode, error, skippedPathChecks };
-		}
-
-		const message = error instanceof Error ? error.message : String(error);
-		const wrapped = new CLIError(`Unexpected error: ${message}`, {
-			code: 'UNEXPECTED_ERROR',
-			cause: error,
-		});
+		const failure = asCLIError(error);
 		if (options?.jsonMode === true) {
-			out.json({ error: wrapped.toJSON() });
+			out.json({ error: failure.toJSON() });
 		} else {
-			out.error(wrapped.message);
+			out.error(failure.message);
+			if (failure.suggest !== undefined) out.error(`Suggestion: ${failure.suggest}`);
 		}
-		return { exitCode: 1, error: wrapped, skippedPathChecks };
+		return { exitCode: failure.exitCode, error: failure, skippedPathChecks };
 	} finally {
 		out.stopActive();
 		clearRequestedExitCode(out);
+	}
+}
+
+function commandHelpMode({ options, argv, schema }: CommandExecutionRequest) {
+	return builtinEnabled(options?.builtins, 'help')
+		? requestedHelpMode(argv, schema.helpTopics)
+		: undefined;
+}
+
+function missingActionError(schema: CommandSchema): CLIError {
+	return new CLIError(`Command '${schema.name}' has no action handler`, {
+		code: 'NO_ACTION',
+		suggest: `Add an .action() handler to the '${schema.name}' command`,
+	});
+}
+
+function asCLIError(error: unknown): CLIError {
+	return error instanceof CLIError
+		? error
+		: new CLIError(`Unexpected error: ${error instanceof Error ? error.message : String(error)}`, {
+				code: 'UNEXPECTED_ERROR',
+				cause: error,
+			});
+}
+
+interface PreparedCommandInputs {
+	readonly kind: 'prepared';
+	readonly parse: ParseContext;
+	readonly resolved: ResolveResult;
+	readonly effectivePrompter: PromptEngine | undefined;
+}
+
+/** @internal Prepare once for immediate or deferred execution. */
+async function prepareCommandInputs({ argv, meta, options, out, schema }: CommandExecutionRequest) {
+	let parse: ParseContext | undefined;
+	try {
+		const transformed = await prepareCommandArgv(options?.plugins, {
+			argv,
+			command: schema,
+			meta,
+			out,
+		});
+
+		const { parsed, context } = parseForExecution(
+			schema,
+			transformed.argv,
+			transformed.metadata,
+			options?.flags,
+		);
+		parse = context;
+		const stdinData =
+			options?.readStdin &&
+			!pendingFlagErrors(parsed.flags)?.size &&
+			invocationSelectsStdin(schema.flags, schema.args, parsed)
+				? await options.readStdin()
+				: options?.stdinData;
+
+		const effectivePrompter = options?.prompter ?? (await scriptedPrompter(options?.answers));
+		const resolveOptions: ResolveOptions = {
+			...(stdinData !== undefined ? { stdinData } : {}),
+			...(options?.env !== undefined ? { env: options.env } : {}),
+			...(options?.config !== undefined ? { config: options.config } : {}),
+			...(effectivePrompter !== undefined ? { prompter: effectivePrompter } : {}),
+			...(options?.stat !== undefined ? { stat: options.stat } : {}),
+			...(options?.mkdir !== undefined ? { mkdir: options.mkdir } : {}),
+			...(options?.pathChecks !== undefined ? { pathChecks: options.pathChecks } : {}),
+			...(options?.envPrefix !== undefined ? { envPrefix: options.envPrefix } : {}),
+		};
+		const resolved = await resolve(schema, parsed, resolveOptions);
+		return {
+			kind: 'prepared' as const,
+			resolved,
+			parse,
+			effectivePrompter,
+		} satisfies PreparedCommandInputs;
+	} catch (error) {
+		const stage: 'parse' | 'resolve' =
+			parse === undefined || error instanceof ParseError ? 'parse' : 'resolve';
+		return {
+			kind: 'command-error' as const,
+			stage,
+			error: asCLIError(error),
+			...(parse ? { parse } : {}),
+		};
 	}
 }
 
@@ -410,4 +448,10 @@ function formatDeprecation(deprecation: DeprecationWarning): string {
 }
 
 export type { CommandExecutionRequest, CommandExecutionResult, ExecutableCommand };
-export { buildRunResult, executeCommand };
+export {
+	buildRunResult,
+	commandHelpMode,
+	executeCommand,
+	missingActionError,
+	prepareCommandInputs,
+};

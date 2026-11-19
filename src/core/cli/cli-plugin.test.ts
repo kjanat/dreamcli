@@ -147,6 +147,22 @@ describe('CLIBuilder.plugin() — hook ordering', () => {
 });
 
 describe('transformArgv', () => {
+	it('preserves argv when named and inline transforms return nothing', async () => {
+		async function observe() {}
+		const app = cli('demo')
+			.plugin(plugin({ transformArgv: observe }))
+			.plugin(plugin({ transformArgv() {} }))
+			.plugin(plugin({ async transformArgv() {} }))
+			.command(
+				command('deploy')
+					.flag('region', flag.string().required())
+					.action(({ flags, out }) => out.log(flags.region)),
+			);
+		const result = await app.execute(['deploy', '--region', 'eu']);
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toEqual(['eu\n']);
+	});
+
 	it('awaits transforms in registration order and exposes their metadata and final spellings', async () => {
 		const seen = vi.fn();
 		const original = ['deploy', '--legacy'];

@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Inspect an invocation with `cli.inspect()` and resume its resolved command once with `match.execute()`.
 - Plugins can rewrite leaf-command arguments with `transformArgv` and pass metadata to command callbacks through `parse.metadata`.
 - Read flag spellings, counts, and negations from `parse.flag(name)` in command callbacks and post-resolution plugin hooks.
 

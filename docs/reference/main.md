@@ -424,6 +424,15 @@ import type { ResolvedCommandParams } from '@kjanat/dreamcli';
 //                       ^?
 ```
 
+### `.inspect(argv, options?)`
+
+Returns a promise of `InspectResult`. Switch on `kind` to handle built-in requests, routing
+errors, parse or resolution errors, or a resolved command. A match's `execute()` returns a
+promise of the usual `RunResult` and executes once per inspection.
+
+See [Inspect a command before executing it](/guide/command-inspection) for the hook boundary,
+prompt behavior, and an example that previews an export before approval.
+
 ## Execution Types
 
 ### `CommandMeta`

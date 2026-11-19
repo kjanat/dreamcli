@@ -20,6 +20,7 @@ describe('example docs generation', () => {
 		expect(examples.map((example) => example.slug)).toEqual([
 			'argv-transforms',
 			'basic',
+			'command-inspection',
 			'flag-types',
 			'help-config',
 			'interactive',
