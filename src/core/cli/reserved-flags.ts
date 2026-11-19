@@ -105,6 +105,9 @@ function reservedTokens(
 	}
 
 	if (version !== undefined) {
+		if (!/^[a-z]$/iu.test(versionAlias)) {
+			throw new CLIError('Version alias must be one ASCII letter', { code: 'INVALID_SCHEMA' });
+		}
 		if (reserved.has(versionAlias)) {
 			throw new CLIError(`Version alias -${versionAlias} conflicts with a built-in flag`, {
 				code: 'RESERVED_FLAG',

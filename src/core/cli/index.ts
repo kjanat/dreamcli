@@ -575,6 +575,8 @@ interface CLIDefinition {
 	 * @defaultValue `undefined`
 	 */
 	readonly version?: string | undefined;
+	/** Short version alias without its leading dash. */
+	readonly versionAlias?: string | undefined;
 	/**
 	 * Program description shown in root help.
 	 * @defaultValue `undefined`
@@ -691,6 +693,7 @@ function buildCLISchema(definition: CLIDefinition): CLISchema {
 		name: definition.name,
 		inheritName: definition.inheritName ?? false,
 		version: definition.version,
+		versionAlias: definition.versionAlias,
 		description: definition.description,
 		commands: (definition.commands ?? []).map((child) => createCommandSchema(child)),
 		defaultCommand:
@@ -1146,9 +1149,6 @@ class CLIBuilder {
 	 */
 	version(v: string, options?: { readonly alias?: string }): CLIBuilder {
 		const alias = options?.alias;
-		if (alias !== undefined && !/^[a-z]$/iu.test(alias)) {
-			throw new CLIError('Version alias must be one ASCII letter', { code: 'INVALID_SCHEMA' });
-		}
 		assertNoReservedFlagCollisions(
 			v,
 			[this.schema.defaultCommand, ...this.schema.commands],
