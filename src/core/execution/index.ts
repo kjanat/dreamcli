@@ -23,7 +23,8 @@ import {
 import { formatHelp, formatHelpTopic } from '#internals/core/help/index.ts';
 import type { CapturedOutput } from '#internals/core/output/index.ts';
 import { clearRequestedExitCode, getRequestedExitCode } from '#internals/core/output/index.ts';
-import { parse, parseForResolution, requestedHelpMode } from '#internals/core/parse/index.ts';
+import type { ParseContext } from '#internals/core/parse/context.ts';
+import { parseForExecution, requestedHelpMode } from '#internals/core/parse/index.ts';
 import type { Ask } from '#internals/core/prompt/definitions.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import type { PromptSession } from '#internals/core/prompt/session.ts';
@@ -39,7 +40,6 @@ import type {
 	CommandMeta,
 	CommandSchema,
 	ErasedActionHandler,
-	ErasedInputSources,
 	ExecutionStep,
 	Out,
 } from '#internals/core/schema/command.ts';
@@ -183,11 +183,7 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 			out,
 		});
 
-		const parsed = (schema.interactive === undefined ? parse : parseForResolution)(
-			schema,
-			argv,
-			options?.flags,
-		);
+		const { parsed, context: parse } = parseForExecution(schema, argv, options?.flags);
 
 		const effectivePrompter = options?.prompter ?? (await scriptedPrompter(options?.answers));
 		const resolveOptions: ResolveOptions = {
@@ -203,6 +199,7 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 		const resolved = await resolve(schema, parsed, resolveOptions);
 		skippedPathChecks = resolved.skippedPathChecks;
 		const resolvedParams: ResolvedCommandParams = {
+			parse,
 			args: resolved.args,
 			flags: resolved.flags,
 			deprecations: resolved.deprecations,
@@ -233,7 +230,7 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 			);
 			return (await session).ask(config);
 		};
-		await executeWithExecutionSteps(command, handler, resolved, out, meta, ask);
+		await executeWithExecutionSteps(command, handler, resolved, parse, out, meta, ask);
 		await runResolvedHooks(options?.plugins, 'afterAction', resolvedParams);
 
 		return { exitCode: getRequestedExitCode(out) ?? 0, error: undefined, skippedPathChecks };
@@ -304,18 +301,19 @@ async function executeWithExecutionSteps(
 	command: ExecutableCommand,
 	handler: NonNullable<ExecutableCommand['handler']>,
 	resolved: ResolveResult,
+	parse: ParseContext,
 	out: Out,
 	meta: CommandMeta,
 	ask: Ask,
 ): Promise<void> {
 	const steps = command.steps;
 	const { args, flags } = resolved;
-	const sources: ErasedInputSources = resolved.provenance;
+	const params = { args, flags, sources: resolved.provenance, parse, out, meta, ask };
 
 	type ChainFn = (ctx: Readonly<Record<string, unknown>>) => Promise<void>;
 
 	let chain: ChainFn = async (ctx) => {
-		await handler({ flags, args, sources, ctx, out, meta, ask });
+		await handler({ ...params, ctx });
 	};
 
 	for (let i = steps.length - 1; i >= 0; i--) {
@@ -325,7 +323,7 @@ async function executeWithExecutionSteps(
 		switch (step.kind) {
 			case 'derive':
 				chain = async (ctx) => {
-					const additions = await step.handler({ args, flags, sources, ctx, out, meta, ask });
+					const additions = await step.handler({ ...params, ctx });
 					if (additions === undefined) {
 						await downstream(ctx);
 						return;
@@ -343,13 +341,8 @@ async function executeWithExecutionSteps(
 			case 'middleware':
 				chain = async (ctx) => {
 					await step.handler({
-						args,
-						flags,
-						sources,
+						...params,
 						ctx,
-						out,
-						meta,
-						ask,
 						next: async (additions) => {
 							await downstream({ ...ctx, ...additions });
 						},

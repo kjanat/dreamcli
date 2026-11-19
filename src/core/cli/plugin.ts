@@ -7,6 +7,7 @@
  * @module dreamcli/core/cli/plugin
  */
 
+import type { ParseContext } from '#internals/core/parse/context.ts';
 import type { DeprecationWarning, SkippedPathCheck } from '#internals/core/resolve/index.ts';
 import type { CommandMeta, CommandSchema, Out } from '#internals/core/schema/command.ts';
 
@@ -28,6 +29,8 @@ interface BeforeParseParams extends PluginCommandContext {
 
 /** Payload for hooks that observe resolved inputs. */
 interface ResolvedCommandParams extends PluginCommandContext {
+	/** Flag spellings observed in this command invocation. */
+	readonly parse: ParseContext;
 	/** Fully resolved flag values. */
 	readonly flags: Readonly<Record<string, unknown>>;
 	/** Fully resolved argument values. */
