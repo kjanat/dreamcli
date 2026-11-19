@@ -171,8 +171,8 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 		const valueFlagPattern = collectValueFlagPattern(nodes, rootSurface);
 		const separatedBooleanPattern = [
 			...new Set(
-				[rootSurface.defaultFlags, ...nodes.map((node) => node.mergedFlags)].flatMap(
-					separateBooleanForms,
+				[rootSurface.defaultFlags, ...nodes.map((node) => node.mergedFlags)].flatMap((flags) =>
+					separateBooleanForms(flags, schema.flagSettings),
 				),
 			),
 		]

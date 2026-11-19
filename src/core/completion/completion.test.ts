@@ -2763,3 +2763,20 @@ describe('repeatable enum values', () => {
 		);
 	});
 });
+
+describe('separated boolean completion spellings', () => {
+	it.each(['bash', 'fish', 'powershell'] as const)('respects case parity in %s', (shell) => {
+		const defaultCommand = commandSchema({
+			flags: { enabledFlag: flagSchema({ kind: 'boolean', separateValue: true }) },
+		});
+		const schema = createCLISchema({
+			name: 'demo',
+			defaultCommand,
+			commands: [commandSchema({ name: 'deploy' })],
+		});
+		expect(generateCompletion(schema, shell)).toContain('--enabled-flag');
+		const exact = generateCompletion({ ...schema, flagSettings: { caseParity: false } }, shell);
+		expect(exact).toContain('--enabledFlag');
+		expect(exact).not.toContain('--enabled-flag');
+	});
+});

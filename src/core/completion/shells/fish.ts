@@ -96,7 +96,15 @@ function generateFishCompletion(schema: CLISchema, options?: CompletionOptions):
 		lines.push('');
 	}
 
-	emitFishPathHelpers(lines, pathFuncName, pathIsFuncName, visibleCommands, nodes, rootSurface);
+	emitFishPathHelpers(
+		lines,
+		pathFuncName,
+		pathIsFuncName,
+		visibleCommands,
+		nodes,
+		rootSurface,
+		schema.flagSettings,
+	);
 
 	appendFishCommandCompletions(lines, commandName, pathIsFuncName, '', visibleCommands);
 	appendFishFlagCompletions(
@@ -157,8 +165,9 @@ function emitFishPathHelpers(
 	}[],
 	nodes: readonly CommandNode[],
 	rootSurface: RootCompletionSurface,
+	flagSettings: CLISchema['flagSettings'],
 ): void {
-	const valueFlags = collectFishValueFlagPatterns(nodes, rootSurface);
+	const valueFlags = collectFishValueFlagPatterns(nodes, rootSurface, flagSettings);
 
 	lines.push(`function ${pathFuncName}`);
 	lines.push('\tset -l words (commandline -xpc)');
@@ -329,6 +338,7 @@ function appendFishFlagCompletions(
 function collectFishValueFlagPatterns(
 	nodes: readonly CommandNode[],
 	rootSurface: RootCompletionSurface,
+	flagSettings: CLISchema['flagSettings'],
 ): {
 	readonly exact: readonly string[];
 	readonly prefix: readonly string[];
@@ -365,8 +375,8 @@ function collectFishValueFlagPatterns(
 		prefix: [...prefix],
 		separate: [
 			...new Set(
-				[rootSurface.defaultFlags, ...nodes.map((node) => node.mergedFlags)].flatMap(
-					separateBooleanForms,
+				[rootSurface.defaultFlags, ...nodes.map((node) => node.mergedFlags)].flatMap((flags) =>
+					separateBooleanForms(flags, flagSettings),
 				),
 			),
 		],

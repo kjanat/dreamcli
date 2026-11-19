@@ -63,7 +63,14 @@ function generatePowerShellCompletion(schema: CLISchema, options?: CompletionOpt
 	lines.push('using namespace System.Management.Automation.Language');
 	lines.push('');
 
-	emitPowerShellPathTable(lines, dataVarName, rootSurface, nodes, hasConflicts);
+	emitPowerShellPathTable(
+		lines,
+		dataVarName,
+		rootSurface,
+		nodes,
+		hasConflicts,
+		schema.flagSettings,
+	);
 	lines.push('');
 	emitPowerShellHelpers(lines, helperPrefix, dataVarName, hasConflicts);
 	lines.push('');
@@ -163,6 +170,7 @@ function emitPowerShellPathTable(
 	rootSurface: RootCompletionSurface,
 	nodes: readonly CommandNode[],
 	hasConflicts: boolean,
+	flagSettings: CLISchema['flagSettings'],
 ): void {
 	lines.push(`$script:${dataVarName} = @{`);
 	appendPowerShellPathEntry(
@@ -174,6 +182,7 @@ function emitPowerShellPathTable(
 			...(rootSurface.includeDefaultFlags ? rootSurface.defaultFlags : {}),
 		},
 		hasConflicts,
+		flagSettings,
 		rootSurface.defaultFlags,
 	);
 
@@ -184,6 +193,7 @@ function emitPowerShellPathTable(
 			node.children,
 			node.mergedFlags,
 			hasConflicts,
+			flagSettings,
 		);
 	}
 
@@ -200,11 +210,12 @@ function appendPowerShellPathEntry(
 	}>,
 	flags: Readonly<Record<string, FlagSchema>>,
 	hasConflicts: boolean,
+	flagSettings: CLISchema['flagSettings'],
 	operandFlags = flags,
 ): void {
 	lines.push(`\t${quotePowerShellString(path)} = @{`);
 	lines.push(
-		`\t\tSeparateBooleanForms = ${formatPowerShellArray(separateBooleanForms(operandFlags))}`,
+		`\t\tSeparateBooleanForms = ${formatPowerShellArray(separateBooleanForms(operandFlags, flagSettings))}`,
 	);
 	lines.push('\t\tCommands = @(');
 	for (const command of commands) {

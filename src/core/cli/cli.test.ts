@@ -198,6 +198,29 @@ describe('--version flag', () => {
 });
 
 describe('separated boolean values', () => {
+	it('preserves positional boolean literals across nested command names', async () => {
+		const app = cli('demo').command(
+			command('parent')
+				.flag('enabled', flag.boolean({ separateValue: true }).propagate())
+				.command(
+					command('child').command(
+						command('leaf')
+							.arg('target', arg.string())
+							.action(({ flags, args, out }) => out.json({ flags, target: args.target })),
+					),
+				),
+		);
+		const bare = await app.execute(['parent', '--enabled', 'child', 'leaf', '0']);
+		expect(bare.exitCode).toBe(0);
+		expect(JSON.parse(bare.stdout.join(''))).toEqual({ flags: { enabled: true }, target: '0' });
+		const explicit = await app.execute(['parent', '--enabled', 'false', 'child', 'leaf', '0']);
+		expect(explicit.exitCode).toBe(0);
+		expect(JSON.parse(explicit.stdout.join(''))).toEqual({
+			flags: { enabled: false },
+			target: '0',
+		});
+	});
+
 	it('does not consume a boolean literal across a stripped root option', async () => {
 		const app = cli('demo').default(
 			command('run')
