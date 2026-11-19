@@ -6,26 +6,28 @@ the invocation the operator reviewed.
 
 ## Try a preview
 
-Keep the input fixed and change only approval. On a terminal, a spinner counts down from two
-seconds to one between inspection and the decision.
+Keep the input fixed and change only approval. The spinner shows the matched command, the
+source of the format, and its resolved value.
 
 ```console
 $ bun examples/command-inspection.ts export --format csv
-Inspection complete. The export would write a comma-separated report (selected by --format).
-Previewing for 2s before the approval decision...
-Preview complete. Export skipped. Run again with EXPORT_APPROVED=yes to write the report.
+inspect() matched export.
+Matched --format in argv.
+Resolved format = "csv".
 
 $ EXPORT_APPROVED=yes bun examples/command-inspection.ts export --format csv
-Inspection complete. The export would write a comma-separated report (selected by --format).
-Previewing for 2s before the approval decision...
-Approved. Resuming the inspected command and writing the report to stdout.
+inspect() matched export.
+Matched --format in argv.
+Resolved format = "csv".
 package,version
 demo,1.0.0
 ```
 
-The demo host adds the two-second pause to make the boundary visible. DreamCLI returns the
-inspected match as soon as its inputs are resolved. Preview messages and spinner frames go to
-stderr, so redirecting stdout saves only the approved report.
+With `REPORT_FORMAT=tsv bun examples/command-inspection.ts export`, the second line names the
+environment variable and the final line shows `"tsv"`. In a terminal the spinner
+holds each observation for five seconds before replacing it. The final observation stays on screen.
+Redirecting stderr gives you the plain transcript immediately.
+The observations go to stderr and the report goes to stdout.
 [Read the runnable report example](/examples/command-inspection).
 
 ## Inspect and resume

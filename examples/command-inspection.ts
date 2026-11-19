@@ -2,8 +2,8 @@
 /**
  * Preview a report before exporting it.
  *
- * The host pauses for two seconds after inspecting the format and its source. Approval resumes
- * the same invocation and returns the report through DreamCLI's captured output.
+ * Watch DreamCLI match the command and resolve the report format from argv, the environment,
+ * or the schema default.
  *
  * Demonstrates: inspecting with explicit environment inputs, handling errors
  * without printing framework diagnostics, and deferring an action.
@@ -14,6 +14,7 @@
  *   REPORT_FORMAT=tsv bun examples/command-inspection.ts export
  */
 
+import { isatty } from 'node:tty';
 import { cli, command, createOutput, flag, isMainModule } from '@kjanat/dreamcli';
 import { createAdapter } from '@kjanat/dreamcli/runtime';
 
@@ -33,38 +34,36 @@ if (isMainModule(import.meta)) {
 	const result = await reports.inspect(argv, { env: host.env });
 	let exitCode = 0;
 	if (result.kind === 'match') {
-		const approved = host.env.EXPORT_APPROVED === 'yes';
-		const previewSeconds = 2;
-		const output = createOutput({ stdout: host.stdout, stderr: host.stderr, isTTY: host.isTTY });
-		const source = result.provenance.flags.format;
-		const selectedBy =
-			source?.stage === 'env'
-				? 'REPORT_FORMAT'
-				: source?.stage === 'cli'
-					? '--format'
-					: 'the default';
-		const format = result.flags.format === 'tsv' ? 'tab-separated' : 'comma-separated';
-		host.stderr(
-			`Inspection complete. The export would write a ${format} report (selected by ${selectedBy}).\n`,
+		const isTTY = isatty(2); // The trace goes to stderr, even when stdout is redirected to a file.
+		const output = createOutput({ stdout: host.stdout, stderr: host.stderr, isTTY });
+		const { cyan, green } = output.color;
+		const preview = output.spinner(
+			`${cyan('inspect()')} matched ${green(result.path.join(' '))}.`,
+			{
+				fallback: 'static',
+			},
 		);
-
-		const countdown = (seconds: number) =>
-			`Previewing for ${seconds}s before the approval decision...`;
-		const preview = output.spinner(countdown(previewSeconds), { fallback: 'static' });
-		for (let remaining = previewSeconds; remaining > 0; remaining--) {
-			if (remaining < previewSeconds) preview.update(countdown(remaining));
-			await new Promise<void>((resolve) => setTimeout(resolve, 1000));
-		}
-		if (approved) {
-			preview.succeed('Approved. Resuming the inspected command and writing the report to stdout.');
+		// Leave each line on screen long enough to read. Redirected output gets a plain transcript.
+		const hold = () =>
+			isTTY ? new Promise<void>((resolve) => setTimeout(resolve, 5_000)) : Promise.resolve();
+		const source = result.provenance.flags.format;
+		const occurrences = result.parse.flag('format').occurrences;
+		const origin =
+			source?.stage === 'env' && 'envVar' in source
+				? `Read ${cyan(source.envVar)} from the environment.`
+				: source?.stage === 'cli'
+					? `Matched ${occurrences.map((item) => cyan(item.spelling)).join(', ')} in argv.`
+					: `Used the ${cyan('schema default')} for format.`;
+		await hold();
+		if (isTTY) preview.update(origin);
+		else host.stderr(`${origin}\n`);
+		await hold();
+		preview.succeed(`Resolved format = ${green(JSON.stringify(result.flags.format))}.`);
+		if (host.env.EXPORT_APPROVED === 'yes') {
 			const run = await result.execute();
 			run.stdout.forEach(host.stdout);
 			run.stderr.forEach(host.stderr);
 			exitCode = run.exitCode;
-		} else {
-			preview.succeed(
-				'Preview complete. Export skipped. Run again with EXPORT_APPROVED=yes to write the report.',
-			);
 		}
 	} else if (result.kind === 'dispatch-error' || result.kind === 'command-error') {
 		host.stderr(`${result.error.code}: ${result.error.message}\n`);
