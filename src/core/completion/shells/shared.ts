@@ -110,6 +110,7 @@ interface RootCompletionSchemaLike {
 	readonly defaultCommand: CommandSchema | undefined;
 	readonly defaultCommandRouted?: boolean | undefined;
 	readonly version: string | undefined;
+	readonly versionAlias?: string | undefined;
 	/**
 	 * Built-in flag state. `help: 'off'` drops the synthetic root `--help` so a
 	 * command's own `help` flag is the only one completed. Optional so
@@ -131,6 +132,7 @@ function resolveRootCompletionSurface(
 	const rootFlags = createRootFlags(
 		builtinEnabled(schema.builtins, 'help'),
 		schema.version !== undefined,
+		schema.versionAlias,
 	);
 	const defaultFlags = rootSurface.visibleDefaultCommand?.flags ?? {};
 	// Default flags surface at the root either always (`surface`) or only when
@@ -169,16 +171,25 @@ function resolveRootCompletionSurface(
  *
  * @param hasHelp - Whether the root still owns `--help`.
  * @param hasVersion - Whether to include a `--version` flag.
+ * @param versionAlias - An explicit short version alias.
  * @returns A record of root flag schemas.
  * @internal
  */
 function createRootFlags(
 	hasHelp: boolean,
 	hasVersion: boolean,
+	versionAlias?: string,
 ): Readonly<Record<string, FlagSchema>> {
 	return {
 		...(hasHelp ? { help: createSyntheticRootFlag('Show help text') } : {}),
-		...(hasVersion ? { version: createSyntheticRootFlag('Show version') } : {}),
+		...(hasVersion
+			? {
+					version: createFlagSchema('boolean', {
+						description: 'Show version',
+						aliases: versionAlias === undefined ? [] : [versionAlias],
+					}),
+				}
+			: {}),
 	};
 }
 

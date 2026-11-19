@@ -14,6 +14,9 @@ import { createColors, strip } from 'ansispeck';
 
 // --- Escape stripping
 
+// biome-ignore lint/suspicious/noControlCharactersInRegex: Match CSI sequences other than styling.
+const CSI = /\x1b\[[0-?]*[ -/]*[@-~]/gu;
+
 /**
  * Remove ANSI CSI and OSC escape sequences from `text`.
  *
@@ -26,7 +29,7 @@ import { createColors, strip } from 'ansispeck';
  * @returns The text with all escape sequences removed.
  */
 function stripAnsi(text: string): string {
-	return strip(text);
+	return strip(text).replace(CSI, '');
 }
 
 /**

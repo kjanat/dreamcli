@@ -1226,6 +1226,7 @@ describe('generateSchema — definition metadata', () => {
 				},
 				pathChecks: { mustExist: true, type: 'directory', create: true },
 			}),
+			variadicValues: flagDef({ kind: 'array', variadic: true }),
 			versions: flagDef({
 				kind: 'array',
 				elementSchema: flagDef({ kind: 'string' }),

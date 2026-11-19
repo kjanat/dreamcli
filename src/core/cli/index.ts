@@ -170,6 +170,8 @@ interface CLISchema {
 	readonly inheritName: boolean;
 	/** Program version (shown by `--version`). */
 	readonly version: string | undefined;
+	/** Configured short version alias, without a leading dash. */
+	readonly versionAlias?: string | undefined;
 	/** Program description (shown in root help). */
 	readonly description: string | undefined;
 	/** Schemas of the registered commands, in registration order. */
@@ -273,6 +275,8 @@ interface CLISchema {
  * @internal
  */
 const compiledStates = new WeakMap<CLIBuilder, CompiledCLI>();
+const completionCommands = new WeakSet<CommandSchema>();
+const completionSchemas = new WeakMap<CommandMeta, CLISchema>();
 
 /**
  * Read the compiled state seeded by {@linkcode CLIBuilder._from}.
@@ -573,6 +577,8 @@ interface CLIDefinition {
 	 * @defaultValue `undefined`
 	 */
 	readonly version?: string | undefined;
+	/** Short version alias without its leading dash. */
+	readonly versionAlias?: string | undefined;
 	/**
 	 * Program description shown in root help.
 	 * @defaultValue `undefined`
@@ -689,6 +695,7 @@ function buildCLISchema(definition: CLIDefinition): CLISchema {
 		name: definition.name,
 		inheritName: definition.inheritName ?? false,
 		version: definition.version,
+		versionAlias: definition.versionAlias,
 		description: definition.description,
 		commands: (definition.commands ?? []).map((child) => createCommandSchema(child)),
 		defaultCommand:
@@ -783,6 +790,7 @@ function createCLISchema(definition: CLIDefinition): CLISchema {
 		schema.builtins,
 		schema.configSettings?.noConfigFlag,
 		schema.flagSettings,
+		schema.versionAlias,
 	);
 	if (schema.completionsFlag !== undefined) {
 		for (const cmd of allCommands) {
@@ -1136,17 +1144,22 @@ class CLIBuilder {
 	 * command, so this rejects a command that already declares either spelling.
 	 *
 	 * @param v - Semantic version string.
+	 * @param options - Override the short alias (for example, `{ alias: 'v' }`).
 	 * @returns The builder (for chaining).
 	 * @throws {@link CLIError} `RESERVED_FLAG` when a registered command spells
 	 *   `--version` or `-V` as a flag name, an alias, or a negated spelling.
 	 */
-	version(v: string): CLIBuilder {
+	version(v: string, options?: { readonly alias?: string }): CLIBuilder {
+		const alias = options?.alias;
 		assertNoReservedFlagCollisions(
 			v,
 			[this.schema.defaultCommand, ...this.schema.commands],
 			this.schema.builtins,
+			false,
+			undefined,
+			alias,
 		);
-		return rebuild(this, { ...this.schema, version: v });
+		return rebuild(this, { ...this.schema, version: v, versionAlias: alias });
 	}
 
 	/**
@@ -1241,6 +1254,9 @@ class CLIBuilder {
 			this.schema.version,
 			[this.schema.defaultCommand, ...this.schema.commands],
 			builtins,
+			false,
+			undefined,
+			this.schema.versionAlias,
 		);
 		return rebuild(this, sealCLISchema({ ...this.schema, builtins }));
 	}
@@ -1363,6 +1379,7 @@ class CLIBuilder {
 				this.schema.builtins,
 				true,
 				this.schema.flagSettings,
+				this.schema.versionAlias,
 			);
 		}
 		return rebuild(
@@ -1522,6 +1539,9 @@ class CLIBuilder {
 			next.version,
 			[next.defaultCommand, ...next.commands],
 			next.builtins,
+			false,
+			undefined,
+			next.versionAlias,
 		);
 		return rebuild(this, next);
 	}
@@ -1555,6 +1575,7 @@ class CLIBuilder {
 			this.schema.builtins,
 			this.schema.configSettings?.noConfigFlag,
 			this.schema.flagSettings,
+			this.schema.versionAlias,
 		);
 		if (this.schema.completionsFlag !== undefined) {
 			assertNoCompletionsFlagCollision(cmd.schema);
@@ -1647,6 +1668,7 @@ class CLIBuilder {
 			this.schema.builtins,
 			this.schema.configSettings?.noConfigFlag,
 			this.schema.flagSettings,
+			this.schema.versionAlias,
 		);
 		if (this.schema.completionsFlag !== undefined) {
 			assertNoCompletionsFlagCollision(cmd.schema);
@@ -1747,10 +1769,6 @@ class CLIBuilder {
 			});
 		}
 
-		// Capture current schema — includes all commands registered so far.
-		// The completions command itself is deliberately excluded from the
-		// generated script (it would be noise in shell completions).
-		const cliSchema = this.schema;
 		const completionOptions = completionGeneratorOptions(options);
 
 		const cmd = command('completions')
@@ -1773,8 +1791,15 @@ class CLIBuilder {
 					.describe(`Target shell (${SHELLS.join(', ')})`),
 			)
 			.action(async ({ args, meta, out }) => {
-				const completionSchema =
-					meta.bin === cliSchema.name ? cliSchema : { ...cliSchema, name: meta.bin };
+				const schema = completionSchemas.get(meta);
+				if (schema === undefined) {
+					throw new CLIError('Missing completion schema', { code: 'INVALID_BUILDER_STATE' });
+				}
+				const completionSchema = {
+					...schema,
+					name: meta.bin,
+					commands: schema.commands.filter((entry) => !completionCommands.has(entry)),
+				};
 				const { generateCompletion } = await import('#internals/core/completion/index.ts');
 				const script = generateCompletion(completionSchema, args.shell, completionOptions);
 				if (out.jsonMode) {
@@ -1784,6 +1809,7 @@ class CLIBuilder {
 				}
 			});
 
+		completionCommands.add(cmd.schema);
 		const withCompletions = this.command(cmd);
 		return rebuild(withCompletions, {
 			...withCompletions.schema,
@@ -2167,6 +2193,9 @@ async function executeCLI(
 		}
 
 		case 'match': {
+			if (completionCommands.has(planned.plan.command.schema)) {
+				completionSchemas.set(planned.plan.meta, builder.schema);
+			}
 			const help = planned.plan.help ?? helpOptions;
 			const commandRunOptions = buildCommandRunOptions(
 				effectiveOptions,

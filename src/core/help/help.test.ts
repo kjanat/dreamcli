@@ -19,6 +19,20 @@ import { formatHelp } from './index.ts';
 // --- Basic command (no flags, no args)
 
 describe('formatHelp', () => {
+	it('reflows hard-wrapped flag prose within its description column', () => {
+		const cmd = command('check').flag(
+			'output',
+			flag
+				.string()
+				.describe('First line of prose\r\n    Second line of prose\n    Third line of prose'),
+		);
+		const help = formatHelp(cmd.schema, { width: 50 });
+		expect(help).toMatch(
+			/--output <string> +First line of prose Second\n +line of prose Third line of\n +prose/u,
+		);
+		expect(help.split('\n').every((line) => visibleWidth(line) <= 50)).toBe(true);
+	});
+
 	it('breaks overlong flag labels and enum choices even when styled', () => {
 		const name = 'workflow-execution-provider-identifier-for-the-longest-supported-region';
 		const choice = 'workflow-execution-service-identifier-for-the-longest-supported-region';

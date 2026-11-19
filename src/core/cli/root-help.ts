@@ -28,6 +28,7 @@ import { resolveRootSurface } from './root-surface.ts';
 interface CLISchemaLike {
 	readonly name: string;
 	readonly version: string | undefined;
+	readonly versionAlias?: string | undefined;
 	readonly description: string | undefined;
 	readonly commands: readonly CommandSchema[];
 	readonly defaultCommand: CommandSchema | undefined;
@@ -330,7 +331,7 @@ function formatGlobalOptionsSection(
 		pushBuiltin(name);
 		if (name === 'help' && schema.version !== undefined) {
 			entries.push({
-				left: theme.flag('-V, --version'),
+				left: theme.flag(`-${schema.versionAlias ?? 'V'}, --version`),
 				description: 'Print the version number and exit',
 			});
 		}

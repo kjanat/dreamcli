@@ -296,6 +296,7 @@ type FlagElementFragmentV1 = {
 	readonly propagate?: true;
 	readonly negation?: FlagNegationFragmentV1;
 	readonly separateValue?: true;
+	readonly variadic?: true;
 	readonly duplicates?: DuplicatePolicy;
 };
 
@@ -686,6 +687,7 @@ function serializeFlag(
 			: {}),
 		...(schema.duplicates !== 'last' ? { duplicates: schema.duplicates } : {}),
 		...(schema.separateValue === true ? { separateValue: true } : {}),
+		...(schema.variadic === true ? { variadic: true } : {}),
 	};
 }
 
@@ -1527,6 +1529,7 @@ const flagElementFragmentProperties = {
 	propagate: { const: true },
 	negation: { $ref: '#/$defs/negation' },
 	separateValue: { const: true },
+	variadic: { const: true },
 	duplicates: { enum: ['last', 'first', 'error'] },
 } as const satisfies FragmentProperties<FlagElementFragmentV1>;
 

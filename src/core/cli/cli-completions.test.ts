@@ -150,8 +150,7 @@ describe('.completions()', () => {
 			const app = cli('mycli').command(deployCommand()).completions();
 			const result = await app.execute(['completions', 'bash']);
 			const output = result.stdout.join('');
-			// The captured schema is pre-completions, so 'completions' command
-			// should not appear as a completable subcommand in the generated script.
+			// The built-in generator should not appear as a completable subcommand.
 			// The `complete -F` line and function name use the CLI name, not command names.
 			// Check that 'completions' doesn't appear in the subcommand word list
 			// but 'deploy' does.
@@ -339,23 +338,21 @@ describe('.completions()', () => {
 		});
 	});
 
-	// --- schema snapshot
-
-	describe('schema snapshot', () => {
-		it('captures commands registered before .completions()', async () => {
+	describe('command registration', () => {
+		it('includes commands registered before .completions()', async () => {
 			const app = cli('mycli').command(deployCommand()).completions();
 			const result = await app.execute(['completions', 'bash']);
 			const output = result.stdout.join('');
 			expect(output).toContain('deploy');
 		});
 
-		it('does not include commands registered after .completions()', async () => {
+		it('includes commands registered after .completions()', async () => {
 			const app = cli('mycli').command(deployCommand()).completions().command(loginCommand());
 			const result = await app.execute(['completions', 'bash']);
 			const output = result.stdout.join('');
 			expect(output).toContain('deploy');
 			// login was registered after .completions(), so not in the snapshot
-			expect(output).not.toMatch(/compgen -W '[^']*login/);
+			expect(output).toMatch(/compgen -W '[^']*login/);
 		});
 
 		it('works with no other commands registered', async () => {

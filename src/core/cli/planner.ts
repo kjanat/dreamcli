@@ -15,6 +15,7 @@ import { normalizeShell } from '#internals/core/completion/shell.ts';
 import { CLIError, ParseError } from '#internals/core/errors/index.ts';
 import type { HelpOptions } from '#internals/core/help/index.ts';
 import type { OutputPolicy } from '#internals/core/output/contracts.ts';
+import { adjacentArgvValue, sliceArgvHead } from '#internals/core/parse/argv-boundaries.ts';
 import type { ParseOptions } from '#internals/core/parse/index.ts';
 import {
 	buildFlagLookup,
@@ -24,6 +25,7 @@ import {
 	includesBeforeSeparator,
 	requestedHelpMode,
 	requestsHelp,
+	variadicLongValueCount,
 } from '#internals/core/parse/index.ts';
 import type { CommandMeta, CommandSchema } from '#internals/core/schema/command.ts';
 import { declaredFlagNames, flagOrderOverride } from '#internals/core/schema/command.ts';
@@ -50,6 +52,7 @@ interface PlannerSchemaLike {
 	readonly name: string;
 	/** Declared version string; `undefined` disables `--version` interception. */
 	readonly version: string | undefined;
+	readonly versionAlias?: string | undefined;
 	/** Whether the default command is also exposed as a named top-level route. */
 	readonly defaultCommandRouted: boolean;
 	/**
@@ -347,9 +350,12 @@ function findUnknownFlagBeforePositional(
 			const name = token.slice(2, equalsIndex === -1 ? undefined : equalsIndex);
 			const entry = lookup.get(name);
 			if (entry === undefined) return equalsIndex === -1 ? token : `--${name}`;
-			if (
+			if (entry.schema.variadic === true) {
+				index += variadicLongValueCount(argv, index, lookup, equalsIndex !== -1);
+			} else if (
 				equalsIndex === -1 &&
-				(flagExpectsValue(entry.schema) || consumesSeparateBoolean(entry, argv[index + 1]))
+				(flagExpectsValue(entry.schema) ||
+					consumesSeparateBoolean(entry, adjacentArgvValue(argv, index)))
 			)
 				index++;
 			continue;
@@ -423,10 +429,13 @@ function scanRootHead(
 			const equalsIndex = token.indexOf('=');
 			const name = token.slice(2, equalsIndex === -1 ? undefined : equalsIndex);
 			const entry = valueFlags?.get(name);
-			if (
+			if (entry?.schema.variadic === true && valueFlags !== undefined) {
+				index += variadicLongValueCount(head, index, valueFlags, equalsIndex !== -1);
+			} else if (
 				entry !== undefined &&
 				equalsIndex === -1 &&
-				(flagExpectsValue(entry.schema) || consumesSeparateBoolean(entry, head[index + 1]))
+				(flagExpectsValue(entry.schema) ||
+					consumesSeparateBoolean(entry, adjacentArgvValue(head, index)))
 			)
 				index++;
 			continue;
@@ -531,7 +540,8 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 	const rootOutputFlags = readRootOutputFlags(options.argv, options.schema.builtins);
 	const filteredArgv = rootOutputFlags.argv;
 	const separatorIndex = filteredArgv.indexOf('--');
-	const filteredHead = separatorIndex === -1 ? filteredArgv : filteredArgv.slice(0, separatorIndex);
+	const filteredHead =
+		separatorIndex === -1 ? filteredArgv : sliceArgvHead(filteredArgv, separatorIndex);
 
 	const defaultCommand = options.compiled.defaultCommand;
 	// At the root, a default command's flags govern value-flag arity so a
@@ -545,7 +555,7 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 	if (
 		options.schema.version !== undefined &&
 		(includesBeforeSeparator(options.argv, '--version') ||
-			includesBeforeSeparator(options.argv, '-V'))
+			includesBeforeSeparator(options.argv, `-${options.schema.versionAlias ?? 'V'}`))
 	) {
 		return {
 			kind: 'root-version',

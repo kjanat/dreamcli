@@ -247,7 +247,9 @@ function appendFishCommandCompletions(
 ): void {
 	const condition = buildFishCondition(pathIsFuncName, path);
 	for (const command of commands) {
-		const description = quoteShellArg(command.description ?? command.name);
+		const description = quoteShellArg(
+			resolvePlainHelpDescription(command.description ?? command.name),
+		);
 		for (const name of [command.name, ...command.aliases]) {
 			lines.push(
 				`complete -c ${commandName} -n "${condition}" -a ${quoteShellArg(name)} -d ${description}`,

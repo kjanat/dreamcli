@@ -11,7 +11,7 @@ import type { CommandMeta } from '#internals/core/schema/command.ts';
 import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { createTestAdapter, ExitError } from '#internals/runtime/index.ts';
-import { CLIBuilder, cli } from './index.ts';
+import { CLIBuilder, cli, createCLISchema } from './index.ts';
 import { formatRootHelp } from './root-help.ts';
 
 // --- Test commands
@@ -125,6 +125,24 @@ describe('CLIBuilder immutability', () => {
 // --- Version
 
 describe('--version flag', () => {
+	it('uses a configured alias in dispatch, help, and completions', async () => {
+		const app = cli('app')
+			.version('1.2.3', { alias: 'v' })
+			.default(
+				command('run')
+					.flag('verbose', flag.boolean().alias('V'))
+					.action(() => {}),
+			)
+			.completions({ rootMode: 'surface' });
+		expect((await app.execute(['-v'])).stdout.join('')).toBe('1.2.3\n');
+		expect(createCLISchema(app.schema).versionAlias).toBe('v');
+		expect((await app.execute(['--help'])).stdout.join('')).toContain('-v, --version');
+		expect((await app.execute(['completions', 'zsh'])).stdout.join('')).toContain('-v');
+		expect(() => app.command(command('other').flag('verbose', flag.boolean().alias('v')))).toThrow(
+			/collides|reserved/i,
+		);
+	});
+
 	it('outputs version and exits 0', async () => {
 		const app = cli('mycli').version('2.5.0').command(deployCommand());
 		const result = await app.execute(['--version']);
@@ -180,6 +198,20 @@ describe('--version flag', () => {
 });
 
 describe('separated boolean values', () => {
+	it('does not consume a boolean literal across a stripped root option', async () => {
+		const app = cli('demo').default(
+			command('run')
+				.flag('enabled', flag.boolean({ separateValue: true }))
+				.arg('target', arg.string())
+				.action(({ flags, args, out }) =>
+					out.json({ enabled: flags.enabled, target: args.target }),
+				),
+		);
+		const result = await app.execute(['--enabled', '--json', 'false']);
+		expect(result.exitCode).toBe(0);
+		expect(JSON.parse(result.stdout.join(''))).toEqual({ enabled: true, target: 'false' });
+	});
+
 	it('routes virtual help after a separated boolean', async () => {
 		const app = cli('demo')
 			.default(
@@ -211,6 +243,68 @@ describe('separated boolean values', () => {
 		]);
 		expect((await app.execute(['--no-enabled', 'false'])).stdout).toEqual(['[false,["false"]]\n']);
 		expect((await app.execute(['--help'])).stdout.join('')).toContain('[boolean]');
+	});
+});
+
+describe('variadic named options', () => {
+	it.each([['--config', 'settings.json'], ['--config=settings.json'], ['--no-config']])(
+		'keeps stripped config options as boundaries (%j)',
+		async (...configArgv) => {
+			const stdout: string[] = [];
+			const app = cli('demo')
+				.config('demo', { noConfigFlag: true })
+				.command(
+					command('build')
+						.flag('args', flag.array(flag.string(), { variadic: true }))
+						.arg('tail', arg.string())
+						.action(({ flags, args, out }) => out.json({ values: flags.args, tail: args.tail })),
+				);
+			const adapter = createTestAdapter({
+				argv: ['node', 'demo', '--json', 'build', '--args', 'one', ...configArgv, 'tail'],
+				readFile: async () => '{}',
+				stdout: (line) => stdout.push(line),
+			});
+			await expect(app.run({ adapter })).rejects.toMatchObject({ code: 0 });
+			expect(JSON.parse(stdout.join(''))).toEqual({ values: ['one'], tail: 'tail' });
+		},
+	);
+
+	it.each(['--json', '--quiet', '-q'])(
+		'keeps %s as a boundary after stripping root options',
+		async (globalFlag) => {
+			const app = cli('demo').command(
+				command('build')
+					.flag('args', flag.array(flag.string(), { variadic: true }))
+					.arg('tail', arg.string())
+					.action(({ flags, args, out }) => out.json({ values: flags.args, tail: args.tail })),
+			);
+			const result = await app.execute(['build', '--args', 'one', globalFlag, 'tail']);
+			expect(result.exitCode).toBe(0);
+			expect(JSON.parse(result.stdout.join(''))).toEqual({ values: ['one'], tail: 'tail' });
+		},
+	);
+
+	it('collects a run of values and supports one flag-shaped first value', async () => {
+		const app = cli('demo').default(
+			command('build')
+				.flag('args', flag.array(flag.string(), { variadic: true }))
+				.flag('push', flag.boolean())
+				.arg('tail', arg.string().variadic().default([]))
+				.action(({ flags, args, out }) =>
+					out.log(JSON.stringify([flags.args, flags.push, args.tail])),
+				),
+		);
+		expect((await app.execute(['--args', 'one', 'two', '--push', '--', 'three'])).stdout).toEqual([
+			'[["one","two"],true,["three"]]\n',
+		]);
+		expect((await app.execute(['--args', '--load', 'target'])).stdout).toEqual([
+			'[["--load","target"],false,[]]\n',
+		]);
+		expect((await app.execute(['--args=one', 'two', '--args=three'])).stdout).toEqual([
+			'[["one","two","three"],false,[]]\n',
+		]);
+		expect((await app.execute(['--args', '--push'])).error?.code).toBe('MISSING_VALUE');
+		expect((await app.execute(['--args', '--'])).error?.code).toBe('MISSING_VALUE');
 	});
 });
 

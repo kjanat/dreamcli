@@ -788,6 +788,9 @@
         },
         "valueHint": {
           "type": "string"
+        },
+        "variadic": {
+          "const": true
         }
       },
       "additionalProperties": false,
@@ -939,6 +942,9 @@
         },
         "valueHint": {
           "type": "string"
+        },
+        "variadic": {
+          "const": true
         }
       },
       "additionalProperties": false

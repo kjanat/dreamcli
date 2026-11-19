@@ -17,12 +17,14 @@ import { collectPropagatedFlags } from '#internals/core/cli/propagate.ts';
 import { readRootOutputFlags } from '#internals/core/cli/root-output-flags.ts';
 import { resolveRootSurface } from '#internals/core/cli/root-surface.ts';
 import { extractConfigFlag } from '#internals/core/cli/runtime-preflight.ts';
+import { adjacentArgvValue } from '#internals/core/parse/argv-boundaries.ts';
 import type { FlagLookupEntry } from '#internals/core/parse/index.ts';
 import {
 	buildFlagLookup,
 	coerceFlagValue,
 	consumesSeparateBoolean,
 	flagExpectsValue,
+	variadicLongValueCount,
 } from '#internals/core/parse/index.ts';
 import type { CompletionContext, CompletionHandler } from '#internals/core/schema/completion.ts';
 import { excludesOtherInputs } from '#internals/core/schema/constraints.ts';
@@ -40,6 +42,7 @@ function completionPosition(
 	schema: CLISchema,
 	compiled: CompiledCLI,
 	beforeCursor: readonly string[],
+	cursor?: string,
 ) {
 	const config =
 		schema.configSettings === undefined
@@ -81,7 +84,12 @@ function completionPosition(
 	const activeFlags = command.constraints?.some(excludesOtherInputs)
 		? new Map<string, boolean>()
 		: undefined;
+	let skip = 0;
 	for (const [index, token] of remaining.entries()) {
+		if (skip > 0) {
+			skip--;
+			continue;
+		}
 		if (pending !== undefined) {
 			pending = undefined;
 			continue;
@@ -99,12 +107,16 @@ function completionPosition(
 							(form) => token === form || token.startsWith(`${form}=`),
 						)),
 			);
-			if (builtin || (schema.version !== undefined && (token === '--version' || token === '-V')))
+			if (
+				builtin ||
+				(schema.version !== undefined &&
+					(token === '--version' || token === `-${schema.versionAlias ?? 'V'}`))
+			)
 				continue;
 			const match = matchFlag(token, lookup);
 			if (match === undefined || (match.entry.negated && match.inline !== undefined))
 				return undefined;
-			const next = remaining[index + 1];
+			const next = adjacentArgvValue(remaining, index);
 			const separate =
 				match.inline === undefined &&
 				token.startsWith('--') &&
@@ -121,11 +133,23 @@ function completionPosition(
 				}
 				recordActiveFlag(activeFlags, match.entry, match.inline ?? separate);
 			}
-			if (
+			if (token.startsWith('--') && match.entry.schema.variadic === true) {
+				skip = variadicLongValueCount(remaining, index, lookup, match.inline !== undefined);
+				if (
+					index + skip === remaining.length - 1 &&
+					cursor !== undefined &&
+					variadicLongValueCount(remaining, index, lookup, match.inline !== undefined, cursor) >
+						skip
+				) {
+					pending = match.entry;
+					break;
+				}
+			} else if (
 				match.inline === undefined &&
 				(flagExpectsValue(match.entry.schema) || separate !== undefined)
-			)
+			) {
 				pending = match.entry;
+			}
 			continue;
 		}
 		if (args[positional] === undefined && !args[args.length - 1]?.schema.variadic) return undefined;
@@ -269,7 +293,9 @@ async function completeValues(
 		return { exitCode: 0, candidates: [] };
 	}
 	const position =
-		argv.length === 0 ? undefined : completionPosition(schema, compiled, argv.slice(0, -1));
+		argv.length === 0
+			? undefined
+			: completionPosition(schema, compiled, argv.slice(0, -1), argv.at(-1));
 	if (position === undefined) return { exitCode: 1, candidates: [] };
 	const target = findCompletion(position, argv, env);
 	if (target === undefined) {
@@ -313,7 +339,12 @@ async function completeValues(
 			position.result.kind === 'unknown'
 				? [
 						...(builtinEnabled(schema.builtins, 'help') ? ['--help'] : []),
-						...(schema.version !== undefined ? ['--version'] : []),
+						...(schema.version !== undefined
+							? [
+									'--version',
+									...(schema.versionAlias === undefined ? [] : [`-${schema.versionAlias}`]),
+								]
+							: []),
 					]
 				: [];
 		return {
