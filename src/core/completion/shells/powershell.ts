@@ -27,6 +27,7 @@ import {
 	programTag,
 	resolveRootCompletionSurface,
 	sanitizeShellIdentifier,
+	separateBooleanForms,
 	versionTag,
 	walkCommandTree,
 } from './shared.ts';
@@ -173,6 +174,7 @@ function emitPowerShellPathTable(
 			...(rootSurface.includeDefaultFlags ? rootSurface.defaultFlags : {}),
 		},
 		hasConflicts,
+		rootSurface.defaultFlags,
 	);
 
 	for (const node of nodes) {
@@ -198,8 +200,12 @@ function appendPowerShellPathEntry(
 	}>,
 	flags: Readonly<Record<string, FlagSchema>>,
 	hasConflicts: boolean,
+	operandFlags = flags,
 ): void {
 	lines.push(`\t${quotePowerShellString(path)} = @{`);
+	lines.push(
+		`\t\tSeparateBooleanForms = ${formatPowerShellArray(separateBooleanForms(operandFlags))}`,
+	);
 	lines.push('\t\tCommands = @(');
 	for (const command of commands) {
 		lines.push('\t\t\t@{');
@@ -368,6 +374,7 @@ function emitPowerShellHelpers(
 	lines.push('\t$path = ""');
 	lines.push('\t$afterSeparator = $false');
 	lines.push('\t$expectingValue = $false');
+	lines.push('\t$maybeBooleanValue = $false');
 	lines.push('\t$valueFlag = $null');
 	lines.push('\t$tokens = [System.Collections.Generic.List[string]]::new()');
 	lines.push('');
@@ -380,6 +387,10 @@ function emitPowerShellHelpers(
 	lines.push('\t}');
 	lines.push('');
 	lines.push('\tforeach ($token in $tokens) {');
+	lines.push('\t\tif ($maybeBooleanValue) {');
+	lines.push('\t\t\t$maybeBooleanValue = $false');
+	lines.push("\t\t\tif (@('true', 'false', '1', '0') -ccontains $token) { continue }");
+	lines.push('\t\t}');
 	lines.push('\t\tif ($expectingValue) {');
 	lines.push('\t\t\t$expectingValue = $false');
 	lines.push('\t\t\t$valueFlag = $null');
@@ -391,6 +402,10 @@ function emitPowerShellHelpers(
 	lines.push('\t\t\tbreak');
 	lines.push('\t\t}');
 	lines.push('');
+	lines.push('\t\tif ($pathData.SeparateBooleanForms -ccontains $token) {');
+	lines.push('\t\t\t$maybeBooleanValue = $true');
+	lines.push('\t\t\tcontinue');
+	lines.push('\t\t}');
 	lines.push(`\t\t$flagMatch = ${helperPrefix}_ResolveFlagToken -PathData $pathData -Token $token`);
 	lines.push('\t\tif ($null -ne $flagMatch) {');
 	lines.push('\t\t\tif ($flagMatch.InlinePrefix -eq $null -and $flagMatch.Flag.RequiresValue) {');

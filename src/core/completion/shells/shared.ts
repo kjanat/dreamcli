@@ -15,7 +15,7 @@ import type { CLISchema } from '#internals/core/cli/index.ts';
 import { collectPropagatedFlags } from '#internals/core/cli/propagate.ts';
 import { resolveRootSurface } from '#internals/core/cli/root-surface.ts';
 import { excludesOtherInputs } from '#internals/core/schema/constraints.ts';
-import { createFlagSchema } from '#internals/core/schema/flag.ts';
+import { createFlagSchema, getFlagAliasNames } from '#internals/core/schema/flag.ts';
 import type { CommandSchema, FlagSchema } from '#internals/core/schema/index.ts';
 import { acceptsArgv } from '#internals/core/schema/stdin.ts';
 import { DREAMCLI_REVISION, DREAMCLI_VERSION } from '#internals/version.ts';
@@ -326,6 +326,20 @@ function hasCompletionConflicts(schema: CLISchema): boolean {
 	);
 }
 
+/** Long, positive spellings that may consume a separate boolean literal. */
+function separateBooleanForms(flags: Readonly<Record<string, FlagSchema>>): string[] {
+	return Object.entries(flags).flatMap(([name, schema]) =>
+		acceptsArgv(schema) && schema.separateValue === true
+			? [
+					`--${name}`,
+					...getFlagAliasNames(schema, { kind: 'long', includeHidden: true }).map(
+						(alias) => `--${alias}`,
+					),
+				]
+			: [],
+	);
+}
+
 // --- Exports
 
 export { getVisibleNegatedName } from '#internals/core/schema/flag.ts';
@@ -337,6 +351,7 @@ export {
 	quoteShellArg,
 	resolveRootCompletionSurface,
 	sanitizeShellIdentifier,
+	separateBooleanForms,
 	versionTag,
 	walkCommandTree,
 };

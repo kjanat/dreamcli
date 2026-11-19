@@ -2340,12 +2340,14 @@ interface FlagFactory {
 	 *
 	 * @returns A {@link FlagBuilder} for `boolean` values (defaulted to `false`).
 	 */
-	boolean(options?: { readonly separateValue?: boolean }): FlagBuilder<{
+	boolean<const O extends { readonly separateValue?: boolean } | undefined = undefined>(
+		options?: O,
+	): FlagBuilder<{
 		readonly valueType: boolean;
 		readonly presence: 'defaulted';
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'boolean';
-		readonly elementEligible: true;
+		readonly elementEligible: true extends NonNullable<O>['separateValue'] ? false : true;
 	}>;
 
 	/**
@@ -2669,12 +2671,14 @@ const flag: FlagFactory = {
 		);
 	},
 
-	boolean(options?: { readonly separateValue?: boolean }): FlagBuilder<{
+	boolean<const O extends { readonly separateValue?: boolean } | undefined = undefined>(
+		options?: O,
+	): FlagBuilder<{
 		readonly valueType: boolean;
 		readonly presence: 'defaulted';
 		readonly optionalFallback: 'undefined';
 		readonly flagKind: 'boolean';
-		readonly elementEligible: true;
+		readonly elementEligible: true extends NonNullable<O>['separateValue'] ? false : true;
 	}> {
 		return new FlagBuilder(
 			createFlagSchema('boolean', {

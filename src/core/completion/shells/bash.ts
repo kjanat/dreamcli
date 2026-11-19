@@ -29,6 +29,7 @@ import {
 	quoteShellArg,
 	resolveRootCompletionSurface,
 	sanitizeShellIdentifier,
+	separateBooleanForms,
 	versionTag,
 	walkCommandTree,
 } from './shared.ts';
@@ -168,6 +169,15 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 		// Collect all value-taking flag forms across the entire tree so the
 		// walker can skip their operands instead of treating them as subcommands.
 		const valueFlagPattern = collectValueFlagPattern(nodes, rootSurface);
+		const separatedBooleanPattern = [
+			...new Set(
+				[rootSurface.defaultFlags, ...nodes.map((node) => node.mergedFlags)].flatMap(
+					separateBooleanForms,
+				),
+			),
+		]
+			.map(escapeBashCasePatternValue)
+			.join('|');
 
 		// Build subcommand path by scanning COMP_WORDS at each depth level.
 		// At depth 0 we look for top-level command names, at depth 1 we look
@@ -181,6 +191,13 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 		lines.push('\t\t\t--) break ;;');
 		if (valueFlagPattern.length > 0) {
 			lines.push(`\t\t\t${valueFlagPattern}) ((i++)); continue ;;`);
+		}
+		if (separatedBooleanPattern.length > 0) {
+			lines.push(`\t\t\t${separatedBooleanPattern})`);
+			lines.push('\t\t\t\tif ((i + 1 < cword)); then');
+			// biome-ignore lint/suspicious/noTemplateCurlyInString: bash syntax, not JS template
+			lines.push('\t\t\t\t\tcase "${words[i+1]}" in true|false|1|0) ((i++)) ;; esac');
+			lines.push('\t\t\t\tfi; continue ;;');
 		}
 		lines.push('\t\t\t-*) continue ;;');
 		lines.push('\t\tesac');

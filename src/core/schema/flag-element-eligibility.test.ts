@@ -19,6 +19,7 @@ describe('flag.array() element eligibility', () => {
 		flag.array(flag.string());
 		flag.array(flag.number());
 		flag.array(flag.boolean());
+		flag.array(flag.boolean({ separateValue: false }));
 		flag.array(flag.enum(['us', 'eu', 'ap']));
 		flag.array(flag.custom((raw) => String(raw)));
 		flag.array(flag.url());
@@ -43,6 +44,13 @@ describe('flag.array() element eligibility', () => {
 	});
 
 	test.each([
+		[
+			'separated boolean values',
+			() => {
+				// @ts-expect-error — separated argv values belong to the outer flag
+				flag.array(flag.boolean({ separateValue: true }));
+			},
+		],
 		[
 			'aliases',
 			() => {
