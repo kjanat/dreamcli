@@ -17,6 +17,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - [ ] Verify the version PR's latest commit is signed and all required checks pass before merging. Merging starts publication automatically, with no further approval.
 - [ ] Follow Beepboop's release execution through npm and JSR publication, the version tag and GitHub Release, and the docs deployment.
 
+## [5.5.0] - 2026-11-19
+
+### Added
+
+- Use `flag.array(element, { variadic: true })` to collect multiple values after one named option, such as `--include src tests`. ([#287](https://github.com/kjanat/dreamcli/pull/287))
+- Use `flag.boolean({ separateValue: true })` to accept a separate boolean literal, such as `--enabled false`, while keeping bare flags valid. ([#286](https://github.com/kjanat/dreamcli/pull/286))
+- Configure the short version flag with `.version('1.0.0', { alias: 'v' })` and continue to use `--version`. ([#285](https://github.com/kjanat/dreamcli/pull/285))
+
+### Fixed
+
+- Show root, command, and topic help before discovering config files, so help remains available when a config file is malformed or missing. ([#289](https://github.com/kjanat/dreamcli/pull/289))
+- Return exit code `2` when `--config` and `--no-config` are used together, before reading a config file. ([#288](https://github.com/kjanat/dreamcli/pull/288))
+- Strip terminal styling and hyperlink escapes from shell completion descriptions. ([#282](https://github.com/kjanat/dreamcli/pull/282))
+- Generate completions from the final CLI definition, including commands and flags added after calling `.completions()`. ([#284](https://github.com/kjanat/dreamcli/pull/284))
+- Reflow multiline flag descriptions within the help description column. ([#283](https://github.com/kjanat/dreamcli/pull/283))
+
 ## [5.4.0] - 2026-11-18
 
 ### Added
@@ -1222,7 +1238,8 @@ The stable 3.0.0 release. It ships the code of 3.0.0-rc.20 plus the fix and docu
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v5.4.0...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v5.5.0...HEAD
+[5.5.0]: https://github.com/kjanat/dreamcli/compare/v5.4.0...v5.5.0
 [5.4.0]: https://github.com/kjanat/dreamcli/compare/v5.3.0...v5.4.0
 [5.3.0]: https://github.com/kjanat/dreamcli/compare/v5.2.0...v5.3.0
 [5.2.0]: https://github.com/kjanat/dreamcli/compare/v5.1.0...v5.2.0
