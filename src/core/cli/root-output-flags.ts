@@ -17,6 +17,7 @@
 
 import { ParseError } from '#internals/core/errors/index.ts';
 import type { Verbosity } from '#internals/core/output/contracts.ts';
+import { hasArgvBoundary, markArgvBoundaries } from '#internals/core/parse/argv-boundaries.ts';
 import { coerceFlagValue } from '#internals/core/parse/index.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import type { BuiltinsConfig } from './builtins.ts';
@@ -153,7 +154,8 @@ function readRootOutputFlags(argv: readonly string[], builtins?: BuiltinsConfig)
 	const errors = new Map<RootOutputFlagName, ParseError>();
 	let stripped = false;
 
-	for (const token of head) {
+	for (const [index, token] of head.entries()) {
+		if (hasArgvBoundary(argv, index)) boundaries.add(keptHead.length);
 		const match = matchRootToken(token, builtins);
 		if (match.kind === 'unrelated') {
 			keptHead.push(token);
@@ -170,13 +172,14 @@ function readRootOutputFlags(argv: readonly string[], builtins?: BuiltinsConfig)
 		errors.delete(match.name);
 	}
 
+	if (hasArgvBoundary(argv, head.length)) boundaries.add(keptHead.length);
 	const strippedArgv = !stripped
 		? argv
 		: separatorIndex === -1
 			? keptHead
 			: [...keptHead, ...argv.slice(separatorIndex)];
 	const resolved = { json: selections.json, quiet: selections.quiet, argv: strippedArgv };
-	markArgvBoundaries(strippedArgv, boundaries);
+	if (stripped) markArgvBoundaries(strippedArgv, boundaries);
 	const error = errors.values().next().value;
 
 	return error !== undefined ? { kind: 'failed', ...resolved, error } : { kind: 'ok', ...resolved };
@@ -218,5 +221,3 @@ function resolveRootVerbosity(
 
 export type { RootOutputFlagName, RootOutputFlags };
 export { readRootOutputFlags, resolveRootJsonMode, resolveRootVerbosity };
-
-import { markArgvBoundaries } from '#internals/core/parse/argv-boundaries.ts';

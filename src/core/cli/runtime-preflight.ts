@@ -15,6 +15,7 @@ import type { PackageJsonData } from '#internals/core/config/package-json.ts';
 import { CLIError, ParseError } from '#internals/core/errors/index.ts';
 import type { HelpThemeFactory } from '#internals/core/help/index.ts';
 import type { Verbosity } from '#internals/core/output/index.ts';
+import { hasArgvBoundary, markArgvBoundaries } from '#internals/core/parse/argv-boundaries.ts';
 import type { ParseOptions } from '#internals/core/parse/index.ts';
 import { parse, requestsHelp } from '#internals/core/parse/index.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
@@ -230,10 +231,12 @@ function extractConfigFlag(
 	readonly error?: CLIError;
 } {
 	const filteredArgv: string[] = [];
+	const boundaries = new Set<number>();
 	let configPath: string | undefined;
 	let skipDiscovery = false;
 
 	for (let i = 0; i < argv.length; i += 1) {
+		if (hasArgvBoundary(argv, i)) boundaries.add(filteredArgv.length);
 		const arg = argv[i];
 		if (arg === undefined) {
 			continue;
@@ -244,6 +247,7 @@ function extractConfigFlag(
 			break;
 		}
 		if (noConfigFlag && arg === '--no-config') {
+			boundaries.add(filteredArgv.length);
 			skipDiscovery = true;
 			continue;
 		}
@@ -252,6 +256,7 @@ function extractConfigFlag(
 			const value = arg.slice('--config='.length);
 			if (value.length > 0) {
 				configPath = value;
+				boundaries.add(filteredArgv.length);
 				continue;
 			}
 
@@ -263,6 +268,7 @@ function extractConfigFlag(
 			const nextArg = argv[i + 1];
 			if (nextArg !== undefined && !nextArg.startsWith('-') && nextArg !== '--') {
 				configPath = nextArg;
+				boundaries.add(filteredArgv.length);
 				i += 1;
 				continue;
 			}
@@ -274,6 +280,8 @@ function extractConfigFlag(
 		filteredArgv.push(arg);
 	}
 
+	if (hasArgvBoundary(argv, argv.length)) boundaries.add(filteredArgv.length);
+	markArgvBoundaries(filteredArgv, boundaries);
 	return {
 		configPath,
 		filteredArgv,

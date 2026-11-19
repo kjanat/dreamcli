@@ -15,6 +15,7 @@ import { normalizeShell } from '#internals/core/completion/shell.ts';
 import { CLIError, ParseError } from '#internals/core/errors/index.ts';
 import type { HelpOptions } from '#internals/core/help/index.ts';
 import type { OutputPolicy } from '#internals/core/output/contracts.ts';
+import { sliceArgvHead } from '#internals/core/parse/argv-boundaries.ts';
 import type { ParseOptions } from '#internals/core/parse/index.ts';
 import {
 	buildFlagLookup,
@@ -765,5 +766,3 @@ export {
 	mergeCommandSchema,
 	planInvocation,
 };
-
-import { sliceArgvHead } from '#internals/core/parse/argv-boundaries.ts';

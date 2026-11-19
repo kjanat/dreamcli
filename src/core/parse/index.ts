@@ -38,6 +38,7 @@ import type { StdinBinding } from '#internals/core/schema/stdin.ts';
 import { acceptsArgv, stdinReadsOnDash } from '#internals/core/schema/stdin.ts';
 import type { ValueFailure } from '#internals/core/schema/value.ts';
 import { argValueSchema, decodeValue, flagValueSchema } from '#internals/core/schema/value.ts';
+import { hasArgvBoundary } from './argv-boundaries.ts';
 import type { Occurrence } from './occurrences.ts';
 import {
 	INCREMENT_OCCURRENCE,
@@ -1466,5 +1467,3 @@ export {
 	tokenize,
 	variadicLongValueCount,
 };
-
-import { hasArgvBoundary } from './argv-boundaries.ts';

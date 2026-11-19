@@ -10,6 +10,7 @@
  * @internal
  */
 
+import { removeArgvToken } from '#internals/core/parse/argv-boundaries.ts';
 import type { FlagLookupEntry, ParseOptions } from '#internals/core/parse/index.ts';
 import {
 	buildFlagLookup,
@@ -385,5 +386,3 @@ export type {
 	ValueFlagLookup,
 };
 export { consumesFollowingToken, dispatch, findClosestCommand, levenshtein, uniqueCommands };
-
-import { removeArgvToken } from '#internals/core/parse/argv-boundaries.ts';
