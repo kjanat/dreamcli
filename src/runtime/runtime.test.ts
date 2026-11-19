@@ -424,16 +424,15 @@ describe('createNodeAdapter', () => {
 
 	it('flush waits for the other stream when a real Writable fails and emits its error late', async () => {
 		const failure = systemError('ENOSPC');
-		let errorEmitted = false;
+		const destruction = Promise.withResolvers<void>();
+		const streamError = Promise.withResolvers<Error>();
 		const stdout = new Writable({
 			write: (_chunk, _encoding, callback) => callback(failure),
 			destroy: (error, callback) => {
-				setTimeout(() => callback(error), 20);
+				void destruction.promise.then(() => callback(error));
 			},
 		});
-		stdout.on('error', () => {
-			errorEmitted = true;
-		});
+		stdout.once('error', streamError.resolve);
 		let stderrCallback: ((error?: Error | null) => void) | undefined;
 		const stderrWrites: string[] = [];
 		const adapter = createNodeAdapter(
@@ -454,8 +453,8 @@ describe('createNodeAdapter', () => {
 		const flushing = adapter.flush?.().finally(() => {
 			settled = true;
 		});
-		await new Promise((resolve) => setTimeout(resolve, 40));
-		expect(errorEmitted).toBe(true);
+		destruction.resolve();
+		await expect(streamError.promise).resolves.toBe(failure);
 		expect(settled).toBe(false);
 		expect(stderrWrites).toEqual(['remaining']);
 
@@ -465,21 +464,26 @@ describe('createNodeAdapter', () => {
 
 	it('flush rejects before a real Writable emits its late error', async () => {
 		const failure = systemError('ENOSPC');
+		const destruction = Promise.withResolvers<void>();
+		const streamError = Promise.withResolvers<Error>();
 		let errorEmitted = false;
 		const stdout = new Writable({
 			write: (_chunk, _encoding, callback) => callback(failure),
 			destroy: (error, callback) => {
-				setTimeout(() => callback(error), 20);
+				void destruction.promise.then(() => callback(error));
 			},
 		});
-		stdout.on('error', () => {
+		stdout.once('error', (error) => {
 			errorEmitted = true;
+			streamError.resolve(error);
 		});
 		const adapter = createNodeAdapter(mockNodeProcess({ stdout }));
 		adapter.stdout('output');
 
 		await expect(adapter.flush?.()).rejects.toBe(failure);
 		expect(errorEmitted).toBe(false);
+		destruction.resolve();
+		await expect(streamError.promise).resolves.toBe(failure);
 	});
 
 	it('shares stream failures between adapters on the same stream', async () => {
