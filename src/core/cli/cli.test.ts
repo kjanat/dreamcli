@@ -604,7 +604,7 @@ describe('CLIBuilder.run — config discovery opt-out', () => {
 			readFile,
 			stdout: (line) => stdout.push(line),
 		});
-		await expect(app.run({ adapter })).rejects.toMatchObject({ code: 1 });
+		await expect(app.run({ adapter })).rejects.toMatchObject({ code: 2 });
 		expect(readFile).not.toHaveBeenCalled();
 		expect(JSON.parse(stdout.join(''))).toMatchObject({
 			error: { code: 'INVALID_VALUE', message: 'Cannot use --config with --no-config' },
