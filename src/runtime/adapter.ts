@@ -122,7 +122,7 @@ interface RuntimeAdapter {
 	readonly importConfigModule?: (path: string) => Promise<unknown>;
 
 	/** Evaluate a config in a new module graph and return its data to this host. */
-	readonly importFreshConfigModule?: (path: string) => Promise<unknown>;
+	readonly importFreshConfigModule?: (path: string, timeoutMs?: number) => Promise<unknown>;
 
 	/**
 	 * Probe what exists at a filesystem path.

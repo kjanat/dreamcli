@@ -63,6 +63,8 @@ type ConfigLoader = FormatLoader | PathConfigLoader;
 interface ConfigModuleOptions {
 	/** Evaluate the module and its dependencies anew on each discovery and receive structured-cloned data. */
 	readonly fresh?: boolean;
+	/** Maximum worker lifetime for a fresh load, in milliseconds. Native adapters default to 30,000. */
+	readonly timeoutMs?: number;
 	/** Also discover `.ts`, `.mts`, and `.cts` modules using the runtime's TypeScript support. */
 	readonly typescript?: boolean;
 }
@@ -536,7 +538,7 @@ function configModule(options?: ConfigModuleOptions): PathConfigLoader {
 			if (options?.fresh) {
 				if (!adapter.importFreshConfigModule)
 					throw new Error('The runtime adapter does not support fresh executable config files');
-				return adapter.importFreshConfigModule(path);
+				return adapter.importFreshConfigModule(path, options.timeoutMs);
 			}
 			if (adapter.importConfigModule === undefined) {
 				throw new Error('The runtime adapter does not support executable config files');

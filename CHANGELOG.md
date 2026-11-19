@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Plugins can rewrite leaf-command arguments with `transformArgv` and pass metadata to command callbacks through `parse.metadata`.
 - Read flag spellings, counts, and negations from `parse.flag(name)` in command callbacks and post-resolution plugin hooks.
 
+### Fixed
+
+- Fresh executable configs return their export even when a dependency sends worker messages. Stalled loads terminate after 30 seconds by default, configurable with `timeoutMs`.
+
 ### Release checklist
 
 - [ ] Start the intended version through Beepboop and review its version PR.

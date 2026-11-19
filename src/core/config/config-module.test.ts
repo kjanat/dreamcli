@@ -12,9 +12,14 @@ import { configModule, discoverConfig } from './index.ts';
 
 async function runNativeProbe(probe: string): Promise<string> {
 	if (typeof Deno === 'undefined') {
-		return execFileSync(process.execPath, [probe], { encoding: 'utf8' });
+		return execFileSync(process.execPath, [probe], {
+			encoding: 'utf8',
+			timeout: 15_000,
+			killSignal: 'SIGKILL',
+		});
 	}
 	const output = await new Deno.Command(Deno.execPath(), {
+		signal: AbortSignal.timeout(15_000),
 		args: [
 			'run',
 			'-A',
@@ -139,6 +144,49 @@ console.log('ok');
 			await rm(directory, { recursive: true, force: true });
 		}
 	});
+
+	it('separates worker messages from exports and terminates stalled loads', async () => {
+		const directory = await mkdtemp(join(tmpdir(), 'dreamcli-config-'));
+		try {
+			const configPath = join(directory, 'app.mjs');
+			const probe = join(directory, 'probe.mts');
+			await writeFile(
+				configPath,
+				`
+import { parentPort } from 'node:worker_threads';
+parentPort.postMessage({ status: 'loading' });
+setInterval(() => {}, 60000);
+export default { port: 1 };
+`,
+			);
+			await writeFile(
+				probe,
+				`
+import assert from 'node:assert/strict';
+import { writeFile } from 'node:fs/promises';
+import { configModule, discoverConfig } from ${JSON.stringify(new URL('../../config.ts', import.meta.url).href)};
+import { createAdapter } from ${JSON.stringify(new URL('../../runtime.ts', import.meta.url).href)};
+const configPath = ${JSON.stringify(configPath)};
+const adapter = createAdapter();
+const load = async (timeoutMs) => (await discoverConfig('app', adapter, {
+  configPath, loaders: [configModule({ fresh: true, timeoutMs })],
+})).data;
+assert.deepEqual(await load(5000), { port: 1 });
+await writeFile(configPath, 'setInterval(() => {}, 60000); await new Promise(() => {}); export default {};');
+await assert.rejects(load(250), {
+  code: 'CONFIG_PARSE_ERROR',
+  details: { path: configPath, format: 'mjs', message: 'Config worker timed out after 250 ms' },
+});
+await writeFile(configPath, 'export default { port: 2 };');
+assert.deepEqual(await load(5000), { port: 2 });
+console.log('ok');
+`,
+			);
+			expect((await runNativeProbe(probe)).trim()).toBe('ok');
+		} finally {
+			await rm(directory, { recursive: true, force: true });
+		}
+	}, 20_000);
 
 	it('opts into discovery via the CLI and retains JSON precedence within the same location', async () => {
 		const directory = await mkdtemp(join(tmpdir(), 'dreamcli-config-'));
