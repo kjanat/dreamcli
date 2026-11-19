@@ -63,6 +63,7 @@ const spelledFlagFields: UnbrandedFlagSchema = {
 	deprecated: undefined,
 	propagate: false,
 	negation: undefined,
+	variadic: undefined,
 	duplicates: 'last',
 };
 

@@ -15,6 +15,23 @@ const unexpected = () => {
 	throw new Error('Normal execution must not run');
 };
 
+it('completes flag-shaped first values and a lone dash after earlier values', async () => {
+	const app = cli('demo')
+		.command(
+			command('build')
+				.flag(
+					'args',
+					flag.array(flag.string(), { variadic: true }).complete(() => ['--load', '-']),
+				)
+				.action(unexpected),
+		)
+		.completions();
+	const first = await app.execute(['__complete', '--', 'build', '--args', '--lo']);
+	expect(first.stdout).toEqual(['--load\n']);
+	const later = await app.execute(['__complete', '--', 'build', '--args', 'one', '-']);
+	expect(later.stdout).toEqual(['--load\n', '-\n']);
+});
+
 function fixture() {
 	return cli('app').command(
 		command('adopt')

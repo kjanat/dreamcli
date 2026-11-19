@@ -15,6 +15,7 @@ import { normalizeShell } from '#internals/core/completion/shell.ts';
 import { CLIError, ParseError } from '#internals/core/errors/index.ts';
 import type { HelpOptions } from '#internals/core/help/index.ts';
 import type { OutputPolicy } from '#internals/core/output/contracts.ts';
+import { sliceArgvHead } from '#internals/core/parse/argv-boundaries.ts';
 import type { ParseOptions } from '#internals/core/parse/index.ts';
 import {
 	buildFlagLookup,
@@ -23,6 +24,7 @@ import {
 	includesBeforeSeparator,
 	requestedHelpMode,
 	requestsHelp,
+	variadicLongValueCount,
 } from '#internals/core/parse/index.ts';
 import type { CommandMeta, CommandSchema } from '#internals/core/schema/command.ts';
 import { declaredFlagNames, flagOrderOverride } from '#internals/core/schema/command.ts';
@@ -347,7 +349,9 @@ function findUnknownFlagBeforePositional(
 			const name = token.slice(2, equalsIndex === -1 ? undefined : equalsIndex);
 			const entry = lookup.get(name);
 			if (entry === undefined) return equalsIndex === -1 ? token : `--${name}`;
-			if (equalsIndex === -1 && flagExpectsValue(entry.schema)) index++;
+			if (entry.schema.variadic === true) {
+				index += variadicLongValueCount(argv, index, lookup, equalsIndex !== -1);
+			} else if (equalsIndex === -1 && flagExpectsValue(entry.schema)) index++;
 			continue;
 		}
 
@@ -419,7 +423,10 @@ function scanRootHead(
 			const equalsIndex = token.indexOf('=');
 			const name = token.slice(2, equalsIndex === -1 ? undefined : equalsIndex);
 			const entry = valueFlags?.get(name);
-			if (entry !== undefined && equalsIndex === -1 && flagExpectsValue(entry.schema)) index++;
+			if (entry?.schema.variadic === true && valueFlags !== undefined) {
+				index += variadicLongValueCount(head, index, valueFlags, equalsIndex !== -1);
+			} else if (entry !== undefined && equalsIndex === -1 && flagExpectsValue(entry.schema))
+				index++;
 			continue;
 		}
 
@@ -522,7 +529,8 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 	const rootOutputFlags = readRootOutputFlags(options.argv, options.schema.builtins);
 	const filteredArgv = rootOutputFlags.argv;
 	const separatorIndex = filteredArgv.indexOf('--');
-	const filteredHead = separatorIndex === -1 ? filteredArgv : filteredArgv.slice(0, separatorIndex);
+	const filteredHead =
+		separatorIndex === -1 ? filteredArgv : sliceArgvHead(filteredArgv, separatorIndex);
 
 	const defaultCommand = options.compiled.defaultCommand;
 	// At the root, a default command's flags govern value-flag arity so a

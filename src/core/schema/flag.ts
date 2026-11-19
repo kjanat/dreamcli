@@ -456,6 +456,8 @@ interface FlagSchema<K extends FlagKind = FlagKind> {
 	 * called (`undefined` otherwise). See {@link FlagNegation}.
 	 */
 	readonly negation: FlagNegation | undefined;
+	/** Whether one long array flag occurrence consumes multiple argv tokens. */
+	readonly variadic: true | undefined;
 	/**
 	 * Duplicate policy for repeated CLI occurrences. See {@link DuplicatePolicy}.
 	 *
@@ -647,6 +649,8 @@ interface EnumFlagDefinition extends FlagDefinitionBase {
 interface ArrayFlagDefinition extends FlagDefinitionBase {
 	/** Kind discriminator. */
 	readonly kind: 'array';
+	/** Collect consecutive values after a single long flag occurrence. */
+	readonly variadic?: true | undefined;
 	/**
 	 * Element definition or an already-built element schema.
 	 * @defaultValue `undefined`
@@ -851,6 +855,7 @@ const NORMALIZED_FLAG_SCHEMA_KEYS: readonly (keyof FlagSchema)[] = [
 	'deprecated',
 	'propagate',
 	'negation',
+	'variadic',
 	'duplicates',
 ];
 
@@ -1021,6 +1026,7 @@ const KIND_SPECIFIC_FLAG_FIELDS: readonly (readonly [
 	['aggregateStandard', COLLECTION_FLAG_KINDS],
 	['parseFn', ['custom']],
 	['negation', ['boolean']],
+	['variadic', ['array']],
 ];
 
 /**
@@ -1320,6 +1326,7 @@ function assembleFlagSchema<K extends FlagKind>(
 		deprecated: undefined,
 		propagate: propagate ?? false,
 		negation: undefined,
+		variadic: undefined,
 		duplicates: duplicates ?? 'last',
 		...rest,
 		envIndexed:
@@ -2375,10 +2382,12 @@ interface FlagFactory {
 	 * ```
 	 *
 	 * @param element - {@link FlagBuilder} describing the element type.
+	 * @param options - Enable variadic values after a long option.
 	 * @returns A {@link FlagBuilder} for arrays of the element type.
 	 */
 	array<E extends FlagConfig & { readonly elementEligible: true }>(
 		element: FlagBuilder<E>,
+		options?: { readonly variadic?: boolean },
 	): FlagBuilder<{
 		readonly valueType: E['valueType'][];
 		readonly presence: 'optional';
@@ -2690,6 +2699,7 @@ const flag: FlagFactory = {
 
 	array<E extends FlagConfig & { readonly elementEligible: true }>(
 		element: FlagBuilder<E>,
+		options?: { readonly variadic?: boolean },
 	): FlagBuilder<{
 		readonly valueType: E['valueType'][];
 		readonly presence: 'optional';
@@ -2698,7 +2708,12 @@ const flag: FlagFactory = {
 		readonly elementEligible: false;
 	}> {
 		assertFlagElementBuilder('array', element);
-		return new FlagBuilder(createFlagSchema('array', { elementSchema: element.schema }));
+		return new FlagBuilder(
+			createFlagSchema('array', {
+				elementSchema: element.schema,
+				...(options?.variadic ? { variadic: true } : {}),
+			}),
+		);
 	},
 
 	custom<A extends FlagParseFn<unknown> | StandardSchemaV1>(

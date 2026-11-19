@@ -38,6 +38,7 @@ import type { StdinBinding } from '#internals/core/schema/stdin.ts';
 import { acceptsArgv, stdinReadsOnDash } from '#internals/core/schema/stdin.ts';
 import type { ValueFailure } from '#internals/core/schema/value.ts';
 import { argValueSchema, decodeValue, flagValueSchema } from '#internals/core/schema/value.ts';
+import { hasArgvBoundary } from './argv-boundaries.ts';
 import type { Occurrence } from './occurrences.ts';
 import {
 	INCREMENT_OCCURRENCE,
@@ -563,6 +564,38 @@ function flagExpectsValue(schema: FlagSchema): boolean {
 	return schema.kind !== 'boolean' && schema.kind !== 'count';
 }
 
+/** Whether argv would tokenize a value as a positional. */
+function isPositionalValue(raw: string): boolean {
+	return raw === '-' || !raw.startsWith('-');
+}
+
+/**
+ * Count following tokens taken by a variadic long option. A flag-shaped
+ * token can supply the first value if it is not a recognized option.
+ * Subsequent values stop at any option spelling or the separator.
+ * @internal
+ */
+function variadicLongValueCount(
+	argv: readonly string[],
+	index: number,
+	lookup: ReadonlyMap<string, FlagLookupEntry>,
+	inline: boolean,
+	cursor?: string,
+): number {
+	let count = 0;
+	for (let i = index + 1; !hasArgvBoundary(argv, i); i++) {
+		const raw = i === argv.length ? cursor : argv[i];
+		if (raw === undefined || raw === '--') break;
+		if (!isPositionalValue(raw)) {
+			if (inline || count > 0 || helpFlagMode(raw) !== undefined) break;
+			const spelling = raw.startsWith('--') ? raw.slice(2).split('=', 1)[0] : raw.charAt(1);
+			if (spelling !== undefined && lookup.has(spelling)) break;
+		}
+		count++;
+	}
+	return count;
+}
+
 // --- Value coercion
 
 /**
@@ -982,7 +1015,7 @@ function parseCommand(
 		try {
 			i =
 				token.kind === 'long-flag'
-					? parseLongFlag(token, tokens, i, flagLookup, occurrences)
+					? parseLongFlag(token, argv, i, flagLookup, occurrences)
 					: parseShortFlags(token, tokens, i, flagLookup, occurrences);
 		} catch (error) {
 			if (!(error instanceof ParseError) || !deferredFlagDiagnostics.get(occurrences)?.size)
@@ -1022,7 +1055,7 @@ function parseCommand(
  */
 function parseLongFlag(
 	token: { readonly kind: 'long-flag'; readonly name: string; readonly value: string | undefined },
-	tokens: readonly Token[],
+	argv: readonly string[],
 	startIdx: number,
 	flagLookup: ReadonlyMap<string, FlagLookupEntry>,
 	occurrences: Map<string, FlagOccurrences>,
@@ -1092,6 +1125,19 @@ function parseLongFlag(
 		return startIdx + 1;
 	}
 
+	if (flagSchema.variadic === true) {
+		const count = variadicLongValueCount(argv, startIdx, flagLookup, token.value !== undefined);
+		const following = argv.slice(startIdx + 1, startIdx + count + 1);
+		const values = token.value === undefined ? following : [token.value, ...following];
+		if (values.length === 0) throw missingValue(canonicalName, token.name, flagSchema.kind);
+		recordFlagOccurrence(occurrences, canonicalName, flagSchema, values, displayName, () =>
+			values.flatMap((value) =>
+				flagTokenOccurrences(canonicalName, flagSchema, value, displayName),
+			),
+		);
+		return startIdx + 1 + count;
+	}
+
 	if (token.value !== undefined) {
 		// --flag=value (inline)
 		const inlineValue = token.value;
@@ -1102,17 +1148,21 @@ function parseLongFlag(
 	}
 
 	// --flag value (next token is the value)
-	const nextToken = tokens[startIdx + 1];
-	if (nextToken?.kind !== 'positional') {
-		throw new ParseError(`Flag ${displayName} requires a value`, {
-			code: 'MISSING_VALUE',
-			details: { flag: canonicalName, input: token.name, kind: flagSchema.kind },
-		});
+	const next = argv[startIdx + 1];
+	if (next === undefined || !isPositionalValue(next)) {
+		throw missingValue(canonicalName, token.name, flagSchema.kind);
 	}
-	recordFlagOccurrence(occurrences, canonicalName, flagSchema, nextToken.value, displayName, () =>
-		flagTokenOccurrences(canonicalName, flagSchema, nextToken.value, displayName),
+	recordFlagOccurrence(occurrences, canonicalName, flagSchema, next, displayName, () =>
+		flagTokenOccurrences(canonicalName, flagSchema, next, displayName),
 	);
 	return startIdx + 2;
+}
+
+function missingValue(flag: string, input: string, kind: FlagSchema['kind']): ParseError {
+	return new ParseError(`Flag --${input} requires a value`, {
+		code: 'MISSING_VALUE',
+		details: { flag, input, kind },
+	});
 }
 
 // --- Short flag parsing
@@ -1415,4 +1465,5 @@ export {
 	requestsHelp,
 	stripBeforeSeparator,
 	tokenize,
+	variadicLongValueCount,
 };

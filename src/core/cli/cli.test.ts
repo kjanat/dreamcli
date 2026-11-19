@@ -197,6 +197,68 @@ describe('--version flag', () => {
 	});
 });
 
+describe('variadic named options', () => {
+	it.each([['--config', 'settings.json'], ['--config=settings.json'], ['--no-config']])(
+		'keeps stripped config options as boundaries (%j)',
+		async (...configArgv) => {
+			const stdout: string[] = [];
+			const app = cli('demo')
+				.config('demo', { noConfigFlag: true })
+				.command(
+					command('build')
+						.flag('args', flag.array(flag.string(), { variadic: true }))
+						.arg('tail', arg.string())
+						.action(({ flags, args, out }) => out.json({ values: flags.args, tail: args.tail })),
+				);
+			const adapter = createTestAdapter({
+				argv: ['node', 'demo', '--json', 'build', '--args', 'one', ...configArgv, 'tail'],
+				readFile: async () => '{}',
+				stdout: (line) => stdout.push(line),
+			});
+			await expect(app.run({ adapter })).rejects.toMatchObject({ code: 0 });
+			expect(JSON.parse(stdout.join(''))).toEqual({ values: ['one'], tail: 'tail' });
+		},
+	);
+
+	it.each(['--json', '--quiet', '-q'])(
+		'keeps %s as a boundary after stripping root options',
+		async (globalFlag) => {
+			const app = cli('demo').command(
+				command('build')
+					.flag('args', flag.array(flag.string(), { variadic: true }))
+					.arg('tail', arg.string())
+					.action(({ flags, args, out }) => out.json({ values: flags.args, tail: args.tail })),
+			);
+			const result = await app.execute(['build', '--args', 'one', globalFlag, 'tail']);
+			expect(result.exitCode).toBe(0);
+			expect(JSON.parse(result.stdout.join(''))).toEqual({ values: ['one'], tail: 'tail' });
+		},
+	);
+
+	it('collects a run of values and supports one flag-shaped first value', async () => {
+		const app = cli('demo').default(
+			command('build')
+				.flag('args', flag.array(flag.string(), { variadic: true }))
+				.flag('push', flag.boolean())
+				.arg('tail', arg.string().variadic().default([]))
+				.action(({ flags, args, out }) =>
+					out.log(JSON.stringify([flags.args, flags.push, args.tail])),
+				),
+		);
+		expect((await app.execute(['--args', 'one', 'two', '--push', '--', 'three'])).stdout).toEqual([
+			'[["one","two"],true,["three"]]\n',
+		]);
+		expect((await app.execute(['--args', '--load', 'target'])).stdout).toEqual([
+			'[["--load","target"],false,[]]\n',
+		]);
+		expect((await app.execute(['--args=one', 'two', '--args=three'])).stdout).toEqual([
+			'[["one","two","three"],false,[]]\n',
+		]);
+		expect((await app.execute(['--args', '--push'])).error?.code).toBe('MISSING_VALUE');
+		expect((await app.execute(['--args', '--'])).error?.code).toBe('MISSING_VALUE');
+	});
+});
+
 // --- Built-in global options in root help (#32)
 
 describe('root help — built-in global options', () => {
