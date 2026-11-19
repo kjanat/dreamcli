@@ -200,6 +200,8 @@ export interface RunOptions {
  * @internal
  */
 export interface InternalRunOptions extends RunOptions {
+	/** Deferred adapter read when argv transforms decide stdin eligibility. */
+	readonly readStdin?: () => Promise<string | null>;
 	/**
 	 * Output channel override used by live CLI execution.
 	 *

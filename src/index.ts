@@ -53,6 +53,8 @@ export type {
 	RenderContextOptions,
 	ResolvedCommandParams,
 	ResolvedManifestSettings,
+	TransformArgvParams,
+	TransformArgvResult,
 } from './core/cli/index.ts';
 export {
 	CLIBuilder,

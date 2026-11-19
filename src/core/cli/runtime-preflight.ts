@@ -159,6 +159,8 @@ interface RuntimePreflightOptions {
  * @internal
  */
 interface RuntimeExecutionInputs {
+	/** Deferred adapter read when argv transforms decide stdin eligibility. */
+	readonly readStdin?: () => Promise<string | null>;
 	/** Resolved environment variables (from adapter or caller override). */
 	readonly env: Readonly<Record<string, string | undefined>>;
 	/** Whether stdout is a TTY (controls color, spinners, interactive prompts). */
@@ -552,7 +554,12 @@ async function prepareRuntimePreflight(
 		options.adapter.stdinIsTTY
 			? createLazyTerminalPrompter(options.adapter)
 			: undefined;
+	// Transforms run once, after dispatch. Only their parsed argv can select stdin.
+	const deferStdin =
+		options.options?.stdinData === undefined &&
+		options.compiled.plugins.some(({ hooks }) => hooks.transformArgv !== undefined);
 	const stdinData =
+		!deferStdin &&
 		options.options?.stdinData === undefined &&
 		invocationNeedsStdin(schema, options.compiled, filteredArgv)
 			? await options.adapter.readStdin()
@@ -570,6 +577,7 @@ async function prepareRuntimePreflight(
 			stat: options.options?.stat ?? options.adapter.stat,
 			mkdir: options.options?.mkdir ?? options.adapter.mkdir,
 			...(stdinData !== undefined ? { stdinData } : {}),
+			...(deferStdin ? { readStdin: () => options.adapter.readStdin() } : {}),
 			...(options.options?.prompter !== undefined
 				? { prompter: options.options.prompter }
 				: autoPrompter !== undefined

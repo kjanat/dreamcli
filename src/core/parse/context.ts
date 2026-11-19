@@ -22,6 +22,8 @@ export interface ParseFlagInfo {
 
 /** Read-only token information for one command invocation. */
 export interface ParseContext {
+	/** Metadata accumulated by argv transforms for this invocation, shallowly frozen. */
+	readonly metadata: Readonly<Record<string, unknown>>;
 	/** Look up a flag by its declared name. An absent flag has zero occurrences. */
 	readonly flag: (name: string) => ParseFlagInfo;
 }
@@ -33,9 +35,10 @@ const absent: ParseFlagInfo = Object.freeze({
 });
 
 /** @internal Record spellings during the parser walk and expose a read-only view to callbacks. */
-export function createOccurrenceRecorder() {
+export function createOccurrenceRecorder(metadata: Readonly<Record<string, unknown>>) {
 	const flags = new Map<string, ParseOccurrence[]>();
 	const context: ParseContext = Object.freeze({
+		metadata,
 		flag(name: string): ParseFlagInfo {
 			const occurrences = flags.get(name);
 			return occurrences

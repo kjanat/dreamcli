@@ -985,6 +985,7 @@ function parse(
 export function parseForExecution(
 	schema: CommandSchema,
 	argv: readonly string[],
+	metadata: Readonly<Record<string, unknown>>,
 	options?: ParseOptions,
 ) {
 	const occurrences = new Map<string, FlagOccurrences>();
@@ -992,7 +993,7 @@ export function parseForExecution(
 		deferredFlagDiagnostics.set(occurrences, new Map());
 		deferredCustomFlags.set(occurrences, new Map());
 	}
-	const { record, context } = createOccurrenceRecorder();
+	const { record, context } = createOccurrenceRecorder(metadata);
 	return { parsed: parseCommand(schema, argv, options, occurrences, record), context };
 }
 

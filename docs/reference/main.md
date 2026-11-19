@@ -352,7 +352,7 @@ import type { CLIPluginHooks } from '@kjanat/dreamcli';
 //                   ^?
 ```
 
-Use `beforeParse` to inspect raw argv, `afterResolve` to observe resolved args/flags,
+Use `beforeParse` to inspect the original leaf-command argv, `transformArgv` to rewrite it, `afterResolve` to observe resolved args/flags,
 `beforeAction` to run immediately before middleware and the action handler, and `afterAction`
 to observe successful completion.
 
@@ -376,6 +376,37 @@ can log, validate, or instrument the exact argument list before parsing starts.
 import type { BeforeParseParams } from '@kjanat/dreamcli';
 //                  ^?
 ```
+
+### Rewriting command arguments
+
+Use `transformArgv` to translate legacy flags after DreamCLI has selected a command. All
+`beforeParse` observers see its original arguments. DreamCLI then awaits each transform in
+registration order and parses the final arguments. Root options, help, and command selection
+have already been handled.
+
+```ts twoslash
+import { cli, command, flag, plugin } from '@kjanat/dreamcli';
+
+const compat = plugin({
+  transformArgv: ({ argv }) => {
+    if (argv[0] === '--colour') {
+      return { argv: ['--color', ...argv.slice(1)], metadata: { usedColour: true } };
+    }
+  },
+});
+
+cli('demo').plugin(compat).command(
+  command('paint').flag('color', flag.boolean()).action(({ parse, out }) => {
+    if (parse.metadata.usedColour) out.warn('Use --color instead of --colour.');
+  }),
+);
+```
+
+Each transform receives the latest `argv` and `metadata`. Return either field or both. An empty
+`argv` clears the arguments. Returning nothing keeps both fields. Metadata starts empty on every
+invocation and merges by top-level key. Later entries replace earlier entries, including entire
+nested values. The metadata object is shallowly frozen. Resolved plugins, derive, middleware, and
+actions read it through `parse.metadata`. Flag occurrences describe the rewritten arguments.
 
 ### `ResolvedCommandParams`
 

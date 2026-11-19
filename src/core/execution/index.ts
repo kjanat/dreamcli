@@ -24,7 +24,11 @@ import { formatHelp, formatHelpTopic } from '#internals/core/help/index.ts';
 import type { CapturedOutput } from '#internals/core/output/index.ts';
 import { clearRequestedExitCode, getRequestedExitCode } from '#internals/core/output/index.ts';
 import type { ParseContext } from '#internals/core/parse/context.ts';
-import { parseForExecution, requestedHelpMode } from '#internals/core/parse/index.ts';
+import {
+	parseForExecution,
+	pendingFlagErrors,
+	requestedHelpMode,
+} from '#internals/core/parse/index.ts';
 import type { Ask } from '#internals/core/prompt/definitions.ts';
 import type { PromptEngine } from '#internals/core/prompt/index.ts';
 import type { PromptSession } from '#internals/core/prompt/session.ts';
@@ -44,6 +48,7 @@ import type {
 	Out,
 } from '#internals/core/schema/command.ts';
 import type { InternalRunOptions, RunResult } from '#internals/core/schema/run.ts';
+import { invocationSelectsStdin } from '#internals/core/schema/source.ts';
 import { validateCommandInputs } from './constraints.ts';
 
 /**
@@ -176,18 +181,29 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 			return { exitCode: 1, error };
 		}
 
-		await runBeforeParseHooks(options?.plugins, {
+		const transformed = await prepareCommandArgv(options?.plugins, {
 			argv,
 			command: schema,
 			meta,
 			out,
 		});
 
-		const { parsed, context: parse } = parseForExecution(schema, argv, options?.flags);
+		const { parsed, context: parse } = parseForExecution(
+			schema,
+			transformed.argv,
+			transformed.metadata,
+			options?.flags,
+		);
+		const stdinData =
+			options?.readStdin &&
+			!pendingFlagErrors(parsed.flags)?.size &&
+			invocationSelectsStdin(schema.flags, schema.args, parsed)
+				? await options.readStdin()
+				: options?.stdinData;
 
 		const effectivePrompter = options?.prompter ?? (await scriptedPrompter(options?.answers));
 		const resolveOptions: ResolveOptions = {
-			...(options?.stdinData !== undefined ? { stdinData: options.stdinData } : {}),
+			...(stdinData !== undefined ? { stdinData } : {}),
 			...(options?.env !== undefined ? { env: options.env } : {}),
 			...(options?.config !== undefined ? { config: options.config } : {}),
 			...(effectivePrompter !== undefined ? { prompter: effectivePrompter } : {}),
@@ -264,7 +280,7 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 	}
 }
 
-type ResolvedHookName = Exclude<keyof CLIPlugin['hooks'], 'beforeParse'>;
+type ResolvedHookName = Exclude<keyof CLIPlugin['hooks'], 'beforeParse' | 'transformArgv'>;
 
 async function scriptedPrompter(
 	answers: readonly TestAnswer[] | undefined,
@@ -274,15 +290,30 @@ async function scriptedPrompter(
 	return createTestPrompter(answers);
 }
 
-async function runBeforeParseHooks(
+const emptyMetadata: Readonly<Record<string, unknown>> = Object.freeze({ __proto__: null });
+
+async function prepareCommandArgv(
 	plugins: readonly CLIPlugin[] | undefined,
 	params: BeforeParseParams,
-): Promise<void> {
-	if (plugins === undefined) return;
-	for (const current of plugins) {
-		const hook = current.hooks.beforeParse;
-		if (hook !== undefined) await hook(params);
+) {
+	let argv = params.argv;
+	let metadata = emptyMetadata;
+	if (!plugins?.length) return { argv, metadata };
+
+	for (const { hooks } of plugins) {
+		const { beforeParse } = hooks;
+		if (beforeParse !== undefined) await beforeParse(params);
 	}
+	for (const { hooks } of plugins) {
+		if (!hooks.transformArgv) continue;
+		if (argv === params.argv) argv = Object.freeze([...argv]);
+		const result = await hooks.transformArgv({ ...params, argv, metadata });
+		if (result?.argv !== undefined) argv = Object.freeze([...result.argv]);
+		if (result?.metadata !== undefined) {
+			metadata = Object.freeze({ __proto__: null, ...metadata, ...result.metadata });
+		}
+	}
+	return { argv, metadata };
 }
 
 async function runResolvedHooks(

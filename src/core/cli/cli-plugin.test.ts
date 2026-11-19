@@ -145,3 +145,94 @@ describe('CLIBuilder.plugin() — hook ordering', () => {
 		]);
 	});
 });
+
+describe('transformArgv', () => {
+	it('awaits transforms in registration order and exposes their metadata and final spellings', async () => {
+		const seen = vi.fn();
+		const original = ['deploy', '--legacy'];
+		// A previously ignored return value from an observer stays ignored.
+		const observe: () => void = () => ({ argv: ['--ignored'] });
+		const app = cli('demo')
+			.plugin(
+				plugin({
+					beforeParse: observe,
+					transformArgv: async ({ argv, metadata }) => {
+						expect(argv).toEqual(['--legacy']);
+						expect(metadata).toEqual({});
+						await Promise.resolve();
+						return { argv: ['--region', 'eu'], metadata: { legacy: true, source: 'first' } };
+					},
+				}),
+			)
+			.plugin(
+				plugin({
+					beforeParse: ({ argv }) => {
+						expect(argv).toEqual(['--legacy']);
+					},
+					transformArgv: ({ argv, metadata }) => {
+						expect(argv).toEqual(['--region', 'eu']);
+						expect(metadata).toEqual({ legacy: true, source: 'first' });
+						expect(Object.isFrozen(argv) && Object.isFrozen(metadata)).toBe(true);
+						return { metadata: { source: 'second' } };
+					},
+					afterResolve: ({ parse }) => {
+						seen(parse.metadata);
+					},
+				}),
+			)
+			.command(
+				command('deploy')
+					.flag('region', flag.string())
+					.action(({ flags, parse }) => {
+						seen(flags.region, parse.flag('region').occurrences, parse.metadata);
+					}),
+			);
+		expect((await app.execute(original)).exitCode).toBe(0);
+		expect(original).toEqual(['deploy', '--legacy']);
+		expect(seen.mock.calls).toEqual([
+			[{ legacy: true, source: 'second' }],
+			[
+				'eu',
+				[{ spelling: '--region', index: 0, negated: false }],
+				{ legacy: true, source: 'second' },
+			],
+		]);
+	});
+
+	it('keeps metadata local to concurrent runs and accepts an empty replacement', async () => {
+		const app = cli('demo')
+			.plugin(
+				plugin({
+					transformArgv: ({ argv }) =>
+						argv.length ? { argv: [], metadata: { previous: argv[0] } } : undefined,
+				}),
+			)
+			.default(
+				command('run').action(({ parse, out }) => {
+					out.json(parse.metadata);
+				}),
+			);
+		const [rewritten, untouched] = await Promise.all([app.execute(['--old']), app.execute([])]);
+		expect(rewritten.exitCode).toBe(0);
+		expect(untouched.exitCode).toBe(0);
+		expect(JSON.parse(rewritten.stdout.join(''))).toEqual({ previous: '--old' });
+		expect(JSON.parse(untouched.stdout.join(''))).toEqual({});
+	});
+
+	it('short-circuits help and stops the chain when a transform rejects', async () => {
+		const fail = vi.fn(async () => {
+			throw new Error('bad migration');
+		});
+		const downstream = vi.fn();
+		const app = cli('demo')
+			.plugin(plugin({ transformArgv: fail }))
+			.plugin(plugin({ transformArgv: downstream }))
+			.command(command('deploy').action(downstream));
+		expect((await app.execute(['deploy', '--help'])).exitCode).toBe(0);
+		expect(fail).not.toHaveBeenCalled();
+		const result = await app.execute(['deploy']);
+		expect(result.error?.message).toContain('bad migration');
+		expect(result.exitCode).toBe(1);
+		expect(downstream).not.toHaveBeenCalled();
+	});
+});
