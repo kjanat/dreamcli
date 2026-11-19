@@ -33,6 +33,7 @@ type UnbrandedCLISchema = Omit<CLISchema, typeof schemaBrand | 'configSettings' 
 
 const spelledFlagFields: UnbrandedFlagSchema = {
 	kind: 'string',
+	completionValues: undefined,
 	presence: 'optional',
 	defaultValue: undefined,
 	defaultDescription: undefined,
@@ -168,7 +169,7 @@ describe('schema sealing', () => {
 
 	describe('structural literals', () => {
 		it('spells every flag field a caller can reach', () => {
-			expect(spelledFlagFields).toEqual(createFlagSchema('string'));
+			expect(createFlagSchema('string')).toStrictEqual(spelledFlagFields);
 		});
 
 		it('rejects a fully spelled flag literal', () => {
@@ -321,6 +322,15 @@ describe('schema sealing', () => {
 
 			expect(built.elementSchema).toEqual(createFlagSchema('string'));
 			expect(createFlagSchema(built)).toEqual(built);
+		});
+
+		it('fills in completionValues on an element built without that field', () => {
+			const element = { ...createFlagSchema('string') };
+			Reflect.deleteProperty(element, 'completionValues');
+
+			const array = createFlagSchema({ kind: 'array', elementSchema: element });
+
+			expect(array.elementSchema).toHaveProperty('completionValues', undefined);
 		});
 
 		it('rebuilds a deep-equal arg schema from its own output', () => {

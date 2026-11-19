@@ -300,7 +300,7 @@ interface FlagSchema<K extends FlagKind = FlagKind> {
 	/** Callback used to complete this input's values. */
 	readonly completion?: CompletionHandler | undefined;
 	/** Static shell completion suggestions for this flag. */
-	readonly completionValues?: readonly string[] | undefined;
+	readonly completionValues: readonly string[] | undefined;
 	/** What kind of value this flag accepts. */
 	readonly kind: K;
 	/** Current presence state. */
@@ -833,6 +833,7 @@ function getVisibleNegatedName(name: string, schema: FlagSchema): string | undef
 /** Every runtime key carried by a normalized {@link FlagSchema}. */
 const NORMALIZED_FLAG_SCHEMA_KEYS: readonly (keyof FlagSchema)[] = [
 	'kind',
+	'completionValues',
 	'presence',
 	'defaultValue',
 	'defaultDescription',
@@ -1316,6 +1317,7 @@ function assembleFlagSchema<K extends FlagKind>(
 
 	return {
 		kind,
+		completionValues: undefined,
 		presence: presence ?? 'optional',
 		defaultValue: undefined,
 		defaultDescription: undefined,
