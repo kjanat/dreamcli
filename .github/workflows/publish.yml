@@ -24,6 +24,7 @@ jobs:
     outputs:
       source-sha: ${{ fromJSON(steps.beepboop.outputs.context).sourceSha }}
       execution-id: ${{ steps.beepboop.outputs.execution-id }}
+      force: ${{ fromJSON(steps.beepboop.outputs.context).force == true }}
       npm: ${{ steps.npm.outputs.meta }}
       jsr: ${{ steps.jsr.outputs.meta }}
     steps:
@@ -60,6 +61,9 @@ jobs:
       - uses: $/.github/actions/setup
       - run: runner install --frozen
       - run: run -s schema:emit version:check ci smoke
+        continue-on-error: ${{ fromJSON(needs.meta.outputs.force) }}
+        timeout-minutes: 10
+      - run: run -s build
       - id: pack
         run: tarball="$(bun pm pack --quiet --ignore-scripts)"; echo "tarball=${tarball//$'\n'/}" >> "${GITHUB_OUTPUT}"
       - uses: actions/upload-artifact@v7
@@ -118,7 +122,7 @@ jobs:
         with: { ref: "${{ needs.meta.outputs.source-sha }}", persist-credentials: false }
       - uses: $/.github/actions/setup
       - id: publish
-        run: runner install -fK build jsr:publish
+        run: runner install -fK build ${{ case(fromJSON(needs.meta.outputs.force), 'jsr:publish:force', 'jsr:publish') }}
       - name: Report jsr publication
         if: ${{ !cancelled() }}
         uses: kjanat/beepboop/actions/report@v1
