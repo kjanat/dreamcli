@@ -27,7 +27,7 @@
 		"@types/bun": "catalog:",
 		"typescript": "catalog:"
 	},
-	"packageManager": "bun@1.4.4",
+	"packageManager": "bun@1.4.5",
 	"engines": {
 		"bun": "^1.3"
 	},
