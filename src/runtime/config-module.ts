@@ -1,5 +1,8 @@
 /** Native executable config imports for Node, Bun, and Deno. @module */
 
+import type { WorkerOptions } from 'node:worker_threads';
+import { detectRuntime } from './detect.ts';
+
 /** @internal */
 export async function importConfigModule(path: string): Promise<unknown> {
 	const { pathToFileURL } = await import('node:url');
@@ -24,11 +27,15 @@ try {
 
 /** @internal Import an independent module graph; discard it even if the config left active timers. */
 export async function importFreshConfigModule(path: string): Promise<unknown> {
-	const { Worker } = await import('node:worker_threads');
+	const threads = await import('node:worker_threads');
 	const { pathToFileURL } = await import('node:url');
-	const worker = new Worker(new URL(`data:text/javascript,${encodeURIComponent(workerSource)}`), {
-		workerData: pathToFileURL(path).href,
-	});
+	const options: WorkerOptions = { workerData: pathToFileURL(path).href };
+	// Deno's default worker environment snapshots every variable and can prompt before import.
+	if (detectRuntime() === 'deno') options.env = threads.SHARE_ENV;
+	const worker = new threads.Worker(
+		new URL(`data:text/javascript,${encodeURIComponent(workerSource)}`),
+		options,
+	);
 	try {
 		return await new Promise<unknown>((resolve, reject) => {
 			worker.once(

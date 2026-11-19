@@ -145,10 +145,14 @@ import { configModule, discoverConfig } from ${JSON.stringify(new URL('../config
 import { createDenoAdapter } from ${JSON.stringify(runtimeUrl)};
 const [configPath, mode] = Deno.args;
 const options = mode === 'auto' ? { searchPaths: [configPath] } : { configPath };
+// --no-prompt masks the interactive permission request. Detect the attempted snapshot itself.
+let snapshots = 0;
+Deno.env.toObject = () => { snapshots++; throw new Error('unexpected environment snapshot'); };
 try {
   const result = await discoverConfig('app', createDenoAdapter(), { ...options, loaders: [configModule({ fresh: true })] });
   console.log(JSON.stringify(result.found ? result.data : null));
 } catch (error) { console.log(error.code); }
+if (snapshots !== 0) throw new Error('Config discovery enumerated the environment');
 `;
 			const check = (permission: string, mode = 'explicit') => {
 				const result = runDeno(probe, [permission], [config, mode]);
