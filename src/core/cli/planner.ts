@@ -527,7 +527,8 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 	const rootOutputFlags = readRootOutputFlags(options.argv, options.schema.builtins);
 	const filteredArgv = rootOutputFlags.argv;
 	const separatorIndex = filteredArgv.indexOf('--');
-	const filteredHead = separatorIndex === -1 ? filteredArgv : filteredArgv.slice(0, separatorIndex);
+	const filteredHead =
+		separatorIndex === -1 ? filteredArgv : sliceArgvHead(filteredArgv, separatorIndex);
 
 	const defaultCommand = options.compiled.defaultCommand;
 	// At the root, a default command's flags govern value-flag arity so a
@@ -764,3 +765,5 @@ export {
 	mergeCommandSchema,
 	planInvocation,
 };
+
+import { sliceArgvHead } from '#internals/core/parse/argv-boundaries.ts';

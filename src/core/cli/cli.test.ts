@@ -180,6 +180,21 @@ describe('--version flag', () => {
 });
 
 describe('variadic named options', () => {
+	it.each(['--json', '--quiet', '-q'])(
+		'keeps %s as a boundary after stripping root options',
+		async (globalFlag) => {
+			const app = cli('demo').command(
+				command('build')
+					.flag('args', flag.array(flag.string(), { variadic: true }))
+					.arg('tail', arg.string())
+					.action(({ flags, args, out }) => out.json({ values: flags.args, tail: args.tail })),
+			);
+			const result = await app.execute(['build', '--args', 'one', globalFlag, 'tail']);
+			expect(result.exitCode).toBe(0);
+			expect(JSON.parse(result.stdout.join(''))).toEqual({ values: ['one'], tail: 'tail' });
+		},
+	);
+
 	it('collects a run of values and supports one flag-shaped first value', async () => {
 		const app = cli('demo').default(
 			command('build')

@@ -149,6 +149,7 @@ function readRootOutputFlags(argv: readonly string[], builtins?: BuiltinsConfig)
 		quiet: 'absent',
 	};
 	const keptHead: string[] = [];
+	const boundaries = new Set<number>();
 	const errors = new Map<RootOutputFlagName, ParseError>();
 	let stripped = false;
 
@@ -159,6 +160,7 @@ function readRootOutputFlags(argv: readonly string[], builtins?: BuiltinsConfig)
 			continue;
 		}
 		stripped = true;
+		boundaries.add(keptHead.length);
 		if (match.kind === 'invalid') {
 			errors.delete(match.name);
 			errors.set(match.name, match.error);
@@ -174,6 +176,7 @@ function readRootOutputFlags(argv: readonly string[], builtins?: BuiltinsConfig)
 			? keptHead
 			: [...keptHead, ...argv.slice(separatorIndex)];
 	const resolved = { json: selections.json, quiet: selections.quiet, argv: strippedArgv };
+	markArgvBoundaries(strippedArgv, boundaries);
 	const error = errors.values().next().value;
 
 	return error !== undefined ? { kind: 'failed', ...resolved, error } : { kind: 'ok', ...resolved };
@@ -215,3 +218,5 @@ function resolveRootVerbosity(
 
 export type { RootOutputFlagName, RootOutputFlags };
 export { readRootOutputFlags, resolveRootJsonMode, resolveRootVerbosity };
+
+import { markArgvBoundaries } from '#internals/core/parse/argv-boundaries.ts';

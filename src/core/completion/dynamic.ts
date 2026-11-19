@@ -125,7 +125,8 @@ function completionPosition(
 				if (
 					index + skip === remaining.length - 1 &&
 					cursor !== undefined &&
-					!cursor.startsWith('-')
+					variadicLongValueCount(remaining, index, lookup, match.inline !== undefined, cursor) >
+						skip
 				) {
 					pending = match.entry;
 					break;

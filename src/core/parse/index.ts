@@ -579,10 +579,11 @@ function variadicLongValueCount(
 	index: number,
 	lookup: ReadonlyMap<string, FlagLookupEntry>,
 	inline: boolean,
+	cursor?: string,
 ): number {
 	let count = 0;
-	for (let i = index + 1; i < argv.length; i++) {
-		const raw = argv[i];
+	for (let i = index + 1; !hasArgvBoundary(argv, i); i++) {
+		const raw = i === argv.length ? cursor : argv[i];
 		if (raw === undefined || raw === '--') break;
 		if (!isPositionalValue(raw)) {
 			if (inline || count > 0 || helpFlagMode(raw) !== undefined) break;
@@ -1465,3 +1466,5 @@ export {
 	tokenize,
 	variadicLongValueCount,
 };
+
+import { hasArgvBoundary } from './argv-boundaries.ts';

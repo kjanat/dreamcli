@@ -457,7 +457,7 @@ interface FlagSchema<K extends FlagKind = FlagKind> {
 	 */
 	readonly negation: FlagNegation | undefined;
 	/** Whether one long array flag occurrence consumes multiple argv tokens. */
-	readonly variadic?: true | undefined;
+	readonly variadic: true | undefined;
 	/**
 	 * Duplicate policy for repeated CLI occurrences. See {@link DuplicatePolicy}.
 	 *
@@ -855,6 +855,7 @@ const NORMALIZED_FLAG_SCHEMA_KEYS: readonly (keyof FlagSchema)[] = [
 	'deprecated',
 	'propagate',
 	'negation',
+	'variadic',
 	'duplicates',
 ];
 
@@ -1325,6 +1326,7 @@ function assembleFlagSchema<K extends FlagKind>(
 		deprecated: undefined,
 		propagate: propagate ?? false,
 		negation: undefined,
+		variadic: undefined,
 		duplicates: duplicates ?? 'last',
 		...rest,
 		envIndexed:

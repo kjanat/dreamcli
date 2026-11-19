@@ -167,7 +167,7 @@ function dispatch(
 	}
 
 	// Remove command name token from argv, preserving order.
-	const remaining = [...argv.slice(0, cmdIdx), ...argv.slice(cmdIdx + 1)];
+	const remaining = removeArgvToken(argv, cmdIdx);
 	const currentPath = [...ancestorPath, matched.schema];
 
 	// At the child level, arity follows the group's effective flags.
@@ -385,3 +385,5 @@ export type {
 	ValueFlagLookup,
 };
 export { consumesFollowingToken, dispatch, findClosestCommand, levenshtein, uniqueCommands };
+
+import { removeArgvToken } from '#internals/core/parse/argv-boundaries.ts';
