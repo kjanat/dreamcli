@@ -45,7 +45,7 @@ export function createOccurrenceRecorder(metadata: Readonly<Record<string, unkno
 				? Object.freeze({
 						present: true,
 						count: occurrences.length,
-						occurrences: Object.freeze(occurrences),
+						occurrences: Object.freeze([...occurrences]),
 					})
 				: absent;
 		},
