@@ -27,6 +27,10 @@
 		"jsr:publish": {
 			"description": "Publish package to JSR",
 			"command": "deno publish"
+		},
+		"jsr:publish:force": {
+			"description": "Publish package to JSR without type checks",
+			"command": "deno publish --no-check --allow-slow-types"
 		}
 	},
 	"importMap": "./import_map.json",

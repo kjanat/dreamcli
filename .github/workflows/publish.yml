@@ -122,7 +122,7 @@ jobs:
         with: { ref: "${{ needs.meta.outputs.source-sha }}", persist-credentials: false }
       - uses: $/.github/actions/setup
       - id: publish
-        run: runner install -fK build jsr:publish
+        run: runner install -fK build ${{ case(fromJSON(needs.meta.outputs.force), 'jsr:publish:force', 'jsr:publish') }}
       - name: Report jsr publication
         if: ${{ !cancelled() }}
         uses: kjanat/beepboop/actions/report@v1
