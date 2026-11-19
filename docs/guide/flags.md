@@ -1175,6 +1175,30 @@ count: a flag set both on the CLI and via env/config follows the normal preceden
 never a duplicate. `.duplicates()` is unavailable on `array`, `count`, and `keyValue` flags,
 which inherently accumulate.
 
+### Inspecting flag occurrences
+
+Use `parse.flag(name)` in a derive, middleware, action, or post-resolution plugin hook to read the
+spellings supplied for a flag. Look it up by the name used in `.flag()`.
+
+```ts twoslash
+import { command, flag } from '@kjanat/dreamcli';
+
+command('build')
+  .flag('debug', flag.boolean().negatable())
+  .action(({ flags, parse, out }) => {
+    const debug = parse.flag('debug');
+    out.log(JSON.stringify([flags.debug, debug.count, debug.occurrences[debug.count - 1]?.spelling]));
+  });
+// --no-debug         → [false, 1, "--no-debug"]
+// --debug --no-debug → [false, 2, "--no-debug"]
+```
+
+Each occurrence records its spelling, its zero-based index in the matched command's argv, and
+whether it used the declared negation. Grouped short flags share an index. A flag that consumes
+several values contributes one occurrence for that spelling. The history excludes flag values and
+includes repeats even when `.duplicates('first')` keeps an earlier value. A flag supplied only by
+the environment, config, or a default has `present: false`, a count of zero, and an empty history.
+
 ### Propagation
 
 Flags marked with `.propagate()` are inherited by all subcommands:

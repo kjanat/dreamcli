@@ -14,6 +14,7 @@
  * @module dreamcli/core/schema/middleware
  */
 
+import type { ParseContext } from '#internals/core/parse/context.ts';
 import type { Ask } from '#internals/core/prompt/definitions.ts';
 import type { CommandMeta, ErasedInputSources, Out } from './command.ts';
 
@@ -39,6 +40,8 @@ interface MiddlewareParams {
 	 * resolved no value for, both read `undefined`.
 	 */
 	readonly sources: ErasedInputSources;
+	/** Flag spellings observed in this command invocation. */
+	readonly parse: ParseContext;
 	/** Context accumulated from previous middleware in the chain. */
 	readonly ctx: Readonly<Record<string, unknown>>;
 	/** Output channel. */
@@ -77,6 +80,8 @@ type MiddlewareHandler<Output extends Record<string, unknown>> = (params: {
 	readonly args: Readonly<Record<string, unknown>>;
 	readonly flags: Readonly<Record<string, unknown>>;
 	readonly sources: ErasedInputSources;
+	/** Flag spellings observed in this command invocation. */
+	readonly parse: ParseContext;
 	readonly ctx: Readonly<Record<string, unknown>>;
 	readonly out: Out;
 	/** Invocation-scoped interactive questions. */

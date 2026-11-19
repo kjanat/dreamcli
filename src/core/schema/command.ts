@@ -13,6 +13,7 @@ import type { Colors } from 'ansispeck';
 import { CLIError } from '#internals/core/errors/index.ts';
 import type { HelpDescription } from '#internals/core/help/theme.ts';
 import type { Verbosity } from '#internals/core/output/contracts.ts';
+import type { ParseContext } from '#internals/core/parse/context.ts';
 import type { Ask } from '#internals/core/prompt/definitions.ts';
 import type { TerminalSize } from '#internals/runtime/adapter.ts';
 import type {
@@ -369,6 +370,7 @@ interface CommandMeta {
  * - `args`: fully resolved positional arguments
  * - `flags`: fully resolved flags
  * - `sources`: which stage produced each of those values
+ * - `parse`: flag occurrences in command-line order
  * - `ctx`: derive/middleware-provided context
  * - `out`: output channel
  * - `meta`: CLI program metadata (name, bin, version, command)
@@ -392,6 +394,8 @@ interface ActionParams<
 	 * the explicit-versus-defaulted question; read `stage` for the rest.
 	 */
 	readonly sources: InputSources<F, A>;
+	/** Flag spellings observed in this command invocation. */
+	readonly parse: ParseContext;
 	/** Middleware/derive-provided context, typed from `.middleware()` and `.derive()` chains. */
 	readonly ctx: Readonly<C>;
 	/** Structured output channel for stdout, stderr, JSON, tables, and spinners. */
@@ -431,6 +435,8 @@ type ErasedActionHandler = (params: {
 	readonly args: Readonly<Record<string, unknown>>;
 	readonly flags: Readonly<Record<string, unknown>>;
 	readonly sources: ErasedInputSources;
+	/** Flag spellings observed in this command invocation. */
+	readonly parse: ParseContext;
 	readonly ctx: Readonly<Record<string, unknown>>;
 	readonly out: Out;
 	/** Ask a typed question after selecting the operation or receiving a server challenge. */
@@ -485,6 +491,8 @@ type ErasedDeriveHandler = (params: {
 	readonly args: Readonly<Record<string, unknown>>;
 	readonly flags: Readonly<Record<string, unknown>>;
 	readonly sources: ErasedInputSources;
+	/** Flag spellings observed in this command invocation. */
+	readonly parse: ParseContext;
 	readonly ctx: Readonly<Record<string, unknown>>;
 	readonly out: Out;
 	/** Ask a typed question after selecting the operation or receiving a server challenge. */

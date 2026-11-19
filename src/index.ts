@@ -136,6 +136,7 @@ export type {
 } from './core/json-schema/index.ts';
 export type { OutputOptions, Verbosity, WriteFn } from './core/output/index.ts';
 export { createOutput } from './core/output/index.ts';
+export type { ParseContext, ParseFlagInfo, ParseOccurrence } from './core/parse/context.ts';
 export type { ParseOptions, ParseResult, Token } from './core/parse/index.ts';
 export {
 	includesBeforeSeparator,

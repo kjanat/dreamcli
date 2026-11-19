@@ -39,6 +39,7 @@ import { acceptsArgv, stdinReadsOnDash } from '#internals/core/schema/stdin.ts';
 import type { ValueFailure } from '#internals/core/schema/value.ts';
 import { argValueSchema, decodeValue, flagValueSchema } from '#internals/core/schema/value.ts';
 import { adjacentArgvValue, hasArgvBoundary } from './argv-boundaries.ts';
+import { createOccurrenceRecorder } from './context.ts';
 import type { Occurrence } from './occurrences.ts';
 import {
 	INCREMENT_OCCURRENCE,
@@ -980,17 +981,22 @@ function parse(
 	return parseCommand(schema, argv, options, new Map());
 }
 
-/** @internal Retain CLI value failures until the interactive resolver determines sensitivity. */
-export function parseForResolution(
+/** @internal Parse a command invocation and retain the token information exposed to callbacks. */
+export function parseForExecution(
 	schema: CommandSchema,
 	argv: readonly string[],
 	options?: ParseOptions,
-): ParseResult {
+) {
 	const occurrences = new Map<string, FlagOccurrences>();
-	deferredFlagDiagnostics.set(occurrences, new Map());
-	deferredCustomFlags.set(occurrences, new Map());
-	return parseCommand(schema, argv, options, occurrences);
+	if (schema.interactive !== undefined) {
+		deferredFlagDiagnostics.set(occurrences, new Map());
+		deferredCustomFlags.set(occurrences, new Map());
+	}
+	const { record, context } = createOccurrenceRecorder();
+	return { parsed: parseCommand(schema, argv, options, occurrences, record), context };
 }
+
+type RecordSpelling = ReturnType<typeof createOccurrenceRecorder>['record'];
 
 /** Shared parser walk; public parsing still throws value failures immediately. */
 function parseCommand(
@@ -998,6 +1004,7 @@ function parseCommand(
 	argv: readonly string[],
 	options: ParseOptions | undefined,
 	occurrences: Map<string, FlagOccurrences>,
+	record?: RecordSpelling,
 ): ParseResult {
 	const tokens = tokenize(argv);
 	const flagLookup = buildFlagLookup(schema.flags, options);
@@ -1024,8 +1031,8 @@ function parseCommand(
 		try {
 			i =
 				token.kind === 'long-flag'
-					? parseLongFlag(token, argv, i, flagLookup, occurrences)
-					: parseShortFlags(token, tokens, i, flagLookup, occurrences);
+					? parseLongFlag(token, argv, i, flagLookup, occurrences, record)
+					: parseShortFlags(token, tokens, i, flagLookup, occurrences, record);
 		} catch (error) {
 			if (!(error instanceof ParseError) || !deferredFlagDiagnostics.get(occurrences)?.size)
 				throw error;
@@ -1068,6 +1075,7 @@ function parseLongFlag(
 	startIdx: number,
 	flagLookup: ReadonlyMap<string, FlagLookupEntry>,
 	occurrences: Map<string, FlagOccurrences>,
+	record?: RecordSpelling,
 ): number {
 	const entry = flagLookup.get(token.name);
 	if (!entry) {
@@ -1084,6 +1092,7 @@ function parseLongFlag(
 
 	const { name: canonicalName, schema: flagSchema, negated } = entry;
 	const displayName = `--${token.name}`;
+	record?.(canonicalName, displayName, startIdx, negated);
 
 	if (negated) {
 		// Negated spelling is presence-only: it always means `false`.
@@ -1195,6 +1204,7 @@ function parseShortFlags(
 	startIdx: number,
 	flagLookup: ReadonlyMap<string, FlagLookupEntry>,
 	occurrences: Map<string, FlagOccurrences>,
+	record?: RecordSpelling,
 ): number {
 	const { chars } = token;
 	let nextIdx = startIdx + 1;
@@ -1211,6 +1221,7 @@ function parseShortFlags(
 
 		const { name: canonicalName, schema: flagSchema } = entry;
 		const displayName = `-${ch}`;
+		record?.(canonicalName, displayName, startIdx, entry.negated);
 
 		if (!flagExpectsValue(flagSchema)) {
 			// Boolean or count short flag — consumes no value
