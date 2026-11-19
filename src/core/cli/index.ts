@@ -834,6 +834,8 @@ interface CLIRunOptions extends CLIExecuteOptions {
  * @internal
  */
 interface InternalCLIExecuteOptions extends CLIExecuteOptions {
+	/** Deferred adapter read when argv transforms decide stdin eligibility. */
+	readonly readStdin?: () => Promise<string | null>;
 	/** Output channel override so activity renders to the terminal. */
 	readonly out?: Out;
 	/** Capture buffers override paired with `out`. */
@@ -1046,6 +1048,7 @@ function buildCommandRunOptions(
 		...(options?.env !== undefined ? { env: options.env } : {}),
 		...(options?.config !== undefined ? { config: options.config } : {}),
 		...(options?.stdinData !== undefined ? { stdinData: options.stdinData } : {}),
+		...(options?.readStdin !== undefined ? { readStdin: options.readStdin } : {}),
 		...(options?.prompter !== undefined ? { prompter: options.prompter } : {}),
 		...(options?.answers !== undefined ? { answers: options.answers } : {}),
 		...(options?.stat !== undefined ? { stat: options.stat } : {}),
@@ -2568,6 +2571,8 @@ export type {
 	CLIPluginHooks,
 	PluginCommandContext,
 	ResolvedCommandParams,
+	TransformArgvParams,
+	TransformArgvResult,
 } from './plugin.ts';
 export type {
 	CLIDefinition,

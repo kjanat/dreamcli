@@ -352,7 +352,7 @@ import type { CLIPluginHooks } from '@kjanat/dreamcli';
 //                   ^?
 ```
 
-Use `beforeParse` to inspect raw argv, `afterResolve` to observe resolved args/flags,
+Use `beforeParse` to inspect the original leaf-command argv, `transformArgv` to rewrite it, `afterResolve` to observe resolved args/flags,
 `beforeAction` to run immediately before middleware and the action handler, and `afterAction`
 to observe successful completion.
 
@@ -376,6 +376,43 @@ can log, validate, or instrument the exact argument list before parsing starts.
 import type { BeforeParseParams } from '@kjanat/dreamcli';
 //                  ^?
 ```
+
+### Rewriting command arguments
+
+For a complete migration with shell transcripts, see [Migrating command-line syntax](/guide/argv-transforms).
+
+Use `transformArgv` to translate legacy flags after DreamCLI has selected a command. All
+`beforeParse` observers see its original arguments. DreamCLI then awaits each transform in
+registration order and parses the final arguments. Root options, help, and command selection
+have already been handled.
+
+```ts twoslash
+import { cli, command, flag, plugin } from '@kjanat/dreamcli';
+
+const compat = plugin({
+  transformArgv: ({ command, argv: [first, ...rest] }) => {
+    if (command.name === 'deploy' && (first === 'staging' || first === 'production')) {
+      return { argv: ['--target', first, ...rest], metadata: { positionalTarget: true } };
+    }
+  },
+});
+
+cli('ops').plugin(compat).command(
+  command('deploy')
+    .flag('target', flag.enum(['staging', 'production']).required().duplicates('error'))
+    .action(({ flags, parse, out }) => {
+      if (parse.metadata.positionalTarget) out.warn('Use --target to select the environment.');
+      out.log(flags.target);
+    }),
+);
+// ops deploy staging and ops deploy --target staging both print "staging".
+```
+
+Each transform receives the latest `argv` and `metadata`. Return either field or both. An empty
+`argv` clears the arguments. Returning nothing keeps both fields. Metadata starts empty on every
+invocation and merges by top-level key. Later entries replace earlier entries, including entire
+nested values. The metadata object is shallowly frozen. Resolved plugins, derive, middleware, and
+actions read it through `parse.metadata`. Flag occurrences describe the rewritten arguments.
 
 ### `ResolvedCommandParams`
 

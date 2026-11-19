@@ -23,8 +23,22 @@ interface PluginCommandContext {
 
 /** Payload for `beforeParse`. */
 interface BeforeParseParams extends PluginCommandContext {
-	/** Raw argv that will be parsed for the leaf command. */
+	/** Leaf-command argv as dispatched, before any plugin transforms. */
 	readonly argv: readonly string[];
+}
+
+/** Inputs for one plugin's leaf-command argv transform. */
+interface TransformArgvParams extends BeforeParseParams {
+	/** Shallow, read-only snapshot of metadata contributed by earlier transforms. */
+	readonly metadata: Readonly<Record<string, unknown>>;
+}
+
+/** Changes returned by a transform. Omitted fields retain their previous values. */
+interface TransformArgvResult {
+	/** Replacement leaf-command arguments, in parser order. An empty array clears them. */
+	readonly argv?: readonly string[];
+	/** Top-level entries to merge into parse.metadata. Later transforms win on key collisions. */
+	readonly metadata?: Readonly<Record<string, unknown>>;
 }
 
 /** Payload for hooks that observe resolved inputs. */
@@ -49,7 +63,7 @@ interface ResolvedCommandParams extends PluginCommandContext {
  * Individual lifecycle hooks that a plugin may implement.
  *
  * Hook order for a successful command run is:
- * `beforeParse` → `afterResolve` → `beforeAction` → middleware/action → `afterAction`.
+ * `beforeParse` → `transformArgv` → `afterResolve` → `beforeAction` → middleware/action → `afterAction`.
  *
  * Hooks are awaited serially and run in plugin registration order at each
  * stage. Throwing from any hook aborts the command just like throwing from
@@ -57,8 +71,12 @@ interface ResolvedCommandParams extends PluginCommandContext {
  * middleware chain and action complete successfully.
  */
 interface CLIPluginHooks {
-	/** Called immediately before leaf-command argv is parsed. */
+	/** Observe the original leaf-command argv. Return values are ignored. */
 	readonly beforeParse?: (params: BeforeParseParams) => void | Promise<void>;
+	/** Rewrite leaf-command argv after all beforeParse observers have run. */
+	readonly transformArgv?: (
+		params: TransformArgvParams,
+	) => void | TransformArgvResult | Promise<void | TransformArgvResult>;
 	/** Called after parse + resolve, before middleware or action execution. */
 	readonly afterResolve?: (params: ResolvedCommandParams) => void | Promise<void>;
 	/** Called immediately before the middleware chain and action handler run. */
@@ -122,5 +140,7 @@ export type {
 	CLIPluginHooks,
 	PluginCommandContext,
 	ResolvedCommandParams,
+	TransformArgvParams,
+	TransformArgvResult,
 };
 export { plugin };

@@ -4,7 +4,7 @@ import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import type { ResolutionProvenance } from '#internals/core/schema/provenance.ts';
 import { createTestAdapter, ExitError } from '#internals/runtime/adapter.ts';
-import { cli } from './index.ts';
+import { cli, plugin } from './index.ts';
 
 // === L15 — stdin is read only when resolution will select it
 
@@ -409,4 +409,38 @@ describe('collection stdin eligibility', () => {
 		expect(host.reads()).toBe(0);
 		expect(seen).toEqual([['-', 'x']]);
 	});
+});
+
+describe('stdin selection after argv transforms', () => {
+	it.each([
+		{ original: 'legacy', replacement: '-', expected: 'pipe', reads: 1 },
+		{ original: '-', replacement: 'literal', expected: 'literal', reads: 0 },
+	])(
+		'rewrites $original to $replacement before reading',
+		async ({ original, replacement, expected, reads }) => {
+			const seen: string[] = [];
+			let transforms = 0;
+			const app = cli('demo')
+				.plugin(
+					plugin({
+						transformArgv: () => {
+							transforms++;
+							return { argv: [replacement] };
+						},
+					}),
+				)
+				.command(
+					command('send')
+						.arg('body', arg.string().stdin({ when: 'dash' }).required())
+						.action(({ args }) => {
+							seen.push(args.body);
+						}),
+				);
+			const host = countingAdapter({ argv: ['send', original], stdinData: 'pipe' });
+			await runQuietly(() => app.run({ adapter: host.adapter }));
+			expect(seen).toEqual([expected]);
+			expect(transforms).toBe(1);
+			expect(host.reads()).toBe(reads);
+		},
+	);
 });
