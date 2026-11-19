@@ -18,6 +18,7 @@ describe('example docs generation', () => {
 		// Deliberate inventory check: update this list when a new repo-root example
 		// should appear in the generated docs surface.
 		expect(examples.map((example) => example.slug)).toEqual([
+			'argv-transforms',
 			'basic',
 			'flag-types',
 			'help-config',
@@ -52,7 +53,9 @@ describe('example docs generation', () => {
 	});
 
 	it('renders detail page with related links computed at render time', async () => {
-		const [example] = await collectExamples(examplesRoot, rootDirPath);
+		const example = (await collectExamples(examplesRoot, rootDirPath)).find(
+			(entry) => entry.slug === 'basic',
+		);
 		if (example === undefined) {
 			throw new Error('expected at least one example');
 		}

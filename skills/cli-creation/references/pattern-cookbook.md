@@ -1,7 +1,26 @@
 # Pattern Cookbook
 
-Copy-ready snippets for DreamCLI 4.0. Every snippet type-checks against the
-published types.
+The baseline recipes target DreamCLI 4.0. Check the package installed in the consumer project
+for the APIs used by later recipes.
+
+## Migrate a legacy switch
+
+Use an alias for a spelling change. For a change in argument shape such as `--from-stdin` to
+`--body -`, check that the installed `CLIPluginHooks` declares `transformArgv`, then:
+
+1. Model the new syntax with `flag.string().stdin({ when: 'dash', trim: true })`. Keep one
+   flag definition so help, validation, and completion all describe the same interface.
+2. Register a transform with `cli(...).plugin(plugin({ transformArgv }))`. Match the intended
+   command and only rewrite its option tokens before `--`. Preserve value tokens and positionals.
+3. Return the replacement argv and a metadata key such as `usedFromStdin: true`. Read that
+   key in the action through `parse.metadata` to warn on stderr. `parse.flag('body')` describes
+   the final spelling; `flags.body` contains the resolved text.
+4. Test the registered CLI with `.execute()`. Pass `{ stdinData: 'Released\n' }` to both
+   spellings and compare stdout, stderr, and exit code. Include a literal `--from-stdin` after
+   `--` and a piped run through the actual entry point.
+
+Working source and tests: `examples/argv-transforms.ts` and `examples/argv-transforms.test.ts`.
+The site walkthrough is at `/guide/argv-transforms`.
 
 ## Values
 

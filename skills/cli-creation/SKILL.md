@@ -11,7 +11,10 @@ Create runnable DreamCLI starter CLIs and extend them with typed command
 patterns. This skill covers user-facing app code built **on** DreamCLI, not
 DreamCLI framework internals.
 
-Targets DreamCLI 4.0. Version 3 removed the DSL, made the default command the
+The baseline examples target DreamCLI 4.0. For argv transforms, check the installed
+`CLIPluginHooks` type for `transformArgv` before generating code.
+
+Version 3 removed the DSL, made the default command the
 root surface, and added a large typed-flag surface. Version 4 gave both
 factories the same sources, so `.stdin()`, `.env()`, `.config()`, and
 `.prompt()` are available on flags and positionals alike. Snippets below assume
@@ -77,6 +80,7 @@ Paths are relative to the dreamcli repository root.
 - `examples/multi-command.ts` — grouped-command defaults.
 - `examples/testing.ts` — `runCommand()` patterns.
 - `examples/flag-types.ts` — the v3 typed-flag family.
+- `examples/argv-transforms.ts` — migrate a legacy switch to a flag/value pair while preserving piped input and literal arguments.
 - `examples/parser-control.ts` — negation, duplicates, spelling parity.
 - `examples/output-extras.ts` — colors, hyperlinks, `setExitCode`.
 - `examples/standard-schema.ts` — Standard Schema validation.
@@ -94,6 +98,9 @@ Paths are relative to the dreamcli repository root.
 - Tests explicitly unwanted → add `--no-test`.
 - npm/tsx or Deno instructions → keep generated code unchanged and give the
   runtime alternatives from `references/runtime-notes.md`.
+- Preserving a legacy spelling → use `.alias()` when the value syntax is identical. When the
+  old spelling expands to multiple tokens, use the argv-transform recipe in
+  `references/pattern-cookbook.md`. Test both forms through the registered CLI.
 - Migrating an existing 2.x CLI → read `docs/guide/upgrading-v3.md` first; the
   default-command and `finite` changes silently alter behavior.
 

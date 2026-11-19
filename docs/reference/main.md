@@ -379,6 +379,8 @@ import type { BeforeParseParams } from '@kjanat/dreamcli';
 
 ### Rewriting command arguments
 
+For a complete migration with shell transcripts, see [Migrating command-line syntax](/guide/argv-transforms).
+
 Use `transformArgv` to translate legacy flags after DreamCLI has selected a command. All
 `beforeParse` observers see its original arguments. DreamCLI then awaits each transform in
 registration order and parses the final arguments. Root options, help, and command selection
@@ -388,18 +390,22 @@ have already been handled.
 import { cli, command, flag, plugin } from '@kjanat/dreamcli';
 
 const compat = plugin({
-  transformArgv: ({ argv }) => {
-    if (argv[0] === '--colour') {
-      return { argv: ['--color', ...argv.slice(1)], metadata: { usedColour: true } };
+  transformArgv: ({ command, argv: [first, ...rest] }) => {
+    if (command.name === 'deploy' && (first === 'staging' || first === 'production')) {
+      return { argv: ['--target', first, ...rest], metadata: { positionalTarget: true } };
     }
   },
 });
 
-cli('demo').plugin(compat).command(
-  command('paint').flag('color', flag.boolean()).action(({ parse, out }) => {
-    if (parse.metadata.usedColour) out.warn('Use --color instead of --colour.');
-  }),
+cli('ops').plugin(compat).command(
+  command('deploy')
+    .flag('target', flag.enum(['staging', 'production']).required().duplicates('error'))
+    .action(({ flags, parse, out }) => {
+      if (parse.metadata.positionalTarget) out.warn('Use --target to select the environment.');
+      out.log(flags.target);
+    }),
 );
+// ops deploy staging and ops deploy --target staging both print "staging".
 ```
 
 Each transform receives the latest `argv` and `metadata`. Return either field or both. An empty

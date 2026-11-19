@@ -191,6 +191,7 @@ export default defineConfig({
 						{ text: 'Upgrading From 4.x', link: '/guide/upgrading-v5' },
 						{ text: 'Troubleshooting', link: '/guide/troubleshooting' },
 						{ text: 'Middleware', link: '/guide/middleware' },
+						{ text: 'Migrating command-line syntax', link: '/guide/argv-transforms' },
 						{ text: 'Config Files', link: '/guide/config' },
 						{ text: 'CLI Semantics', link: '/guide/semantics' },
 						{ text: 'Schema Export', link: '/guide/schema-export' },

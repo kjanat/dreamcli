@@ -78,6 +78,10 @@ flag
 This is usually the highest-value migration step because it removes duplicated precedence logic from
 the application layer.
 
+If scripts depend on a switch that now takes a different number of arguments, keep it working
+with a command-scoped argv transform. The [migration walkthrough](/guide/argv-transforms) shows
+how to replace a legacy stdin switch and verify the script's output.
+
 ### 3. Replace Glue Tests With `runCommand()`
 
 Once one migrated command exists, move its tests to the in-process harness.
