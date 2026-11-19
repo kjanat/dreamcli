@@ -28,6 +28,10 @@
 	"sideEffects": false,
 	"type": "module",
 	"imports": {
+		"#dreamcli-features": {
+			"module": "./dist/bundle-features.mjs",
+			"default": "./dist/feature-loaders.mjs"
+		},
 		"#dreamcli": "./src/index.ts",
 		"#dreamcli/completion": "./src/completion.ts",
 		"#dreamcli/config": "./src/config.ts",
@@ -88,9 +92,10 @@
 	],
 	"workspaces": ["examples/*", "docs"],
 	"scripts": {
-		"bd": "run -s build typecheck:dist package:check lazy:check",
+		"bd": "run -s build typecheck:dist package:check lazy:check bundle:check",
 		"build": "bun --bun tsdown",
 		"build:watch": "run build --watch",
+		"bundle:check": "bun scripts/check-consumer-bundles.ts",
 		"ci": "run -pk typecheck lint format:check meta-descriptions:check test docs:build bd",
 		"coverage": "vitest run --coverage",
 		"dev": "run -p build:watch docs:dev",
@@ -146,6 +151,7 @@
 		"@typescript/native": "catalog:",
 		"@vitest/coverage-v8": "5.1.1",
 		"biome": "npm:@biomejs/biome@^2.6.8",
+		"esbuild": "0.28.2",
 		"importmapify": "2.0.0",
 		"knip": "^6.46.1",
 		"publint": "^0.3.25",

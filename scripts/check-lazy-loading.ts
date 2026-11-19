@@ -10,7 +10,7 @@ interface Scenario {
 	readonly exactly: readonly string[];
 }
 
-const HOT_PATH = ['index', 'core'];
+const HOT_PATH = ['index', 'core', 'constants', 'execution', 'feature-loaders'];
 // Dynamic feature chunks also import Rolldown's shared interop helpers.
 const FEATURE_BASE = [...HOT_PATH, 'rolldown-runtime'];
 
@@ -18,7 +18,7 @@ const SCENARIOS: readonly Scenario[] = [
 	{
 		name: 'dynamic-completion',
 		argv: ['__complete', 'deploy', '--region', 'e'],
-		exactly: [...HOT_PATH, 'dynamic'],
+		exactly: [...FEATURE_BASE, 'dynamic'],
 	},
 	{ name: 'plain', argv: ['deploy', '--region', 'eu'], exactly: HOT_PATH },
 	{

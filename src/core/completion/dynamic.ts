@@ -7,6 +7,7 @@
 
 import { BUILTIN_NAMES, BUILTIN_SPECS, builtinEnabled } from '#internals/core/cli/builtins.ts';
 import type { CompiledCLI } from '#internals/core/cli/compiled.ts';
+import { extractConfigFlag } from '#internals/core/cli/config-flag.ts';
 import { dispatch, findClosestCommand } from '#internals/core/cli/dispatch.ts';
 import type { CLISchema } from '#internals/core/cli/index.ts';
 import {
@@ -16,7 +17,6 @@ import {
 import { collectPropagatedFlags } from '#internals/core/cli/propagate.ts';
 import { readRootOutputFlags } from '#internals/core/cli/root-output-flags.ts';
 import { resolveRootSurface } from '#internals/core/cli/root-surface.ts';
-import { extractConfigFlag } from '#internals/core/cli/runtime-preflight.ts';
 import { adjacentArgvValue } from '#internals/core/parse/argv-boundaries.ts';
 import type { FlagLookupEntry } from '#internals/core/parse/index.ts';
 import {

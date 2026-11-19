@@ -16,6 +16,11 @@ import type { ConfigLoader } from '#internals/core/config/index.ts';
 import type { PackageJsonData } from '#internals/core/config/package-json.ts';
 import { CLIError } from '#internals/core/errors/index.ts';
 import { buildRunResult, executeCommand } from '#internals/core/execution/index.ts';
+import {
+	loadCompletion,
+	loadDynamicCompletion,
+	loadJsonSchema,
+} from '#internals/core/feature-loaders.ts';
 import type { HelpOptions, HelpThemeFactory } from '#internals/core/help/index.ts';
 import { formatHelp } from '#internals/core/help/index.ts';
 import { resolveExecutionColor } from '#internals/core/output/color.ts';
@@ -1798,7 +1803,7 @@ class CLIBuilder {
 					name: meta.bin,
 					commands: schema.commands.filter((entry) => !completionCommands.has(entry)),
 				};
-				const { generateCompletion } = await import('#internals/core/completion/index.ts');
+				const generateCompletion = await loadCompletion();
 				const script = generateCompletion(completionSchema, args.shell, completionOptions);
 				if (out.jsonMode) {
 					out.json({ shell: args.shell, script });
@@ -1851,7 +1856,7 @@ class CLIBuilder {
 	async run(options?: CLIRunOptions): Promise<never> {
 		const adapter = options?.adapter ?? createAdapter();
 		if (adapter.argv[2] === '__complete') {
-			const { completeRequest } = await import('#internals/core/completion/dynamic.ts');
+			const completeRequest = await loadDynamicCompletion();
 			const result = await completeRequest(
 				options?.flags === undefined
 					? this.schema
@@ -1945,7 +1950,7 @@ async function executeCLI(
 	options?: InternalCLIExecuteOptions,
 ): Promise<RunResult> {
 	if (argv[0] === '__complete') {
-		const { completeRequest } = await import('#internals/core/completion/dynamic.ts');
+		const completeRequest = await loadDynamicCompletion();
 		const result = await completeRequest(
 			options?.flags === undefined
 				? builder.schema
@@ -2094,7 +2099,7 @@ async function executeCLI(
 				helpOptions.binName === undefined || helpOptions.binName === builder.schema.name
 					? builder.schema
 					: { ...builder.schema, name: helpOptions.binName };
-			const { generateCompletion } = await import('#internals/core/completion/index.ts');
+			const generateCompletion = await loadCompletion();
 			const script = generateCompletion(completionSchema, shell, planned.options);
 			if (jsonMode) {
 				out.json({ shell, script });
@@ -2106,7 +2111,7 @@ async function executeCLI(
 
 		case 'root-help': {
 			if (jsonMode) {
-				const { generateSchema } = await import('#internals/core/json-schema/index.ts');
+				const { generateSchema } = await loadJsonSchema();
 				out.json(
 					generateSchema(
 						builder.schema,
@@ -2144,7 +2149,7 @@ async function executeCLI(
 
 		case 'needs-subcommand': {
 			if (jsonMode) {
-				const { generateCommandSchema } = await import('#internals/core/json-schema/index.ts');
+				const { generateCommandSchema } = await loadJsonSchema();
 				out.json(
 					generateCommandSchema(
 						planned.command.schema,

@@ -15,6 +15,11 @@ import type {
 	ResolvedCommandParams,
 } from '#internals/core/cli/plugin.ts';
 import { CLIError } from '#internals/core/errors/index.ts';
+import {
+	loadJsonSchema,
+	loadPromptSession,
+	loadTestPrompter,
+} from '#internals/core/feature-loaders.ts';
 import { formatHelp, formatHelpTopic } from '#internals/core/help/index.ts';
 import type { CapturedOutput } from '#internals/core/output/index.ts';
 import { clearRequestedExitCode, getRequestedExitCode } from '#internals/core/output/index.ts';
@@ -113,7 +118,7 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 			// layer (root `--json` is stripped from argv pre-dispatch) — an injected
 			// `out` may predate it, so the channel flag alone is not authoritative.
 			if (out.jsonMode || options?.jsonMode === true) {
-				const { generateCommandSchema } = await import('#internals/core/json-schema/index.ts');
+				const { generateCommandSchema } = await loadJsonSchema();
 				out.json(
 					generateCommandSchema(
 						schema,
@@ -220,7 +225,7 @@ async function executeCommand(request: CommandExecutionRequest): Promise<Command
 		let session: Promise<PromptSession> | undefined;
 		const ask: Ask = async (config) => {
 			out.stopActive();
-			session ??= import('#internals/core/prompt/session.ts').then(({ createPromptSession }) =>
+			session ??= loadPromptSession().then((createPromptSession) =>
 				createPromptSession({
 					...(effectivePrompter !== undefined ? { prompter: effectivePrompter } : {}),
 					write: (text) => out.error(text.replace(/\n$/, '')),
@@ -268,7 +273,7 @@ async function scriptedPrompter(
 	answers: readonly TestAnswer[] | undefined,
 ): Promise<PromptEngine | undefined> {
 	if (answers === undefined) return undefined;
-	const { createTestPrompter } = await import('#internals/core/prompt/test-prompter.ts');
+	const createTestPrompter = await loadTestPrompter();
 	return createTestPrompter(answers);
 }
 
