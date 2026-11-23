@@ -2,7 +2,7 @@ name: Weekly Bun lockfile
 on:
   schedule:
     # Renovate opens the combined PR before 06:00 Amsterdam time.
-    - cron: '17 7 * * 1'
+    - cron: "17 7 * * 1"
       timezone: Europe/Amsterdam
 permissions: { contents: read }
 concurrency: weekly-bun-lockfile
@@ -31,7 +31,7 @@ jobs:
           echo "needed=$needed" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
         if: steps.batch.outputs.needed == 'true'
-        with: { ref: '${{ github.ref_name }}', persist-credentials: false }
+        with: { ref: "${{ github.ref_name }}", persist-credentials: false }
       - uses: oven-sh/setup-bun@v2
         if: steps.batch.outputs.needed == 'true'
         with: { bun-version-file: package.json }
@@ -50,7 +50,7 @@ jobs:
         with:
           branch: maintenance/bun-lockfile
           base: ${{ github.ref_name }}
-          title: 'chore(deps): refresh the Bun lockfile'
+          title: "chore(deps): refresh the Bun lockfile"
           body: Refresh `bun.lock` for a week without a combined Renovate PR.
           add-paths: bun.lock
       - uses: kjanat/beepboop/actions/token@v1
