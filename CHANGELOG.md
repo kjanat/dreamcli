@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - [ ] Verify the version PR's latest commit is signed and all required checks pass before merging. Merging starts publication automatically, with no further approval.
 - [ ] Follow Beepboop's release execution through npm and JSR publication, the version tag and GitHub Release, and the docs deployment.
 
+### Fixed
+
+- Bash completes enum values and static suggestions for flags exposed by the default command at the root.
+
 ## [5.6.0] - 2026-11-19
 
 ### Added
