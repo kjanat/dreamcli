@@ -4,6 +4,7 @@
  */
 
 import { describe, expect, expectTypeOf, it } from 'vitest';
+import { extractBashRootWords } from '#internals/core/completion/completion-test-helpers.ts';
 import { generateCompletion } from '#internals/core/completion/index.ts';
 import { CLIError } from '#internals/core/errors/index.ts';
 import { command } from '#internals/core/schema/command.ts';
@@ -26,14 +27,6 @@ function echoFlag<N extends string, B extends FlagBuilder<FlagConfig>>(flagName:
 		.action(({ flags, out }) => {
 			out.log(`${flagName}=${String(flags[flagName])}`);
 		});
-}
-
-/** Read the root-level word list out of a generated bash completion script. */
-function rootCompletionWords(script: string): string {
-	const lines = script.split('\n');
-	const marker = lines.findIndex((line) => line.includes('Root-level completions'));
-	expect(marker).toBeGreaterThan(-1);
-	return lines[marker + 1] ?? '';
 }
 
 /** The flag spellings listed in the root-help `Global options:` block, in order. */
@@ -366,8 +359,8 @@ describe("builtins — help: 'off'", () => {
 		const owned = cli('mycli').builtins({ help: 'off' }).command(plain);
 		const framework = cli('mycli').command(plain);
 
-		expect(rootCompletionWords(generateCompletion(framework.schema, 'bash'))).toContain('--help');
-		expect(rootCompletionWords(generateCompletion(owned.schema, 'bash'))).not.toContain('--help');
+		expect(extractBashRootWords(generateCompletion(framework.schema, 'bash'))).toContain('--help');
+		expect(extractBashRootWords(generateCompletion(owned.schema, 'bash'))).not.toContain('--help');
 	});
 
 	it('omits the Global options block entirely once nothing is left in it', async () => {
