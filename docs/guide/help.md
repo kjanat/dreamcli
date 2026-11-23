@@ -14,14 +14,14 @@ flag or an `h` alias. A CLI that needs the token for itself releases it with
 Every source an input declares is named beside its description, on the flag table
 and the argument table alike:
 
-| Annotation              | Declared by                       |
-| ----------------------- | --------------------------------- |
-| `[stdin]`               | `.stdin()`                        |
-| `[stdin: '-']`          | `.stdin({ when: 'dash' })`        |
-| `[stdin: when omitted]` | `.stdin({ when: 'missing' })`     |
-| `[env: NAME]`           | `.env('NAME')`                    |
-| `[config: a.b]`         | `.config('a.b')`                  |
-| `[prompt]`              | `.prompt(...)`                    |
+| Annotation              | Declared by                   |
+| ----------------------- | ----------------------------- |
+| `[stdin]`               | `.stdin()`                    |
+| `[stdin: '-']`          | `.stdin({ when: 'dash' })`    |
+| `[stdin: when omitted]` | `.stdin({ when: 'missing' })` |
+| `[env: NAME]`           | `.env('NAME')`                |
+| `[config: a.b]`         | `.config('a.b')`              |
+| `[prompt]`              | `.prompt(...)`                |
 
 They render in resolution order, after the description and any `[deprecated]`
 marker, and before `[required]` or `(default: …)`:
@@ -38,7 +38,10 @@ the default a safe description when help should name its source without showing
 the value:
 
 ```ts
-flag.string().default('stored-token', { description: 'from keychain' }).sensitive();
+flag
+  .string()
+  .default('stored-token', { description: 'from keychain' })
+  .sensitive();
 ```
 
 ## Configuring Help
@@ -141,7 +144,10 @@ import { cli, command, flag } from '@kjanat/dreamcli';
 cli('demo')
   .command(
     command('check')
-      .flag('runner-provider', flag.string().group('Runners').advanced())
+      .flag(
+        'runner-provider',
+        flag.string().group('Runners').advanced(),
+      )
       .flag('output', flag.string().group('Output'))
       .helpTopic('runners', 'Runners')
       .action(() => {}),
@@ -223,20 +229,20 @@ JSON output stays byte-clean, always.
 
 The built-in theme follows clap/cargo conventions:
 
-| Role            | Applies to                                             | Default style    |
-| --------------- | ------------------------------------------------------ | ---------------- |
-| `sectionTitle`  | `Usage:`, `Flags:`, `Commands:`, …                     | bold + underline |
-| `usageBin`      | binary/command path in the usage line                  | bold             |
-| `flag`          | flag forms (`-f, --force`)                             | cyan             |
-| `command`       | command names in `Commands:` tables                    | cyan             |
-| `arg`           | positional tokens (`<file>`)                           | cyan             |
-| `placeholder`   | grammar tokens (`<string>`, `[flags]`)                 | dim              |
-| `defaultValue`  | `(default: …)`                                         | dim              |
-| `annotation`    | `[stdin]`, `[env: X]`, `[required]`, `(default)`       | dim              |
-| `deprecated`    | `[deprecated…]`                                        | yellow           |
-| `headerName`    | program name in the root header                        | bold             |
-| `headerVersion` | `vX.Y.Z` in the root header                            | dim              |
-| `examplePrompt` | the `$` marker in `Examples:`                          | dim              |
+| Role            | Applies to                                       | Default style    |
+| --------------- | ------------------------------------------------ | ---------------- |
+| `sectionTitle`  | `Usage:`, `Flags:`, `Commands:`, …               | bold + underline |
+| `usageBin`      | binary/command path in the usage line            | bold             |
+| `flag`          | flag forms (`-f, --force`)                       | cyan             |
+| `command`       | command names in `Commands:` tables              | cyan             |
+| `arg`           | positional tokens (`<file>`)                     | cyan             |
+| `placeholder`   | grammar tokens (`<string>`, `[flags]`)           | dim              |
+| `defaultValue`  | `(default: …)`                                   | dim              |
+| `annotation`    | `[stdin]`, `[env: X]`, `[required]`, `(default)` | dim              |
+| `deprecated`    | `[deprecated…]`                                  | yellow           |
+| `headerName`    | program name in the root header                  | bold             |
+| `headerVersion` | `vX.Y.Z` in the root header                      | dim              |
+| `examplePrompt` | the `$` marker in `Examples:`                    | dim              |
 
 Literal descriptions stay unstyled for readability. Function-form flag and
 argument descriptions receive the resolved theme at render time, so references
@@ -246,12 +252,20 @@ inside prose use the same semantic roles and the same color gate as the table:
 import { arg, command, flag } from '@kjanat/dreamcli';
 
 command('deploy')
-  .arg('target', arg.string().describe((t) => `Deploy ${t.arg('<target>')}`))
+  .arg(
+    'target',
+    arg
+      .string()
+      .describe((t) => `Deploy ${t.arg('<target>')}`),
+  )
   .flag(
     'output',
-    flag.string().describe(
-      (t) => `Filename relative to ${t.flag('--out-dir')}`,
-    ),
+    flag
+      .string()
+      .describe(
+        (t) =>
+          `Filename relative to ${t.flag('--out-dir')}`,
+      ),
   );
 ```
 
@@ -292,7 +306,11 @@ cli('mycli')
   .command(
     command('deploy').flag(
       'output',
-      flag.string().describe((t) => `Relative to ${t.flag('--out-dir')}`),
+      flag
+        .string()
+        .describe(
+          (t) => `Relative to ${t.flag('--out-dir')}`,
+        ),
     ),
   )
   .help({
@@ -326,7 +344,7 @@ $ mycli --help --json          # root: { $schema, name, version, defaultCommand?
 $ mycli deploy --help --json   # command: { name, description, flags, args, commands }
 ```
 
-The root document includes the default command's *full* definition under
+The root document includes the default command's _full_ definition under
 `defaultCommand` (flags and args included), and carries a `$schema` pointer to
 the definition meta-schema for validation and editor tooling. Nothing is
 written to stderr — the JSON is the help.
@@ -339,9 +357,13 @@ UIs, docs generation, or tests. Pass `colors` to render a themed variant:
 ```ts twoslash
 import { command, formatHelp } from '@kjanat/dreamcli';
 
-const deploy = command('deploy').description('Deploy the app').action(() => {});
+const deploy = command('deploy')
+  .description('Deploy the app')
+  .action(() => {});
 
-const plain = formatHelp(deploy.schema, { binName: 'mycli' });
+const plain = formatHelp(deploy.schema, {
+  binName: 'mycli',
+});
 ```
 
 See also [Output](/guide/output) for how `out.color` gating works at runtime.

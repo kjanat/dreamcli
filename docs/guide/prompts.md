@@ -76,15 +76,22 @@ match existing input prompts, including trimming. Validators may be async.
 import { command, flag } from '@kjanat/dreamcli';
 import { prompt } from '@kjanat/dreamcli/prompt';
 
-const emailPrompt = prompt.input({ message: 'Email address' });
+const emailPrompt = prompt.input({
+  message: 'Email address',
+});
 
 command('profile')
-  .flag('email', flag.string().required().prompt(emailPrompt))
+  .flag(
+    'email',
+    flag.string().required().prompt(emailPrompt),
+  )
   .action(async ({ ask, out }) => {
-    const region = await ask(prompt.select({
-      message: 'Region',
-      choices: [{ value: 'eu' }, { value: 'us' }],
-    }));
+    const region = await ask(
+      prompt.select({
+        message: 'Region',
+        choices: [{ value: 'eu' }, { value: 'us' }],
+      }),
+    );
     // region: 'eu' | 'us'
     out.log(region);
   });
@@ -108,8 +115,14 @@ import { command, flag, arg } from '@kjanat/dreamcli';
 import { prompt } from '@kjanat/dreamcli/prompt';
 
 const checkAuthentication = async () => {};
-const authenticateApiKey = async (id: string, secret: string) => {};
-const authenticatePassword = async (email: string, password: string) => ({
+const authenticateApiKey = async (
+  id: string,
+  secret: string,
+) => {};
+const authenticatePassword = async (
+  email: string,
+  password: string,
+) => ({
   requiresOtp: true,
 });
 const verifyOtp = async (code: string) => {};
@@ -119,8 +132,14 @@ command('login')
   .flag('check', flag.boolean())
   .flag('apikey', flag.boolean())
   .flag('client-id', flag.string().env('CLIENT_ID'))
-  .flag('client-secret', flag.string().sensitive().env('CLIENT_SECRET'))
-  .flag('password', flag.string().sensitive().env('MASTER_PASSWORD'))
+  .flag(
+    'client-secret',
+    flag.string().sensitive().env('CLIENT_SECRET'),
+  )
+  .flag(
+    'password',
+    flag.string().sensitive().env('MASTER_PASSWORD'),
+  )
   .action(async ({ args, flags, ask }) => {
     if (flags.check) {
       await checkAuthentication();
@@ -128,18 +147,35 @@ command('login')
     }
 
     if (flags.apikey) {
-      const id = flags['client-id'] ?? await ask(prompt.input({ message: 'Client ID' }));
-      const secret = flags['client-secret'] ?? await ask(prompt.password({ message: 'Client secret' }));
+      const id =
+        flags['client-id'] ??
+        (await ask(prompt.input({ message: 'Client ID' })));
+      const secret =
+        flags['client-secret'] ??
+        (await ask(
+          prompt.password({ message: 'Client secret' }),
+        ));
       await authenticateApiKey(id, secret);
       return;
     }
 
-    const email = args.email ?? await ask(prompt.input({ message: 'Email' }));
-    const password = flags.password ?? await ask(prompt.password({ message: 'Master password' }));
-    const result = await authenticatePassword(email, password);
+    const email =
+      args.email ??
+      (await ask(prompt.input({ message: 'Email' })));
+    const password =
+      flags.password ??
+      (await ask(
+        prompt.password({ message: 'Master password' }),
+      ));
+    const result = await authenticatePassword(
+      email,
+      password,
+    );
 
     if (result.requiresOtp) {
-      const code = await ask(prompt.input({ message: 'Verification code' }));
+      const code = await ask(
+        prompt.input({ message: 'Verification code' }),
+      );
       await verifyOtp(code);
     }
   });
@@ -162,7 +198,10 @@ sync or async `validate` callback, but no password default or trim option.
 import { flag } from '@kjanat/dreamcli';
 import { prompt } from '@kjanat/dreamcli/prompt';
 
-flag.string().required().prompt(prompt.password({ message: 'API token' }));
+flag
+  .string()
+  .required()
+  .prompt(prompt.password({ message: 'API token' }));
 ```
 
 Attaching a password prompt marks the owning flag or argument sensitive, so

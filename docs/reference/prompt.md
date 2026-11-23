@@ -6,8 +6,15 @@ prompts never loads it. Import this module to drive prompts from a custom host o
 of your own against `PromptEngine`.
 
 ```ts twoslash
-import { createTerminalPrompter, resolvePromptConfig } from '@kjanat/dreamcli/prompt';
-import type { PromptEngine, ReadFn, ResolvedPromptConfig } from '@kjanat/dreamcli/prompt';
+import {
+  createTerminalPrompter,
+  resolvePromptConfig,
+} from '@kjanat/dreamcli/prompt';
+import type {
+  PromptEngine,
+  ReadFn,
+  ResolvedPromptConfig,
+} from '@kjanat/dreamcli/prompt';
 ```
 
 `PromptEngine`, `ReadFn`, the resolved config types, and `resolvePromptConfig` are also exported
@@ -26,7 +33,10 @@ Command actions, derives, and middleware receive an invocation-scoped `ask`.
 For standalone scripts or a custom host, create a session explicitly:
 
 ```ts twoslash
-import { createPromptSession, prompt } from '@kjanat/dreamcli/prompt';
+import {
+  createPromptSession,
+  prompt,
+} from '@kjanat/dreamcli/prompt';
 import { createTestPrompter } from '@kjanat/dreamcli/testkit';
 
 const { ask } = createPromptSession({
@@ -34,10 +44,12 @@ const { ask } = createPromptSession({
   write: (text) => {},
 });
 
-const region = await ask(prompt.select({
-  message: 'Region',
-  choices: [{ value: 'eu' }, { value: 'us' }],
-}));
+const region = await ask(
+  prompt.select({
+    message: 'Region',
+    choices: [{ value: 'eu' }, { value: 'us' }],
+  }),
+);
 ```
 
 Sessions check answer shapes and choices, apply text policies and async
@@ -59,7 +71,10 @@ import { createTerminalPrompter } from '@kjanat/dreamcli/prompt';
 import type { ReadFn } from '@kjanat/dreamcli/prompt';
 import { createInterface } from 'node:readline';
 
-const rl = createInterface({ input: process.stdin, output: process.stdout });
+const rl = createInterface({
+  input: process.stdin,
+  output: process.stdout,
+});
 let closed = false;
 rl.once('close', () => {
   closed = true;

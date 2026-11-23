@@ -83,15 +83,15 @@ interface CommandExecutionPlan {
 
 Field meaning:
 
-| Field          | Meaning                                                             |
-| -------------- | ------------------------------------------------------------------- |
+| Field          | Meaning                                                                |
+| -------------- | ---------------------------------------------------------------------- |
 | `command`      | compiled node of the matched leaf command: handler, steps, subcommands |
-| `mergedSchema` | leaf schema after propagated ancestor flags are merged and shadowed |
-| `argv`         | remaining argv after command-name dispatch                          |
-| `meta`         | CLI metadata passed into middleware and actions                     |
-| `plugins`      | CLI plugin list observed by the execution path                      |
-| `output`       | semantic output facts: `jsonMode`, `isTTY`, `verbosity`             |
-| `help`         | help formatting context carried through command execution           |
+| `mergedSchema` | leaf schema after propagated ancestor flags are merged and shadowed    |
+| `argv`         | remaining argv after command-name dispatch                             |
+| `meta`         | CLI metadata passed into middleware and actions                        |
+| `plugins`      | CLI plugin list observed by the execution path                         |
+| `output`       | semantic output facts: `jsonMode`, `isTTY`, `verbosity`                |
+| `help`         | help formatting context carried through command execution              |
 
 ## Evidence
 

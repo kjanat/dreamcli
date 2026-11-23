@@ -128,7 +128,9 @@ Pass a list to `.complete()` to embed suggested flag values in the generated she
 ```ts twoslash
 import { flag } from '@kjanat/dreamcli';
 
-const dryRun = flag.string().complete(['extract', 'lookup', 'full']);
+const dryRun = flag
+  .string()
+  .complete(['extract', 'lookup', 'full']);
 ```
 
 Tab offers those three values. An explicit `--dry-run=true` still supplies the string `'true'`.
@@ -143,11 +145,21 @@ while the CLI is installed.
 import { arg, cli, command, flag } from '@kjanat/dreamcli';
 
 declare function listPackages(): Promise<readonly string[]>;
-declare function listBinaries(packageName?: string): Promise<readonly string[]>;
+declare function listBinaries(
+  packageName?: string,
+): Promise<readonly string[]>;
 
 const adopt = command('adopt')
-  .flag('package', flag.string().complete(() => listPackages()))
-  .arg('binary', arg.string().complete(({ env }) => listBinaries(env.PACKAGE)))
+  .flag(
+    'package',
+    flag.string().complete(() => listPackages()),
+  )
+  .arg(
+    'binary',
+    arg
+      .string()
+      .complete(({ env }) => listBinaries(env.PACKAGE)),
+  )
   .action(({ flags, args, out }) => {
     out.log(`${flags.package}: ${args.binary}`);
   });

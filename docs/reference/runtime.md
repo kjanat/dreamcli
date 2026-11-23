@@ -7,7 +7,10 @@ import {
   createAdapter,
   detectRuntime,
 } from '@kjanat/dreamcli/runtime';
-import type { RuntimeAdapter, TerminalSize } from '@kjanat/dreamcli/runtime';
+import type {
+  RuntimeAdapter,
+  TerminalSize,
+} from '@kjanat/dreamcli/runtime';
 ```
 
 ## `createAdapter()`
@@ -30,23 +33,23 @@ const denoAdapter = createDenoAdapter(); // explicit Deno
 
 ### RuntimeAdapter Interface
 
-| Member           | Kind     | Description                                                                               |
-| ---------------- | -------- | ----------------------------------------------------------------------------------------- |
-| `argv`           | readonly | Raw command-line arguments                                                                |
-| `env`            | readonly | Environment variables                                                                     |
-| `cwd`            | readonly | Current working directory                                                                 |
-| `stdout`         | readonly | Stdout writer used by the output channel                                                  |
-| `stderr`         | readonly | Stderr writer used by the output channel                                                  |
-| `stdin`          | readonly | Line reader used for interactive prompts                                                  |
-| `readStdin()`    | method   | Read all piped stdin as a single string, or `null` when stdin is a TTY / no data is piped. Called only when a `.stdin()` flag or argument would select the stream |
-| `isTTY`          | readonly | Whether stdout is connected to a TTY                                                      |
-| `stdinIsTTY`     | readonly | Whether stdin is connected to a TTY                                                       |
-| `getTerminalSize()` | method | Read current stdout terminal dimensions, or `undefined` when unavailable                  |
-| `onTerminalResize(listener)` | method | Subscribe to terminal resize events when supported                                |
-| `exit(code)`     | method   | Exit the process                                                                          |
-| `readFile(path)` | method   | Read a UTF-8 file for config discovery                                                    |
-| `homedir`        | readonly | User home directory                                                                       |
-| `configDir`      | readonly | Platform-specific configuration directory                                                 |
+| Member                       | Kind     | Description                                                                                                                                                       |
+| ---------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `argv`                       | readonly | Raw command-line arguments                                                                                                                                        |
+| `env`                        | readonly | Environment variables                                                                                                                                             |
+| `cwd`                        | readonly | Current working directory                                                                                                                                         |
+| `stdout`                     | readonly | Stdout writer used by the output channel                                                                                                                          |
+| `stderr`                     | readonly | Stderr writer used by the output channel                                                                                                                          |
+| `stdin`                      | readonly | Line reader used for interactive prompts                                                                                                                          |
+| `readStdin()`                | method   | Read all piped stdin as a single string, or `null` when stdin is a TTY / no data is piped. Called only when a `.stdin()` flag or argument would select the stream |
+| `isTTY`                      | readonly | Whether stdout is connected to a TTY                                                                                                                              |
+| `stdinIsTTY`                 | readonly | Whether stdin is connected to a TTY                                                                                                                               |
+| `getTerminalSize()`          | method   | Read current stdout terminal dimensions, or `undefined` when unavailable                                                                                          |
+| `onTerminalResize(listener)` | method   | Subscribe to terminal resize events when supported                                                                                                                |
+| `exit(code)`                 | method   | Exit the process                                                                                                                                                  |
+| `readFile(path)`             | method   | Read a UTF-8 file for config discovery                                                                                                                            |
+| `homedir`                    | readonly | User home directory                                                                                                                                               |
+| `configDir`                  | readonly | Platform-specific configuration directory                                                                                                                         |
 
 `TerminalSize` is `{ columns: number; rows: number }`. Node and Bun read `process.stdout.getWindowSize()` when available, falling back to `columns` / `rows`. Deno uses `Deno.consoleSize()`.
 

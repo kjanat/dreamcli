@@ -97,9 +97,19 @@ cli('greet').default(greet).run();
 ### Multi-command CLI
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/1ef7f20c-9ffb-4cb6-a6bc-fb562895aa6f">
-  <source media="(prefers-color-scheme: light)" srcset="https://github.com/user-attachments/assets/1ee5f38d-cad8-47ec-94b2-c826eabab76b">
-  <img alt="DreamCLI migration progress demo" width="700" src="https://github.com/user-attachments/assets/1ee5f38d-cad8-47ec-94b2-c826eabab76b">
+  <source
+    media="(prefers-color-scheme: dark)"
+    srcset="https://github.com/user-attachments/assets/1ef7f20c-9ffb-4cb6-a6bc-fb562895aa6f"
+  >
+  <source
+    media="(prefers-color-scheme: light)"
+    srcset="https://github.com/user-attachments/assets/1ee5f38d-cad8-47ec-94b2-c826eabab76b"
+  >
+  <img
+    alt="DreamCLI migration progress demo"
+    width="700"
+    src="https://github.com/user-attachments/assets/1ee5f38d-cad8-47ec-94b2-c826eabab76b"
+  >
 </picture>
 
 ```ts
@@ -204,16 +214,16 @@ dreamcli collapses all of that into a single typed schema:
 Approximate comparison of first-party, built-in support as documented by each project.
 Third-party plugins and custom glue can extend the other libraries.
 
-| Capability                                 | dreamcli                              | Commander           | Yargs                  | Citty           | CAC           | Cleye         |
-| ------------------------------------------ | ------------------------------------- | ------------------- | ---------------------- | --------------- | ------------- | ------------- |
-| Type inference from definition             | Full — flags, args, context           | Manual `.opts<T>()` | Good                   | Good            | Basic         | Good          |
-| Built-in value sources                     | CLI, env, config, prompt, default     | CLI, defaults, env  | CLI, env, config       | CLI, defaults   | CLI, defaults | CLI, defaults |
-| Schema-driven prompts                      | Integrated                            | No                  | No                     | No              | No            | No            |
-| Middleware / hooks                         | Yes — typed middleware                | Lifecycle hooks     | Middleware             | Plugins / hooks | Events        | No            |
-| Built-in test harness with output capture  | `runCommand()` + capture              | No                  | No                     | No              | No            | No            |
-| Shell completions from command definitions | Built-in (bash/zsh/fish/powershell)   | No                  | Built-in (bash/zsh)    | No              | No            | No            |
-| Structured output primitives               | Built-in (`--json`, tables, spinners) | DIY                 | DIY                    | DIY             | DIY           | DIY           |
-| Config file support                        | Built-in (project/user/system discovery, JSON) | DIY        | Built-in (`.config()`) | No              | No            | No            |
+| Capability                                 | dreamcli                                       | Commander           | Yargs                  | Citty           | CAC           | Cleye         |
+| ------------------------------------------ | ---------------------------------------------- | ------------------- | ---------------------- | --------------- | ------------- | ------------- |
+| Type inference from definition             | Full — flags, args, context                    | Manual `.opts<T>()` | Good                   | Good            | Basic         | Good          |
+| Built-in value sources                     | CLI, env, config, prompt, default              | CLI, defaults, env  | CLI, env, config       | CLI, defaults   | CLI, defaults | CLI, defaults |
+| Schema-driven prompts                      | Integrated                                     | No                  | No                     | No              | No            | No            |
+| Middleware / hooks                         | Yes — typed middleware                         | Lifecycle hooks     | Middleware             | Plugins / hooks | Events        | No            |
+| Built-in test harness with output capture  | `runCommand()` + capture                       | No                  | No                     | No              | No            | No            |
+| Shell completions from command definitions | Built-in (bash/zsh/fish/powershell)            | No                  | Built-in (bash/zsh)    | No              | No            | No            |
+| Structured output primitives               | Built-in (`--json`, tables, spinners)          | DIY                 | DIY                    | DIY             | DIY           | DIY           |
+| Config file support                        | Built-in (project/user/system discovery, JSON) | DIY                 | Built-in (`.config()`) | No              | No            | No            |
 
 The closest analog is what tRPC did to API routes — individual pieces existed,
 the insight was wiring them so types flow end-to-end.
@@ -355,7 +365,9 @@ const rows = [
 
 const status = command('status').action(({ out }) => {
   out.log('Human-readable message');
-  out.status('Progress note on stderr, silenced by --quiet');
+  out.status(
+    'Progress note on stderr, silenced by --quiet',
+  );
   out.json({ status: 'ok', count: 42 });
   out.table(rows, [
     { key: 'name', header: 'Name' },
@@ -396,7 +408,10 @@ cli('mycli').command(command('deploy')).completions().run();
 // mycli completions zsh
 
 // Or as an eager root flag with shell auto-detection:
-cli('mycli').command(command('deploy')).completions({ as: 'flag' }).run();
+cli('mycli')
+  .command(command('deploy'))
+  .completions({ as: 'flag' })
+  .run();
 
 // mycli --completions
 ```

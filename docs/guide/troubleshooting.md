@@ -161,7 +161,7 @@ Cause:
   value at all, so a later source or the default supplies the result.
 - an input that never declared `.stdin()` treats `-` as an ordinary element and
   never reads the stream.
-- the buffer decodes under the *stdin* policy, `'lines'` by default, not under
+- the buffer decodes under the _stdin_ policy, `'lines'` by default, not under
   the CLI separator.
 
 Check:

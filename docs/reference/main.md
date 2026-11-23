@@ -247,21 +247,21 @@ cli('mycli').plugin(tracePlugin).command(deploy);
 
 Flag factory with typed builders:
 
-| Factory                | Type                            | Default |
-| ---------------------- | ------------------------------- | ------- |
-| `flag.string()`        | `string \| undefined`           | none    |
-| `flag.number()`        | `number \| undefined`           | none    |
-| `flag.boolean()`       | `boolean`                       | `false` |
-| `flag.enum(values)`    | Union of values \| `undefined`  | none    |
-| `flag.array(inner)`    | `T[]`                           | `[]`    |
-| `flag.custom(parseFn)` | Return type \| `undefined`      | none    |
-| `flag.url()`           | `URL \| undefined`              | none    |
-| `flag.path()`          | `string \| undefined`           | none    |
-| `flag.date()`          | `Date \| undefined`             | none    |
-| `flag.duration()`      | `number \| undefined` (ms)      | none    |
-| `flag.bytes()`         | `number \| undefined`           | none    |
-| `flag.count()`         | `number`                        | `0`     |
-| `flag.keyValue()`      | `Record<string, string>`        | `{}`    |
+| Factory                | Type                           | Default |
+| ---------------------- | ------------------------------ | ------- |
+| `flag.string()`        | `string \| undefined`          | none    |
+| `flag.number()`        | `number \| undefined`          | none    |
+| `flag.boolean()`       | `boolean`                      | `false` |
+| `flag.enum(values)`    | Union of values \| `undefined` | none    |
+| `flag.array(inner)`    | `T[]`                          | `[]`    |
+| `flag.custom(parseFn)` | Return type \| `undefined`     | none    |
+| `flag.url()`           | `URL \| undefined`             | none    |
+| `flag.path()`          | `string \| undefined`          | none    |
+| `flag.date()`          | `Date \| undefined`            | none    |
+| `flag.duration()`      | `number \| undefined` (ms)     | none    |
+| `flag.bytes()`         | `number \| undefined`          | none    |
+| `flag.count()`         | `number`                       | `0`     |
+| `flag.keyValue()`      | `Record<string, string>`       | `{}`    |
 
 See [Flags](/guide/flags#flag-types) for the option objects and constraints each
 kind accepts.
@@ -387,24 +387,46 @@ registration order and parses the final arguments. Root options, help, and comma
 have already been handled.
 
 ```ts twoslash
-import { cli, command, flag, plugin } from '@kjanat/dreamcli';
+import {
+  cli,
+  command,
+  flag,
+  plugin,
+} from '@kjanat/dreamcli';
 
 const compat = plugin({
   transformArgv: ({ command, argv: [first, ...rest] }) => {
-    if (command.name === 'deploy' && (first === 'staging' || first === 'production')) {
-      return { argv: ['--target', first, ...rest], metadata: { positionalTarget: true } };
+    if (
+      command.name === 'deploy' &&
+      (first === 'staging' || first === 'production')
+    ) {
+      return {
+        argv: ['--target', first, ...rest],
+        metadata: { positionalTarget: true },
+      };
     }
   },
 });
 
-cli('ops').plugin(compat).command(
-  command('deploy')
-    .flag('target', flag.enum(['staging', 'production']).required().duplicates('error'))
-    .action(({ flags, parse, out }) => {
-      if (parse.metadata.positionalTarget) out.warn('Use --target to select the environment.');
-      out.log(flags.target);
-    }),
-);
+cli('ops')
+  .plugin(compat)
+  .command(
+    command('deploy')
+      .flag(
+        'target',
+        flag
+          .enum(['staging', 'production'])
+          .required()
+          .duplicates('error'),
+      )
+      .action(({ flags, parse, out }) => {
+        if (parse.metadata.positionalTarget)
+          out.warn(
+            'Use --target to select the environment.',
+          );
+        out.log(flags.target);
+      }),
+  );
 // ops deploy staging and ops deploy --target staging both print "staging".
 ```
 
@@ -499,9 +521,7 @@ import { flag, readFlags } from '@kjanat/dreamcli';
 const options = await readFlags(
   {
     watch: flag.boolean().alias('w').env('WATCH'),
-    target: flag
-      .enum(['node', 'browser'])
-      .default('node'),
+    target: flag.enum(['node', 'browser']).default('node'),
   },
   { argv: ['-w'], env: {} },
 );

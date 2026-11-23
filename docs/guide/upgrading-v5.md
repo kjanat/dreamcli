@@ -20,10 +20,12 @@ Checking `stage === 'env'` alone no longer guarantees an `envVar` property:
 ```ts twoslash
 import type { ResolutionProvenance } from '@kjanat/dreamcli';
 
-function environmentVariables(source: ResolutionProvenance): readonly string[] {
-	if (source.stage !== 'env') return [];
-	if ('envVar' in source) return [source.envVar];
-	return [source.count, ...source.envVars];
+function environmentVariables(
+  source: ResolutionProvenance,
+): readonly string[] {
+  if (source.stage !== 'env') return [];
+  if ('envVar' in source) return [source.envVar];
+  return [source.count, ...source.envVars];
 }
 ```
 

@@ -35,7 +35,10 @@ Named flags keep their individual types.
 import { command, flag } from '@kjanat/dreamcli';
 
 const generatedFlags = Object.fromEntries(
-  ['timeout', 'retries'].map((name) => [name, flag.number()]),
+  ['timeout', 'retries'].map((name) => [
+    name,
+    flag.number(),
+  ]),
 );
 
 command('serve')
@@ -52,14 +55,14 @@ command('serve')
 A flag declaration decides six separate things. They compose freely, and every
 section on this page belongs to exactly one of them:
 
-| Axis                          | What it decides                                        | Declared with                                                                  |
-| ----------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------ |
-| [Value](#flag-types)          | what one value is and what type it resolves to         | `flag.string()`, `flag.number()`, `flag.url()`, `flag.custom()`, and the rest   |
-| [Cardinality](#cardinality)   | how many values the flag carries and how they combine   | `flag.array()`, `flag.keyValue()`, `flag.count()`, `.split()`, `.unique()`      |
-| [Sources](#sources)           | where a value may come from and which one wins          | `.stdin()`, `.env()`, `.config()`, `.prompt()`, `.default()`, `.required()`     |
-| [Syntax](#syntax)             | how the flag is spelled and repeated on the command line | the name, `.alias()`, `.negatable()`, `.duplicates()`, `.propagate()`          |
-| [Validation](#validation)     | what a resolved value has to satisfy                    | constraints, `.standard()`, `flag.path()` filesystem checks                     |
-| [Diagnostics](#diagnostics)   | whether diagnostics and help may display the value       | `.sensitive()`                                                                  |
+| Axis                        | What it decides                                          | Declared with                                                                 |
+| --------------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| [Value](#flag-types)        | what one value is and what type it resolves to           | `flag.string()`, `flag.number()`, `flag.url()`, `flag.custom()`, and the rest |
+| [Cardinality](#cardinality) | how many values the flag carries and how they combine    | `flag.array()`, `flag.keyValue()`, `flag.count()`, `.split()`, `.unique()`    |
+| [Sources](#sources)         | where a value may come from and which one wins           | `.stdin()`, `.env()`, `.config()`, `.prompt()`, `.default()`, `.required()`   |
+| [Syntax](#syntax)           | how the flag is spelled and repeated on the command line | the name, `.alias()`, `.negatable()`, `.duplicates()`, `.propagate()`         |
+| [Validation](#validation)   | what a resolved value has to satisfy                     | constraints, `.standard()`, `flag.path()` filesystem checks                   |
+| [Diagnostics](#diagnostics) | whether diagnostics and help may display the value       | `.sensitive()`                                                                |
 
 The factory methods are facades over that decomposition, and they stay the way
 you write a CLI. The table is here to say which question each one answers.
@@ -277,12 +280,12 @@ take the same options and produce the same values. See
 How many values a flag carries is decided separately from what each value
 means. Four forms exist, and every source fills whichever one the flag declares:
 
-| Form    | Declared by      | Unset resolves to |
-| ------- | ---------------- | ----------------- |
-| one     | every value kind | `undefined`       |
-| list    | `flag.array()`   | `[]`              |
-| entries | `flag.keyValue()`| `{}`              |
-| count   | `flag.count()`   | `0`               |
+| Form    | Declared by       | Unset resolves to |
+| ------- | ----------------- | ----------------- |
+| one     | every value kind  | `undefined`       |
+| list    | `flag.array()`    | `[]`              |
+| entries | `flag.keyValue()` | `{}`              |
+| count   | `flag.count()`    | `0`               |
 
 ### Array
 
@@ -302,7 +305,7 @@ flagTypes.array;
 Optional array flags resolve to `[]` when no source or default provides a value.
 Required array flags fail when no value resolves.
 
-The element builder describes the *value shape only*: kinds and their value
+The element builder describes the _value shape only_: kinds and their value
 constraints (`flag.number({ int: true, min: 0 })`, `.nonEmpty()`, `.pattern()`,
 enum values, custom `parseFn`). Flag-level settings such as `.alias()`,
 `.env()`, `.default()`, `.prompt()`, and `.describe()` belong on the array
@@ -310,7 +313,10 @@ itself and are a **compile error** in element position, since an element schema
 would silently ignore them:
 
 ```ts
-flag.array(flag.number({ min: 1 })).env('PORTS').describe('Ports'); // ✓
+flag
+  .array(flag.number({ min: 1 }))
+  .env('PORTS')
+  .describe('Ports'); // ✓
 // flag.array(flag.number().env('PORTS'))  ✗ compile error: env the array, not the element
 ```
 
@@ -384,7 +390,11 @@ Each source decodes the text it carries under its own policy. `.split()` sets
 all three at once, and `.separator()` sets the CLI one on its own:
 
 ```ts
-flag.array(flag.string()).split({ cli: ',', env: { format: 'json' }, stdin: 'lines' });
+flag.array(flag.string()).split({
+  cli: ',',
+  env: { format: 'json' },
+  stdin: 'lines',
+});
 // --tag a,b            →  ['a', 'b']
 // TAGS='["a","b"]'     →  ['a', 'b']
 // printf 'a\nb\n' | …  →  ['a', 'b']
@@ -418,7 +428,10 @@ comma-separated input works alongside repetition. Each element is coerced on its
 own, so a failure names the offending element rather than the whole token:
 
 ```ts
-flag.array(flag.enum(['us', 'eu', 'ap'])).separator(',').unique();
+flag
+  .array(flag.enum(['us', 'eu', 'ap']))
+  .separator(',')
+  .unique();
 // --region us,eu --region eu  →  ['us', 'eu']
 // --region us,mars            →  Invalid value 'mars' for flag --region. Allowed: us, eu, ap
 ```
@@ -488,8 +501,19 @@ so a line-split array flag and a JSON key-value flag can read the same pipe:
 
 ```ts
 command('run')
-  .flag('tag', flag.array(flag.string()).stdin({ consume: 'broadcast' }))
-  .flag('vars', flag.keyValue().split({ stdin: 'json' }).stdin({ consume: 'broadcast' }));
+  .flag(
+    'tag',
+    flag
+      .array(flag.string())
+      .stdin({ consume: 'broadcast' }),
+  )
+  .flag(
+    'vars',
+    flag
+      .keyValue()
+      .split({ stdin: 'json' })
+      .stdin({ consume: 'broadcast' }),
+  );
 // echo '{"A":"1"}' | mycli run
 //   →  flags.tag === ['{"A":"1"}'], flags.vars === { A: '1' }
 ```
@@ -510,14 +534,21 @@ flag.keyValue(flag.path({ mustExist: true }));
 `.duplicateKeys()` decides what a repeated key means, on every source rather
 than only across repeated CLI occurrences:
 
-| Policy    | Meaning                                     |
-| --------- | ------------------------------------------- |
-| `'last'`  | the later occurrence wins (the default)     |
-| `'first'` | the earlier occurrence wins                 |
-| `'error'` | a repeat fails with `CONSTRAINT_VIOLATED`   |
+| Policy    | Meaning                                   |
+| --------- | ----------------------------------------- |
+| `'last'`  | the later occurrence wins (the default)   |
+| `'first'` | the earlier occurrence wins               |
+| `'error'` | a repeat fails with `CONSTRAINT_VIOLATED` |
 
 ```ts
-command('deploy').flag('v', flag.keyValue().duplicateKeys('first').alias('e').env('VARS'));
+command('deploy').flag(
+  'v',
+  flag
+    .keyValue()
+    .duplicateKeys('first')
+    .alias('e')
+    .env('VARS'),
+);
 // -e A=1 -e A=2      →  { A: '1' }
 // VARS='A=1,A=2'     →  { A: '1' }
 ```
@@ -589,7 +620,9 @@ reads one variable per entry:
 ```ts twoslash
 import { flag } from '@kjanat/dreamcli';
 
-flag.array(flag.string()).env({ count: 'SERVER_COUNT', value: 'SERVER_{index}' });
+flag
+  .array(flag.string())
+  .env({ count: 'SERVER_COUNT', value: 'SERVER_{index}' });
 // SERVER_COUNT=2 SERVER_0=a.example SERVER_1=b.example → ['a.example', 'b.example']
 ```
 
@@ -608,7 +641,10 @@ flag
   .custom((raw: unknown) => raw as readonly ConfigEntry[])
   .env({
     count: 'GIT_CONFIG_COUNT',
-    fields: { key: 'GIT_CONFIG_KEY_{index}', value: 'GIT_CONFIG_VALUE_{index}' },
+    fields: {
+      key: 'GIT_CONFIG_KEY_{index}',
+      value: 'GIT_CONFIG_VALUE_{index}',
+    },
   });
 // → [{ key: 'user.name', value: 'Kaj' }, { key: 'user.email', value: 'kaj@example.com' }]
 ```
@@ -629,11 +665,11 @@ The family is still one stage in the chain, and the count variable decides it:
 The env stage only reads strings and string records. The flag's schema decides
 what they mean, so each kind takes the family its shape can hold:
 
-| Flag                            | `value` family                  | `fields` family                 |
-| ------------------------------- | ------------------------------- | ------------------------------- |
-| `flag.array(element)`           | each entry decoded by `element` | needs a custom `element`        |
-| `flag.custom(parseFnOrSchema)`  | receives the whole string list  | receives the whole record list  |
-| any other kind                  | rejected when the flag is built | rejected when the flag is built |
+| Flag                           | `value` family                  | `fields` family                 |
+| ------------------------------ | ------------------------------- | ------------------------------- |
+| `flag.array(element)`          | each entry decoded by `element` | needs a custom `element`        |
+| `flag.custom(parseFnOrSchema)` | receives the whole string list  | receives the whole record list  |
+| any other kind                 | rejected when the flag is built | rejected when the flag is built |
 
 A failure inside one entry names it: a value entry by its variable, a record
 entry by its index and every variable it read. Help shows the templates rather
@@ -661,8 +697,16 @@ cli('foo')
   .command(
     command('deploy')
       .flag('token', flag.string().env('TOKEN')) // reads FOO_TOKEN
-      .flag('home', flag.string().env('HOME', { absolute: true })) // reads HOME
-      .flag('servers', flag.array(flag.string()).env({ count: 'COUNT', value: 'SERVER_{index}' })),
+      .flag(
+        'home',
+        flag.string().env('HOME', { absolute: true }),
+      ) // reads HOME
+      .flag(
+        'servers',
+        flag
+          .array(flag.string())
+          .env({ count: 'COUNT', value: 'SERVER_{index}' }),
+      ),
     // reads FOO_COUNT, FOO_SERVER_0, FOO_SERVER_1, …
   );
 ```
@@ -803,7 +847,10 @@ where a `-` occurrence sits, which [Collections](#collections) covers in full.
 import { command, flag } from '@kjanat/dreamcli';
 
 command('send')
-  .flag('body', flag.string().stdin().describe('Message body'))
+  .flag(
+    'body',
+    flag.string().stdin().describe('Message body'),
+  )
   .action(({ flags }) => {
     flags.body;
     //     ^?
@@ -840,7 +887,14 @@ Use `.stdin({ argv: false })` when a value should never be accepted on argv:
 
 ```ts
 const set = command('set')
-  .flag('value', flag.string().stdin({ argv: false, trim: true }).sensitive().required())
+  .flag(
+    'value',
+    flag
+      .string()
+      .stdin({ argv: false, trim: true })
+      .sensitive()
+      .required(),
+  )
   .action(({ flags }) => saveSecret(flags.value));
 ```
 
@@ -879,7 +933,10 @@ Take one flag that reads stdin and an env var:
 import { command, flag } from '@kjanat/dreamcli';
 
 command('send')
-  .flag('body', flag.string().stdin().env('BODY').default('fallback'))
+  .flag(
+    'body',
+    flag.string().stdin().env('BODY').default('fallback'),
+  )
   .action(({ flags }) => {
     flags.body;
     //     ^?
@@ -913,7 +970,10 @@ $ mycli send
 Under `{ when: 'missing' }` a typed `-` is the literal string, not a selector:
 
 ```ts
-flag.string().stdin({ when: 'missing' }).default('fallback');
+flag
+  .string()
+  .stdin({ when: 'missing' })
+  .default('fallback');
 ```
 
 ```bash
@@ -924,7 +984,11 @@ $ echo 'piped text' | mycli send --body -
 Under `{ when: 'dash' }` an omitted flag leaves the pipe unread, so env wins:
 
 ```ts
-flag.string().stdin({ when: 'dash' }).env('BODY').default('fallback');
+flag
+  .string()
+  .stdin({ when: 'dash' })
+  .env('BODY')
+  .default('fallback');
 ```
 
 ```bash
@@ -970,8 +1034,14 @@ buffer among them:
 
 ```ts
 command('convert')
-  .flag('body', flag.string().stdin({ consume: 'broadcast' }))
-  .arg('input', arg.string().stdin({ consume: 'broadcast' }));
+  .flag(
+    'body',
+    flag.string().stdin({ consume: 'broadcast' }),
+  )
+  .arg(
+    'input',
+    arg.string().stdin({ consume: 'broadcast' }),
+  );
 // echo shared | mycli convert → flags.body === 'shared\n', args.input === 'shared\n'
 ```
 
@@ -994,14 +1064,20 @@ A handler receives `sources` beside `flags` and `args`, keyed by the same names,
 holding the record the winning stage produced:
 
 ```ts twoslash
-import { command, flag, wasExplicit } from '@kjanat/dreamcli';
+import {
+  command,
+  flag,
+  wasExplicit,
+} from '@kjanat/dreamcli';
 
 command('build')
   .flag('out', flag.string().env('OUT_DIR').default('dist'))
   .action(({ flags, sources, out }) => {
-    if (wasExplicit(sources.flags.out)) out.info(`overriding with ${flags.out}`);
+    if (wasExplicit(sources.flags.out))
+      out.info(`overriding with ${flags.out}`);
     const source = sources.flags.out;
-    if (source?.stage === 'env' && 'envVar' in source) out.info(`from ${source.envVar}`);
+    if (source?.stage === 'env' && 'envVar' in source)
+      out.info(`from ${source.envVar}`);
   });
 ```
 
@@ -1061,7 +1137,7 @@ keys.
 
 Two escape hatches:
 
-- **Per pair, automatic**: if a command explicitly defines *both* spellings as separate flags
+- **Per pair, automatic**: if a command explicitly defines _both_ spellings as separate flags
   (`do-this` and `doThis`), parity is disabled for that pair and each spelling matches only its
   own flag.
 - **Globally**: pass `flags: { caseParity: false }` to the `cli()` factory (or to
@@ -1070,12 +1146,11 @@ Two escape hatches:
 ```ts twoslash
 import { cli, command, flag } from '@kjanat/dreamcli';
 
-cli('mycli', { flags: { caseParity: false } })
-  .command(
-    command('build')
-      .flag('dry-run', flag.boolean())
-      .action(() => {}),
-  );
+cli('mycli', { flags: { caseParity: false } }).command(
+  command('build')
+    .flag('dry-run', flag.boolean())
+    .action(() => {}),
+);
 // $ mycli build --dry-run   → ok
 // $ mycli build --dryRun    → Unknown flag --dryRun
 ```
@@ -1112,7 +1187,11 @@ import { command, flag } from '@kjanat/dreamcli';
 command('build')
   .flag(
     'sandbox',
-    flag.boolean().default(true).negatable().describe('Run the build sandboxed'),
+    flag
+      .boolean()
+      .default(true)
+      .negatable()
+      .describe('Run the build sandboxed'),
   )
   .action(({ flags, out }) => {
     if (!flags.sandbox) out.warn('sandbox disabled');
@@ -1155,7 +1234,12 @@ mergeable inputs, `.duplicates()` makes repeats explicit:
 import { command, flag } from '@kjanat/dreamcli';
 
 command('run')
-  .flag('spawn', flag.enum(['session', 'same-dir', 'worktree']).duplicates('error'))
+  .flag(
+    'spawn',
+    flag
+      .enum(['session', 'same-dir', 'worktree'])
+      .duplicates('error'),
+  )
   .flag('capacity', flag.number().duplicates('first'))
   .action(() => {});
 // $ mycli run --spawn session --spawn worktree
@@ -1187,7 +1271,13 @@ command('build')
   .flag('debug', flag.boolean().negatable())
   .action(({ flags, parse, out }) => {
     const debug = parse.flag('debug');
-    out.log(JSON.stringify([flags.debug, debug.count, debug.occurrences[debug.count - 1]?.spelling]));
+    out.log(
+      JSON.stringify([
+        flags.debug,
+        debug.count,
+        debug.occurrences[debug.count - 1]?.spelling,
+      ]),
+    );
   });
 // --no-debug         → [false, 1, "--no-debug"]
 // --debug --no-debug → [false, 2, "--no-debug"]
@@ -1249,12 +1339,12 @@ flag.string().nonEmpty().pattern(/^ghp_/); // equivalent
 flag.string().minLength(3).maxLength(64);
 ```
 
-| Option      | Meaning                                     | Default |
-| ----------- | ------------------------------------------- | ------- |
-| `nonEmpty`  | Reject the empty string `''`                | `false` |
-| `minLength` | Inclusive minimum length (UTF-16 units)     | none    |
-| `maxLength` | Inclusive maximum length (UTF-16 units)     | none    |
-| `pattern`   | RegExp the value must match                 | none    |
+| Option      | Meaning                                 | Default |
+| ----------- | --------------------------------------- | ------- |
+| `nonEmpty`  | Reject the empty string `''`            | `false` |
+| `minLength` | Inclusive minimum length (UTF-16 units) | none    |
+| `maxLength` | Inclusive maximum length (UTF-16 units) | none    |
+| `pattern`   | RegExp the value must match             | none    |
 
 Constraints are checked in order **nonEmpty → minLength → maxLength →
 pattern** and apply to every source: CLI, stdin, env, config, prompt, and the
@@ -1302,15 +1392,15 @@ non-finite values.
 Constraints are checked in order **finite → int → min → max**, and apply to
 every source:
 
-| Input (`flag.number({ int: true, min: 0, max: 100 })`) | Result                               |
-| ------------------------------------------------------ | ------------------------------------ |
-| `42`                                                   | accepted                             |
-| `0` / `100`                                            | accepted (bounds are inclusive)      |
-| `NaN`                                                  | rejected, invalid number             |
-| `Infinity`                                             | rejected, `must be a finite number`  |
-| `3.7`                                                  | rejected, `must be an integer`       |
-| `-1`                                                   | rejected, `must be >= 0`             |
-| `101`                                                  | rejected, `must be <= 100`           |
+| Input (`flag.number({ int: true, min: 0, max: 100 })`) | Result                              |
+| ------------------------------------------------------ | ----------------------------------- |
+| `42`                                                   | accepted                            |
+| `0` / `100`                                            | accepted (bounds are inclusive)     |
+| `NaN`                                                  | rejected, invalid number            |
+| `Infinity`                                             | rejected, `must be a finite number` |
+| `3.7`                                                  | rejected, `must be an integer`      |
+| `-1`                                                   | rejected, `must be >= 0`            |
+| `101`                                                  | rejected, `must be <= 100`          |
 
 The same options and methods are available on `arg.number()` for positional
 arguments.
@@ -1362,7 +1452,9 @@ validator, including Zod, Valibot, and ArkType schemas:
 import { flag } from '@kjanat/dreamcli';
 import { z } from 'zod';
 
-const port = flag.custom(z.coerce.number().int().min(1).max(65_535));
+const port = flag.custom(
+  z.coerce.number().int().min(1).max(65_535),
+);
 // inferred type: number | undefined
 ```
 
@@ -1464,7 +1556,10 @@ Help also omits the automatic `(default: value)` annotation for a sensitive
 input. A safe explicit description still renders:
 
 ```ts
-flag.string().default('stored-token', { description: 'from keychain' }).sensitive();
+flag
+  .string()
+  .default('stored-token', { description: 'from keychain' })
+  .sensitive();
 ```
 
 [Diagnostics and redaction](/guide/semantics#diagnostics-and-redaction) is the

@@ -103,7 +103,9 @@ command('lsp-server')
   .flag('stdio', flag.boolean())
   .flag('node-ipc', flag.boolean())
   .flag('socket', flag.number().default(6009))
-  .constrain((c) => [c.exactlyOne('stdio', 'node-ipc', 'socket')])
+  .constrain((c) => [
+    c.exactlyOne('stdio', 'node-ipc', 'socket'),
+  ])
   .action(({ out }) => out.log('starting'));
 ```
 

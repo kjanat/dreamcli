@@ -83,12 +83,13 @@ import { command } from '@kjanat/dreamcli';
 
 command('release')
   .description('Publish a release')
-  .details('Build the binaries and publish the packages.\n\nAfter confirmation, follow each publication until it finishes.');
+  .details(
+    'Build the binaries and publish the packages.\n\nAfter confirmation, follow each publication until it finishes.',
+  );
 ```
 
 Details also accept a function that receives the help theme, such as
 `.details((theme) => 'Use ' + theme.flag('--dry-run') + ' to preview the release.')`.
-
 
 ```ts twoslash
 import { command } from '@kjanat/dreamcli';
@@ -113,7 +114,10 @@ import { command } from '@kjanat/dreamcli';
 command('deploy')
   .description('Deploy to an environment')
   // `m.name` is the actually-invoked program name (help.binName), not a literal
-  .example((m) => `${m.name} deploy production --force`, 'Force deploy to prod');
+  .example(
+    (m) => `${m.name} deploy production --force`,
+    'Force deploy to prod',
+  );
 ```
 
 The string the callback returns is rendered verbatim as the example, in both
@@ -162,7 +166,7 @@ command('deploy').action(
   // prettier-ignore
   // ---cut-end---
   ({ args, flags, ctx, meta, out }) => {
-   //^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    //^^^^^^^^^^^^^^^^^^^^^^^^^^^
     // args  — typed positional arguments
     // flags — typed flag values (fully resolved)
     // ctx   — typed middleware context
