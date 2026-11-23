@@ -30,7 +30,12 @@ import { extractConfigFlag } from './config-flag.ts';
 import type { HelpLinks } from './help-links.ts';
 import { deriveHelpLinks } from './help-links.ts';
 import type { HelpOutputFlags } from './help-output-flags.ts';
-import { isPlannedHelp, planInvocation, planInvocationWithHelpOutput } from './planner.ts';
+import {
+	invocationArgv,
+	isPlannedHelp,
+	planInvocation,
+	planInvocationWithHelpOutput,
+} from './planner.ts';
 import { assertNoReservedFlagCollisions } from './reserved-flags.ts';
 import {
 	readRootOutputFlags,
@@ -473,7 +478,13 @@ function createLazyTerminalPrompter(adapter: RuntimeAdapter): PromptEngine {
 async function prepareRuntimePreflight(
 	options: PrepareRuntimePreflightOptions,
 ): Promise<RuntimePreflightResult> {
-	const rawArgv = options.adapter.argv.slice(2);
+	const rawArgv = invocationArgv(
+		options.adapter.argv.slice(2),
+		options.compiled,
+		{ ...options.schema, flagSettings: options.options?.flags ?? options.schema.flagSettings },
+		options.schema.helpConfig?.outputFlags,
+		true,
+	);
 	const { configPath, filteredArgv, skipDiscovery, error } =
 		options.schema.configSettings !== undefined
 			? extractConfigFlag(rawArgv, options.schema.configSettings.noConfigFlag)

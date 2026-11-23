@@ -63,7 +63,7 @@ import type { HelpOutputFlags } from './help-output-flags.ts';
 import type { InspectResult } from './inspection.ts';
 import { inspectCommand } from './inspection.ts';
 import type { CommandExecutionPlan, OutputPolicy } from './planner.ts';
-import { isPlannedHelp, planInvocationWithHelpOutput } from './planner.ts';
+import { invocationArgv, isPlannedHelp, planInvocationWithHelpOutput } from './planner.ts';
 import type { CLIPlugin } from './plugin.ts';
 import { plugin } from './plugin.ts';
 import { assertNoReservedFlagCollisions } from './reserved-flags.ts';
@@ -1945,7 +1945,7 @@ class CLIBuilder {
 			options?.help,
 			effectiveBuilder.schema.helpConfig,
 			adapter.env,
-			adapter.argv,
+			preflight.filteredArgv,
 		);
 		const executeOptions: InternalCLIExecuteOptions = {
 			...options,
@@ -2120,9 +2120,16 @@ async function executeCLI(
 /** Share routing, option precedence and the command handoff between inspection and execution. */
 function prepareCLI(
 	builder: CLIBuilder,
-	argv: readonly string[],
+	rawArgv: readonly string[],
 	options?: InternalCLIExecuteOptions,
 ) {
+	const compiled = compiledStateOf(builder);
+	const flagSettings = options?.flags ?? builder.schema.flagSettings;
+	// Use the same parser settings for operand ownership, dispatch, and command parsing.
+	const planSchema =
+		options?.flags !== undefined ? { ...builder.schema, flagSettings } : builder.schema;
+	const helpConfig = builder.schema.helpConfig;
+	const argv = invocationArgv(rawArgv, compiled, planSchema, helpConfig?.outputFlags);
 	// -- Detect global --json / --quiet before building output ----------------
 	const rootOutputFlags = readRootOutputFlags(argv, builder.schema.builtins);
 	const jsonMode = resolveRootJsonMode(rootOutputFlags, options?.jsonMode);
@@ -2164,7 +2171,6 @@ function prepareCLI(
 	// channel's gated palette (escapes never leak into piped output).
 	const resolvedVersion = options?.help?.version ?? builder.schema.version;
 	const envPrefix = options?.envPrefix ?? builder.schema.envPrefix;
-	const flagSettings = options?.flags ?? builder.schema.flagSettings;
 	const width =
 		options?.help?.width ?? builder.schema.helpConfig?.width ?? out.terminalSize?.columns;
 	const helpOptions: HelpOptions = {
@@ -2181,7 +2187,6 @@ function prepareCLI(
 	};
 
 	// -- Shared options for command execution ----------------------------------
-	const compiled = compiledStateOf(builder);
 	const effectiveOptions: InternalCLIExecuteOptions = {
 		...options,
 		...(envPrefix !== undefined ? { envPrefix } : {}),
@@ -2196,11 +2201,6 @@ function prepareCLI(
 		isTTY: out.isTTY,
 		verbosity: verbosity ?? 'normal',
 	};
-	// The planner scans flag arity during dispatch, so it must see the same
-	// merged flag settings (runtime override wins) that command parsing uses.
-	const planSchema =
-		options?.flags !== undefined ? { ...builder.schema, flagSettings } : builder.schema;
-	const helpConfig = builder.schema.helpConfig;
 	const { plan: planned, helpOutput } = planInvocationWithHelpOutput(
 		{ schema: planSchema, compiled, argv, help: helpOptions, output },
 		helpConfig?.outputFlags,

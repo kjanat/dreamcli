@@ -25,7 +25,7 @@ import { buildRunResult, executeCommand } from '#internals/core/execution/index.
 import { resolveExecutionColor } from '#internals/core/output/color.ts';
 import type { CapturedOutput, Verbosity } from '#internals/core/output/index.ts';
 import { createCaptureOutput } from '#internals/core/output/index.ts';
-import { requestsHelp } from '#internals/core/parse/index.ts';
+import { requestsHelp, withHyphenOperands } from '#internals/core/parse/index.ts';
 import type { ArgBuilder, ArgConfig } from '#internals/core/schema/arg.ts';
 import type {
 	CommandBuilder,
@@ -118,7 +118,11 @@ async function runCommandInternal(
 	// reach `parse()` as unknown flags (#33). The shared reader detects them,
 	// strips them, and rejects an invalid `=value` exactly as dispatch does. The
 	// explicit `options.jsonMode` keeps working when argv says nothing.
-	const rootOutputFlags = readRootOutputFlags(argv, options?.builtins);
+	const schema = options?.mergedSchema ?? cmd.schema;
+	const rootOutputFlags = readRootOutputFlags(
+		withHyphenOperands(argv, schema.flags, options?.flags),
+		options?.builtins,
+	);
 	const jsonMode = resolveRootJsonMode(rootOutputFlags, options?.jsonMode);
 	const verbosity: Verbosity | undefined = resolveRootVerbosity(
 		rootOutputFlags,
@@ -144,8 +148,6 @@ async function runCommandInternal(
 		);
 	}
 
-	// Dispatch can supply the schema with propagated flags already merged in.
-	const schema = options?.mergedSchema ?? cmd.schema;
 	if (
 		rootOutputFlags.kind === 'failed' &&
 		!(builtinEnabled(options?.builtins, 'help') && requestsHelp(effectiveArgv, schema.helpTopics))
