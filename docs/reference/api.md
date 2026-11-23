@@ -51,23 +51,15 @@ and `examples/**` during docs build.
 
 ## Generated Index
 
-<div
-  v-for="entrypoint in data.publicApi"
-  :key="entrypoint.entrypoint"
->
+<div v-for="entrypoint in data.publicApi" :key="entrypoint.entrypoint">
   <h3><code>{{ entrypoint.entrypoint }}</code></h3>
-  <p>
-    <strong>Source entrypoint:</strong> <code>{{ entrypoint.sourcePath }}</code>
-  </p>
+  <p><strong>Source entrypoint:</strong> <code>{{ entrypoint.sourcePath }}</code></p>
   <p v-if="detailPageHrefByEntrypoint[entrypoint.entrypoint]">
     <a :href="detailPageHrefByEntrypoint[entrypoint.entrypoint]">
       {{ entrypoint.entrypoint }} detailed page
     </a>
   </p>
-  <div
-    v-for="group in entrypoint.kindGroups"
-    :key="`${entrypoint.entrypoint}-${group.kind}`"
-  >
+  <div v-for="group in entrypoint.kindGroups" :key="`${entrypoint.entrypoint}-${group.kind}`">
     <h4>{{ group.title }} ({{ group.symbols.length }})</h4>
     <table>
       <thead>
@@ -77,15 +69,9 @@ and `examples/**` during docs build.
         </tr>
       </thead>
       <tbody>
-        <tr
-          v-for="symbol in group.symbols"
-          :key="`${entrypoint.entrypoint}-${symbol.name}`"
-        >
+        <tr v-for="symbol in group.symbols" :key="`${entrypoint.entrypoint}-${symbol.name}`">
           <td>
-            <a
-              v-if="symbolHref(entrypoint.entrypoint, symbol.name) !== '#'"
-              :href="symbolHref(entrypoint.entrypoint, symbol.name)"
-            ><code>{{ symbol.name }}</code></a>
+            <a v-if="symbolHref(entrypoint.entrypoint, symbol.name) !== '#'" :href="symbolHref(entrypoint.entrypoint, symbol.name)"><code>{{ symbol.name }}</code></a>
             <code v-else>{{ symbol.name }}</code>
           </td>
           <td><code>{{ symbol.sourcePath }}</code></td>

@@ -42,8 +42,9 @@ textWrap            = "maintain"
 embedded            = { js = ["exec"], json = ["exec"], jsonc = ["exec"], ts = ["exec"] }
 
 [[markdown.overrides]]
-files     = ["README.md", "docs/**/*.md"]
-lineWidth = 60
+files             = ["README.md", "docs/**/*.md"]
+lineWidth         = 60
+"html.skipFormat" = true
 
 [[markdown.overrides]]
 files               = ["CHANGELOG.md"]

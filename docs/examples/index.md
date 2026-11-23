@@ -20,8 +20,7 @@ This keeps examples and API docs aligned to the same source model without mainta
 <ul>
   <li v-for="example in examples" :key="example.slug">
     <strong><a :href="example.routePath">{{ example.title }}</a></strong>
-    <span>
-      - {{ example.demonstrates ?? example.summary }}</span>
+    <span> - {{ example.demonstrates ?? example.summary }}</span>
     <span> (<code>{{ example.sourcePath }}</code>)</span>
   </li>
 </ul>
