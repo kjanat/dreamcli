@@ -25,6 +25,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: $/.github/actions/setup
+      - name: Refresh the weekly Renovate lockfile
+        if: >- # actionlint:ignore case-insensitive-conditions -- only Renovate's own PRs are eligible
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.user.login == 'renovate[bot]' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          github.head_ref == 'renovate/weekly-dev-dependencies'
+        run: |
+          rm bun.lock
+          bun install --lockfile-only --ignore-scripts
       - run: runner install
       - run: run -s fmt:autofix lint:autofix
       - uses: autofix-ci/action@v1
