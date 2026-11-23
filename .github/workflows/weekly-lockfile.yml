@@ -1,0 +1,68 @@
+name: Weekly Bun lockfile
+on:
+  schedule:
+    # Renovate opens the combined PR before 06:00 Amsterdam time.
+    - cron: "17 7 * * 1"
+      timezone: Europe/Amsterdam
+permissions: { contents: read }
+concurrency: weekly-bun-lockfile
+jobs:
+  refresh:
+    if: github.repository == 'kjanat/dreamcli' && github.ref_protected
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions: { contents: read, pull-requests: read, id-token: write }
+    steps:
+      - name: Check whether Renovate covered this week
+        id: batch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TZ: Europe/Amsterdam
+        run: |
+          monday=$(date -d "$(date +%F) -$(( $(date +%u) - 1 )) days" +%s)
+          week_start=$(date -u -d "@$monday" +%FT%TZ)
+          pulls=$(gh api --method GET "repos/$GITHUB_REPOSITORY/pulls" \
+            -f state=all -f base="$GITHUB_REF_NAME" \
+            -f head="$GITHUB_REPOSITORY_OWNER:renovate/weekly-dev-dependencies" \
+            -f sort=created -f direction=desc -F per_page=1)
+          needed=$(jq -r --arg week_start "$week_start" '
+            any(.[]; .state == "open" or .created_at >= $week_start or (.merged_at // "") >= $week_start) | not
+          ' <<< "$pulls")
+          echo "needed=$needed" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v7
+        if: steps.batch.outputs.needed == 'true'
+        with: { ref: "${{ github.ref_name }}", persist-credentials: false }
+      - uses: oven-sh/setup-bun@v2
+        if: steps.batch.outputs.needed == 'true'
+        with: { bun-version-file: package.json }
+      - name: Refresh the Bun lockfile
+        id: lockfile
+        if: steps.batch.outputs.needed == 'true'
+        run: |
+          rm bun.lock
+          bun install --lockfile-only --ignore-scripts
+          if ! git diff --quiet -- bun.lock; then
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: kjanat/beepboop/actions/pull-request@v1
+        id: pull-request
+        if: steps.lockfile.outputs.changed == 'true'
+        with:
+          branch: maintenance/bun-lockfile
+          base: ${{ github.ref_name }}
+          title: "chore(deps): refresh the Bun lockfile"
+          body: Refresh `bun.lock` for a week without a combined Renovate PR.
+          add-paths: bun.lock
+      - uses: kjanat/beepboop/actions/token@v1
+        id: token
+        if: steps.pull-request.outputs.pull-request-number != ''
+        with:
+          permission-contents: write
+          permission-pull-requests: write
+      - name: Enable automerge
+        if: steps.pull-request.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          PR_NUMBER: ${{ steps.pull-request.outputs.pull-request-number }}
+          PR_HEAD: ${{ steps.pull-request.outputs.pull-request-head-sha }}
+        run: gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --auto --squash --match-head-commit "$PR_HEAD"

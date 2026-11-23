@@ -3,6 +3,7 @@
 	"extends": ["config:recommended", ":semanticCommits"],
 	"timezone": "Europe/Amsterdam",
 	"automerge": false,
+	"gitIgnoredAuthors": ["114827586+autofix-ci[bot]@users.noreply.github.com"],
 	"prConcurrentLimit": 5,
 	"prHourlyLimit": 2,
 	"rangeStrategy": "bump",
@@ -14,10 +15,6 @@
 		"**/.vitepress/cache/**"
 	],
 	"github-actions": { "enabled": false },
-	"lockFileMaintenance": {
-		"enabled": true,
-		"schedule": ["before 6am on monday"]
-	},
 	"customManagers": [
 		{
 			"description": "Extract root Bun catalog versions, including npm aliases, until the Bun manager supports catalogs.",
@@ -48,19 +45,22 @@
 			"dependencyDashboardApproval": true
 		},
 		{
-			"description": "Keep Vitest and its coverage provider compatible across workspaces.",
-			"matchPackageNames": ["vitest", "@vitest/*"],
-			"groupName": "vitest"
-		},
-		{
-			"description": "Update Shiki and the VitePress Twoslash integration together.",
-			"matchPackageNames": ["shiki", "@shikijs/*"],
-			"groupName": "shiki"
-		},
-		{
 			"description": "Keep the npm and JSR Ansispeck dependencies in one upgrade PR.",
 			"matchPackageNames": ["ansispeck", "@kjanat/ansispeck"],
 			"groupName": "ansispeck"
+		},
+		{
+			"description": "Batch workspace devDependencies and their Bun catalog entries once a week.",
+			"matchDepTypes": ["devDependencies", "bun.catalog"],
+			"groupName": "weekly dev dependencies",
+			"groupSlug": "weekly-dev-dependencies",
+			"groupSingleUpdates": true,
+			"separateMajorMinor": false,
+			"schedule": ["* 0-5 * * 1"],
+			"dependencyDashboardApproval": false,
+			"automerge": true,
+			"platformAutomerge": false,
+			"automergeSchedule": ["* 6-23 * * 1", "* * * * 0,2-6"]
 		}
 	]
 }
