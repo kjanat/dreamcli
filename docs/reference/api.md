@@ -2,23 +2,23 @@
 import { data } from './api.data.ts';
 
 const symbolRouteById = new Map(
-	data.symbolPages.map((page) => [`${page.entrypoint}:${page.name}`, page.routePath]),
+  data.symbolPages.map((page) => [`${page.entrypoint}:${page.name}`, page.routePath]),
 );
 
 const detailPageHrefByEntrypoint: Readonly<Record<string, string>> = {
-	'@kjanat/dreamcli': '/reference/main',
-	'@kjanat/dreamcli/testkit': '/reference/testkit',
-	'@kjanat/dreamcli/runtime': '/reference/runtime',
-	'@kjanat/dreamcli/completion': '/reference/completion',
-	'@kjanat/dreamcli/json-schema': '/reference/json-schema',
-	'@kjanat/dreamcli/config': '/reference/config',
-	'@kjanat/dreamcli/prompt': '/reference/prompt',
-	'@kjanat/dreamcli/schema': '/reference/schema',
-	'@kjanat/dreamcli/version': '/reference/version',
+  '@kjanat/dreamcli': '/reference/main',
+  '@kjanat/dreamcli/testkit': '/reference/testkit',
+  '@kjanat/dreamcli/runtime': '/reference/runtime',
+  '@kjanat/dreamcli/completion': '/reference/completion',
+  '@kjanat/dreamcli/json-schema': '/reference/json-schema',
+  '@kjanat/dreamcli/config': '/reference/config',
+  '@kjanat/dreamcli/prompt': '/reference/prompt',
+  '@kjanat/dreamcli/schema': '/reference/schema',
+  '@kjanat/dreamcli/version': '/reference/version',
 };
 
 function symbolHref(entrypoint: string, name: string): string {
-	return symbolRouteById.get(`${entrypoint}:${name}`) ?? '#';
+  return symbolRouteById.get(`${entrypoint}:${name}`) ?? '#';
 }
 </script>
 
@@ -52,33 +52,33 @@ and `examples/**` during docs build.
 ## Generated Index
 
 <div v-for="entrypoint in data.publicApi" :key="entrypoint.entrypoint">
-	<h3><code>{{ entrypoint.entrypoint }}</code></h3>
-	<p><strong>Source entrypoint:</strong> <code>{{ entrypoint.sourcePath }}</code></p>
-	<p v-if="detailPageHrefByEntrypoint[entrypoint.entrypoint]">
-		<a :href="detailPageHrefByEntrypoint[entrypoint.entrypoint]">
-			{{ entrypoint.entrypoint }} detailed page
-		</a>
-	</p>
-	<div v-for="group in entrypoint.kindGroups" :key="`${entrypoint.entrypoint}-${group.kind}`">
-		<h4>{{ group.title }} ({{ group.symbols.length }})</h4>
-		<table>
-			<thead>
-				<tr>
-					<th>Symbol</th>
-					<th>Source</th>
-				</tr>
-			</thead>
-			<tbody>
-				<tr v-for="symbol in group.symbols" :key="`${entrypoint.entrypoint}-${symbol.name}`">
-					<td>
-						<a v-if="symbolHref(entrypoint.entrypoint, symbol.name) !== '#'" :href="symbolHref(entrypoint.entrypoint, symbol.name)"><code>{{ symbol.name }}</code></a>
-						<code v-else>{{ symbol.name }}</code>
-					</td>
-					<td><code>{{ symbol.sourcePath }}</code></td>
-				</tr>
-			</tbody>
-		</table>
-	</div>
+  <h3><code>{{ entrypoint.entrypoint }}</code></h3>
+  <p><strong>Source entrypoint:</strong> <code>{{ entrypoint.sourcePath }}</code></p>
+  <p v-if="detailPageHrefByEntrypoint[entrypoint.entrypoint]">
+    <a :href="detailPageHrefByEntrypoint[entrypoint.entrypoint]">
+      {{ entrypoint.entrypoint }} detailed page
+    </a>
+  </p>
+  <div v-for="group in entrypoint.kindGroups" :key="`${entrypoint.entrypoint}-${group.kind}`">
+    <h4>{{ group.title }} ({{ group.symbols.length }})</h4>
+    <table>
+      <thead>
+        <tr>
+          <th>Symbol</th>
+          <th>Source</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="symbol in group.symbols" :key="`${entrypoint.entrypoint}-${symbol.name}`">
+          <td>
+            <a v-if="symbolHref(entrypoint.entrypoint, symbol.name) !== '#'" :href="symbolHref(entrypoint.entrypoint, symbol.name)"><code>{{ symbol.name }}</code></a>
+            <code v-else>{{ symbol.name }}</code>
+          </td>
+          <td><code>{{ symbol.sourcePath }}</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 </div>
 
 ## Related Guides

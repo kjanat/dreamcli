@@ -37,11 +37,20 @@ import { cli, command, flag } from '@kjanat/dreamcli';
 
 const app = cli('reports').command(
   command('export')
-    .flag('limit', flag.number({ int: true, min: 1 }).default(20))
-    .action(({ flags, out }) => out.log(`Exporting ${flags.limit} rows`)),
+    .flag(
+      'limit',
+      flag.number({ int: true, min: 1 }).default(20),
+    )
+    .action(({ flags, out }) =>
+      out.log(`Exporting ${flags.limit} rows`),
+    ),
 );
 
-const result = await app.inspect(['export', '--limit', '5']);
+const result = await app.inspect([
+  'export',
+  '--limit',
+  '5',
+]);
 if (result.kind === 'match' && result.flags.limit === 5) {
   const run = await result.execute();
   // run.stdout contains "Exporting 5 rows\n".
@@ -73,15 +82,15 @@ and are included in the resumed result. Inspection itself emits no help text or 
 
 ## Handle other outcomes
 
-| Result kind | What the host receives |
-| --- | --- |
-| `root-help` | The CLI schema and the short or full help request. |
-| `command-help` | The matched command schema and the short, full, or topic help request. A group awaiting a subcommand also produces command help. |
-| `root-version` | The version string. |
-| `root-completions` | The shell selected by the eager completions flag. |
-| `dynamic-completion` | The completion protocol arguments. The host can choose whether to run providers. |
-| `dispatch-error` | A structured routing error with its code, message, and exit code. |
-| `command-error` | A parse or resolution error. Once parsing has produced a context, it is available as `result.parse`. |
+| Result kind          | What the host receives                                                                                                           |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `root-help`          | The CLI schema and the short or full help request.                                                                               |
+| `command-help`       | The matched command schema and the short, full, or topic help request. A group awaiting a subcommand also produces command help. |
+| `root-version`       | The version string.                                                                                                              |
+| `root-completions`   | The shell selected by the eager completions flag.                                                                                |
+| `dynamic-completion` | The completion protocol arguments. The host can choose whether to run providers.                                                 |
+| `dispatch-error`     | A structured routing error with its code, message, and exit code.                                                                |
+| `command-error`      | A parse or resolution error. Once parsing has produced a context, it is available as `result.parse`.                             |
 
 Use the result kind to select your host's help view or error response. To display ordinary
 terminal help, the host can delegate the help request to the CLI's existing execution path.

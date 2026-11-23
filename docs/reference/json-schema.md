@@ -12,7 +12,10 @@ import {
   DEFINITION_SCHEMA_URL,
   DEFINITION_SCHEMA_VERSION,
 } from '@kjanat/dreamcli/json-schema';
-import type { DefinitionDocument, InputSchemaDocument } from '@kjanat/dreamcli/json-schema';
+import type {
+  DefinitionDocument,
+  InputSchemaDocument,
+} from '@kjanat/dreamcli/json-schema';
 ```
 
 The document types (`DefinitionDocument`, `CommandDefinitionDocument`, every `*FragmentV1`, and
@@ -20,7 +23,6 @@ The document types (`DefinitionDocument`, `CommandDefinitionDocument`, every `*F
 does not need this subpath. The same goes for `DEFINITION_SCHEMA_URL` and
 `DEFINITION_SCHEMA_VERSION`: importing them from this subpath also evaluates the generators, so
 take the root copies when the constants are all you need.
-
 
 ## `generateSchema(schema, options?, meta?)`
 

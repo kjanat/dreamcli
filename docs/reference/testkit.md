@@ -34,30 +34,30 @@ const result = await runCommand(greet, ['Alice', '--loud']);
 
 ### RunOptions
 
-| Option      | Type                                  | Description                             |
-| ----------- | ------------------------------------- | --------------------------------------- |
-| `env`       | `Record<string, string \| undefined>` | Environment variables                   |
-| `config`    | `Record<string, unknown>`             | Config file values                      |
-| `stdinData` | `string \| null`                      | Data to pipe to process stdin for tests |
-| `answers`   | `unknown[]`                           | Prompt answers in order                 |
-| `prompter`  | `PromptEngine`                        | Custom prompt handler                   |
-| `jsonMode`  | `boolean`                             | Simulate `--json` mode                  |
-| `help`      | `HelpOptions`                         | Help formatting options                 |
-| `verbosity` | `Verbosity`                           | Output verbosity                        |
-| `isTTY`     | `boolean`                             | Simulate TTY connection                 |
-| `stat`      | `(path) => Promise<'file' \| 'directory' \| null>` | Filesystem probe for `flag.path()` / `arg.path()` checks |
-| `mkdir`     | `(path) => Promise<void>`             | Directory creation for `create` checks  |
-| `pathChecks` | `'lenient' \| 'strict'`              | Fail with `PATH_CHECK_SKIPPED` when a declared check cannot run (default `'lenient'`) |
+| Option       | Type                                               | Description                                                                           |
+| ------------ | -------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `env`        | `Record<string, string \| undefined>`              | Environment variables                                                                 |
+| `config`     | `Record<string, unknown>`                          | Config file values                                                                    |
+| `stdinData`  | `string \| null`                                   | Data to pipe to process stdin for tests                                               |
+| `answers`    | `unknown[]`                                        | Prompt answers in order                                                               |
+| `prompter`   | `PromptEngine`                                     | Custom prompt handler                                                                 |
+| `jsonMode`   | `boolean`                                          | Simulate `--json` mode                                                                |
+| `help`       | `HelpOptions`                                      | Help formatting options                                                               |
+| `verbosity`  | `Verbosity`                                        | Output verbosity                                                                      |
+| `isTTY`      | `boolean`                                          | Simulate TTY connection                                                               |
+| `stat`       | `(path) => Promise<'file' \| 'directory' \| null>` | Filesystem probe for `flag.path()` / `arg.path()` checks                              |
+| `mkdir`      | `(path) => Promise<void>`                          | Directory creation for `create` checks                                                |
+| `pathChecks` | `'lenient' \| 'strict'`                            | Fail with `PATH_CHECK_SKIPPED` when a declared check cannot run (default `'lenient'`) |
 
 ### RunResult
 
-| Field               | Type                    | Description                                    |
-| ------------------- | ----------------------- | ---------------------------------------------- |
-| `exitCode`          | `number`                | Process exit code                              |
-| `stdout`            | `string[]`              | Captured stdout lines                          |
-| `stderr`            | `string[]`              | Captured stderr lines                          |
-| `error`             | `CLIError \| undefined` | Structured error, `undefined` when none thrown |
-| `activity`          | `ActivityEvent[]`       | Spinner/progress events                        |
+| Field               | Type                    | Description                                                        |
+| ------------------- | ----------------------- | ------------------------------------------------------------------ |
+| `exitCode`          | `number`                | Process exit code                                                  |
+| `stdout`            | `string[]`              | Captured stdout lines                                              |
+| `stderr`            | `string[]`              | Captured stderr lines                                              |
+| `error`             | `CLIError \| undefined` | Structured error, `undefined` when none thrown                     |
+| `activity`          | `ActivityEvent[]`       | Spinner/progress events                                            |
 | `skippedPathChecks` | `SkippedPathCheck[]`    | Declared path checks that did not run for lack of `stat` / `mkdir` |
 
 `exitCode` can be non-zero while `error` is `undefined` when a handler calls

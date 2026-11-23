@@ -8,12 +8,12 @@ overview.
 
 The tokenizer is schema-agnostic. It applies these rules before command-specific parsing starts:
 
-| Raw argv form  | Meaning                                                                     |
-| -------------- | --------------------------------------------------------------------------- |
-| `--flag`       | long flag without an inline value                                           |
-| `--flag=value` | long flag with an inline value                                              |
-| `-abc`         | combined short flags                                                        |
-| `--`           | end of options; everything after becomes positional                         |
+| Raw argv form  | Meaning                                                                        |
+| -------------- | ------------------------------------------------------------------------------ |
+| `--flag`       | long flag without an inline value                                              |
+| `--flag=value` | long flag with an inline value                                                 |
+| `-abc`         | combined short flags                                                           |
+| `--`           | end of options; everything after becomes positional                            |
 | `-`            | stdin sentinel for an input declaring `.stdin()`, otherwise a plain positional |
 
 Examples:
@@ -98,12 +98,12 @@ An input carries one value, an ordered list, a record of key-value entries, or
 an occurrence count. Which of the four it is decides how every source fills it,
 and it is decided separately from what each value means.
 
-| Form      | Declared by                                   | Unset resolves to |
-| --------- | --------------------------------------------- | ----------------- |
-| one       | every scalar kind                             | `undefined`       |
-| list      | `flag.array()`, `arg` with `.variadic()`      | `[]`              |
-| entries   | `flag.keyValue()`, `arg.keyValue()`           | `{}`              |
-| count     | `flag.count()`                                | `0`               |
+| Form    | Declared by                              | Unset resolves to |
+| ------- | ---------------------------------------- | ----------------- |
+| one     | every scalar kind                        | `undefined`       |
+| list    | `flag.array()`, `arg` with `.variadic()` | `[]`              |
+| entries | `flag.keyValue()`, `arg.keyValue()`      | `{}`              |
+| count   | `flag.count()`                           | `0`               |
 
 ### Per-source split policies
 
@@ -222,7 +222,12 @@ Example:
 ```ts twoslash
 import { arg } from '@kjanat/dreamcli';
 
-arg.string().stdin().env('DEPLOY_TARGET').config('deploy.target').default('local');
+arg
+  .string()
+  .stdin()
+  .env('DEPLOY_TARGET')
+  .config('deploy.target')
+  .default('local');
 ```
 
 Outcomes:
@@ -326,14 +331,20 @@ Every resolved value records which stage produced it. A handler receives those
 records as `sources`, beside `flags` and `args` and keyed by the same names:
 
 ```ts twoslash
-import { command, flag, wasExplicit } from '@kjanat/dreamcli';
+import {
+  command,
+  flag,
+  wasExplicit,
+} from '@kjanat/dreamcli';
 
 command('build')
   .flag('out', flag.string().env('OUT_DIR').default('dist'))
   .action(({ flags, sources, out }) => {
-    if (wasExplicit(sources.flags.out)) out.info(`overriding with ${flags.out}`);
+    if (wasExplicit(sources.flags.out))
+      out.info(`overriding with ${flags.out}`);
     const source = sources.flags.out;
-    if (source?.stage === 'env' && 'envVar' in source) out.info(`from ${source.envVar}`);
+    if (source?.stage === 'env' && 'envVar' in source)
+      out.info(`from ${source.envVar}`);
   });
 ```
 
@@ -343,17 +354,17 @@ Eight records exist: one per stage, plus the two ways stdin delivers bytes and
 the two ways the environment does. An input that resolved no value has no
 record at all, so a name is present in `flags` and absent in `sources.flags`:
 
-| Record                                                  | What happened                             | Trigger                             |
-| ------------------------------------------------------- | ----------------------------------------- | ----------------------------------- |
-| `{ stage: 'cli' }`                                      | a token the user typed                    | `--out dist`, or a positional token |
-| `{ stage: 'cli', via: 'stdin', trigger: 'dash' }`       | an explicit `-` read the stream           | `--body -`, or a positional `-`     |
-| `{ stage: 'stdin', via: 'stdin', trigger: 'fallback' }` | an omitted input read the stream          | the input was not typed at all      |
-| `{ stage: 'env', envVar }`                              | the named environment variable            | `.env('BODY')`                      |
-| `{ stage: 'env', via: 'indexed', count, envVars }`      | an indexed env family                     | `.env({ count, value })`            |
-| `{ stage: 'config', configPath }`                       | the named config path                     | `.config('send.body')`              |
-| `{ stage: 'prompt' }`                                   | an answered prompt                        | `.prompt({ … })`                    |
-| `{ stage: 'default' }`                                  | the declared default                      | `.default('dist')`                  |
-| absent                                                  | nothing produced a value                  | an optional input no source filled  |
+| Record                                                  | What happened                    | Trigger                             |
+| ------------------------------------------------------- | -------------------------------- | ----------------------------------- |
+| `{ stage: 'cli' }`                                      | a token the user typed           | `--out dist`, or a positional token |
+| `{ stage: 'cli', via: 'stdin', trigger: 'dash' }`       | an explicit `-` read the stream  | `--body -`, or a positional `-`     |
+| `{ stage: 'stdin', via: 'stdin', trigger: 'fallback' }` | an omitted input read the stream | the input was not typed at all      |
+| `{ stage: 'env', envVar }`                              | the named environment variable   | `.env('BODY')`                      |
+| `{ stage: 'env', via: 'indexed', count, envVars }`      | an indexed env family            | `.env({ count, value })`            |
+| `{ stage: 'config', configPath }`                       | the named config path            | `.config('send.body')`              |
+| `{ stage: 'prompt' }`                                   | an answered prompt               | `.prompt({ … })`                    |
+| `{ stage: 'default' }`                                  | the declared default             | `.default('dist')`                  |
+| absent                                                  | nothing produced a value         | an optional input no source filled  |
 
 Both stdin records carry `via: 'stdin'`, and they differ on `stage` because
 they differ on precedence. A typed `-` is CLI-ranked and outranks env, config,
@@ -379,7 +390,11 @@ import { wasExplicit } from '@kjanat/dreamcli';
 wasExplicit(undefined); // false
 wasExplicit({ stage: 'default' }); // false
 wasExplicit({ stage: 'cli' }); // true
-wasExplicit({ stage: 'stdin', via: 'stdin', trigger: 'fallback' }); // true
+wasExplicit({
+  stage: 'stdin',
+  via: 'stdin',
+  trigger: 'fallback',
+}); // true
 wasExplicit({ stage: 'env', envVar: 'OUT_DIR' }); // true
 ```
 
@@ -398,9 +413,16 @@ A CLI that layers its own values over a project manifest needs to know which
 values the user supplied, so a default never outranks the manifest:
 
 ```ts twoslash
-import { command, flag, wasExplicit } from '@kjanat/dreamcli';
+import {
+  command,
+  flag,
+  wasExplicit,
+} from '@kjanat/dreamcli';
 
-declare function readManifest(): { readonly outDir?: string; readonly minify?: boolean };
+declare function readManifest(): {
+  readonly outDir?: string;
+  readonly minify?: boolean;
+};
 // ---cut---
 command('build')
   .flag('out', flag.string().default('dist'))
@@ -408,11 +430,17 @@ command('build')
   .derive(({ flags, sources }) => {
     const manifest = readManifest();
     return {
-      outDir: wasExplicit(sources.flags.out) ? flags.out : manifest.outDir ?? flags.out,
-      minify: wasExplicit(sources.flags.minify) ? flags.minify : manifest.minify ?? flags.minify,
+      outDir: wasExplicit(sources.flags.out)
+        ? flags.out
+        : (manifest.outDir ?? flags.out),
+      minify: wasExplicit(sources.flags.minify)
+        ? flags.minify
+        : (manifest.minify ?? flags.minify),
     };
   })
-  .action(({ ctx, out }) => out.info(`building into ${ctx.outDir}`));
+  .action(({ ctx, out }) =>
+    out.info(`building into ${ctx.outDir}`),
+  );
 ```
 
 Comparing against the default value would fail in exactly the case the check
@@ -423,13 +451,21 @@ exists for, a user passing a value that happens to equal the default.
 An `--explain` mode wants the label rather than the boolean:
 
 ```ts twoslash
-import { type ResolutionProvenance, command, flag } from '@kjanat/dreamcli';
+import {
+  type ResolutionProvenance,
+  command,
+  flag,
+} from '@kjanat/dreamcli';
 
-function describe(source: ResolutionProvenance | undefined): string {
+function describe(
+  source: ResolutionProvenance | undefined,
+): string {
   if (source === undefined) return 'unset';
   switch (source.stage) {
     case 'cli':
-      return 'via' in source ? "the '-' you typed, read from stdin" : 'the command line';
+      return 'via' in source
+        ? "the '-' you typed, read from stdin"
+        : 'the command line';
     case 'stdin':
       return 'piped stdin';
     case 'env':
@@ -448,10 +484,20 @@ function describe(source: ResolutionProvenance | undefined): string {
 }
 
 command('deploy')
-  .flag('region', flag.string().env('REGION').config('deploy.region').default('us'))
+  .flag(
+    'region',
+    flag
+      .string()
+      .env('REGION')
+      .config('deploy.region')
+      .default('us'),
+  )
   .flag('explain', flag.boolean())
   .action(({ flags, sources, out }) => {
-    if (flags.explain) out.info(`region came from ${describe(sources.flags.region)}`);
+    if (flags.explain)
+      out.info(
+        `region came from ${describe(sources.flags.region)}`,
+      );
   });
 ```
 
@@ -466,7 +512,11 @@ plain strings because it takes a `CommandSchema` rather than typed builders.
 definitions record the caller passed:
 
 ```ts twoslash
-import { flag, readFlags, wasExplicit } from '@kjanat/dreamcli';
+import {
+  flag,
+  readFlags,
+  wasExplicit,
+} from '@kjanat/dreamcli';
 // ---cut---
 await readFlags(
   { out: flag.string().env('OUT_DIR').default('dist') },
@@ -491,8 +541,8 @@ argument schema decides sensitivity. Values are visible by default from every
 source. `.sensitive()` replaces framework-controlled value text with
 `<redacted>` and omits raw-derived fields from structured details.
 
-| Input declaration | Sources                                  | Message value | Raw-derived details |
-| ----------------- | ---------------------------------------- | ------------- | ------------------- |
+| Input declaration | Sources                                   | Message value | Raw-derived details |
+| ----------------- | ----------------------------------------- | ------------- | ------------------- |
 | default           | argv, stdin, env, config, prompt, default | visible       | present             |
 | `.sensitive()`    | argv, stdin, env, config, prompt, default | `<redacted>`  | absent              |
 

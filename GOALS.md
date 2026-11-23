@@ -136,24 +136,24 @@ and usage in sync.
 import { arg, cli, command, flag } from '@kjanat/dreamcli';
 
 const deploy = command('deploy')
-	.description('Deploy to an environment')
-	.arg('target', arg.string().describe('Deploy target'))
-	.flag('force', flag.boolean().default(false).alias('f'))
-	.flag('region', flag.enum(['us', 'eu', 'ap']).env('DEPLOY_REGION').config('deploy.region'))
-	.interactive(({ flags }) => ({
-		region: !flags.region && {
-			type: 'select',
-			message: 'Select region',
-			options: ['us', 'eu', 'ap'],
-		},
-	}))
-	.middleware(authMiddleware)
-	.action(async ({ args, flags, ctx, out }) => {
-		// args.target: string
-		// flags.force: boolean
-		// flags.region: "us" | "eu" | "ap"  (guaranteed resolved)
-		out.log(`Deploying ${args.target} to ${flags.region}...`);
-	});
+  .description('Deploy to an environment')
+  .arg('target', arg.string().describe('Deploy target'))
+  .flag('force', flag.boolean().default(false).alias('f'))
+  .flag('region', flag.enum(['us', 'eu', 'ap']).env('DEPLOY_REGION').config('deploy.region'))
+  .interactive(({ flags }) => ({
+    region: !flags.region && {
+      type: 'select',
+      message: 'Select region',
+      options: ['us', 'eu', 'ap'],
+    },
+  }))
+  .middleware(authMiddleware)
+  .action(async ({ args, flags, ctx, out }) => {
+    // args.target: string
+    // flags.force: boolean
+    // flags.region: "us" | "eu" | "ap"  (guaranteed resolved)
+    out.log(`Deploying ${args.target} to ${flags.region}...`);
+  });
 
 cli('mycli').version('1.0.0').command(deploy).run(); // reads argv/env from runtime adapter by default
 ```
@@ -164,16 +164,16 @@ cli('mycli').version('1.0.0').command(deploy).run(); // reads argv/env from runt
 import { CLIError, middleware } from '@kjanat/dreamcli';
 
 const authMiddleware = middleware(async ({ next }) => {
-	const user = await getUser();
-	if (!user) {
-		throw new CLIError('Not authenticated', {
-			code: 'AUTH_REQUIRED',
-			suggest: 'Run `mycli login`',
-			exitCode: 2,
-		});
-	}
+  const user = await getUser();
+  if (!user) {
+    throw new CLIError('Not authenticated', {
+      code: 'AUTH_REQUIRED',
+      suggest: 'Run `mycli login`',
+      exitCode: 2,
+    });
+  }
 
-	return next({ user }); // ctx.user becomes typed downstream
+  return next({ user }); // ctx.user becomes typed downstream
 });
 ```
 
@@ -181,10 +181,10 @@ const authMiddleware = middleware(async ({ next }) => {
 
 ```ts
 const result = await deploy.run(['production', '--force'], {
-	env: { DEPLOY_REGION: 'eu' },
-	config: { deploy: { region: 'us' } },
-	stdin: 'tty', // or a stream
-	stdout: 'capture',
+  env: { DEPLOY_REGION: 'eu' },
+  config: { deploy: { region: 'us' } },
+  stdin: 'tty', // or a stream
+  stdout: 'capture',
 });
 
 expect(result.exitCode).toBe(0);

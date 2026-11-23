@@ -29,7 +29,10 @@ and its flag sat at the default value on every invocation:
 ```ts
 // 3.x
 const build = command('build')
-  .flag('quiet', flag.boolean().describe('Suppress build logs'))
+  .flag(
+    'quiet',
+    flag.boolean().describe('Suppress build logs'),
+  )
   .action(({ flags, out }) => {
     out.log(`quiet=${flags.quiet}`);
   });
@@ -68,9 +71,7 @@ domain-specific are the usual cases:
 
 ```ts
 // 4.0
-cli('mycli')
-  .builtins({ quiet: 'off' })
-  .command(build);
+cli('mycli').builtins({ quiet: 'off' }).command(build);
 ```
 
 `.builtins()` has to come first, since `.command()` checks against the state it
@@ -126,7 +127,10 @@ Helpers that only need part of the channel take a capability type:
 ```ts twoslash
 import type { Out } from '@kjanat/dreamcli';
 // ---cut---
-function renderRows(out: Pick<Out, 'info' | 'status'>, rows: readonly string[]) {
+function renderRows(
+  out: Pick<Out, 'info' | 'status'>,
+  rows: readonly string[],
+) {
   for (const row of rows) out.info(row);
 }
 ```
@@ -181,8 +185,15 @@ const schema = createCLISchema({
   commands: [
     {
       name: 'deploy',
-      flags: { region: { kind: 'enum', enumValues: ['us', 'eu', 'ap'] } },
-      args: [{ name: 'target', schema: { kind: 'string' } }],
+      flags: {
+        region: {
+          kind: 'enum',
+          enumValues: ['us', 'eu', 'ap'],
+        },
+      },
+      args: [
+        { name: 'target', schema: { kind: 'string' } },
+      ],
     },
   ],
 });
@@ -201,7 +212,9 @@ definition object, and both validate fields against the kind:
 ```ts twoslash
 import { createFlagSchema } from '@kjanat/dreamcli';
 // ---cut---
-const region = createFlagSchema('enum', { enumValues: ['us', 'eu', 'ap'] });
+const region = createFlagSchema('enum', {
+  enumValues: ['us', 'eu', 'ap'],
+});
 
 const tags = createFlagSchema({
   kind: 'array',
@@ -367,7 +380,9 @@ channel:
 const result = await runCommand(deploy, ['production']);
 
 expect(result.stdout).toEqual(['Deploying production\n']);
-expect(result.activity).toEqual([{ type: 'spinner:start', text: 'Deploying' }]);
+expect(result.activity).toEqual([
+  { type: 'spinner:start', text: 'Deploying' },
+]);
 ```
 
 Code that genuinely needs its own writers builds a channel with
@@ -378,14 +393,14 @@ and `OutputOptions.stderr` are the supported injection seam.
 
 Deprecated since 2.5, removed here. Every removal has a direct replacement:
 
-| Removed                                  | Replacement                                                                |
-| ---------------------------------------- | -------------------------------------------------------------------------- |
-| `.packageJson(settings)`                 | `.manifest(settings)`, which defaults to `files: ['package.json']`          |
-| `.packageJson(data)`                     | `.manifest(data)`, taking the same pre-loaded data object                   |
+| Removed                                  | Replacement                                                                  |
+| ---------------------------------------- | ---------------------------------------------------------------------------- |
+| `.packageJson(settings)`                 | `.manifest(settings)`, which defaults to `files: ['package.json']`           |
+| `.packageJson(data)`                     | `.manifest(data)`, taking the same pre-loaded data object                    |
 | `.denoJson(settings)`                    | `.manifest({ files: ['deno.json', 'deno.jsonc', 'jsr.json'], ...settings })` |
-| `ManifestPresetSettings`                 | `ManifestSettings`, which adds `files`                                     |
-| `PackageJsonSettings`                    | `ResolvedManifestSettings`                                                 |
-| `discoverPackageJson(adapter, startDir)` | `discoverManifest(adapter, { startDir, files: ['package.json'] })`         |
+| `ManifestPresetSettings`                 | `ManifestSettings`, which adds `files`                                       |
+| `PackageJsonSettings`                    | `ResolvedManifestSettings`                                                   |
+| `discoverPackageJson(adapter, startDir)` | `discoverManifest(adapter, { startDir, files: ['package.json'] })`           |
 
 ```ts
 // 3.x
@@ -452,10 +467,14 @@ behavior.
 
 ```ts
 // 3.x — reading a built schema
-if (schema.stdinMode) { /* … */ }
+if (schema.stdinMode) {
+  /* … */
+}
 
 // 4.0
-if (schema.stdin !== undefined) { /* … */ }
+if (schema.stdin !== undefined) {
+  /* … */
+}
 ```
 
 ```ts
@@ -464,7 +483,9 @@ createArgSchema('string', { stdinMode: true });
 
 // 4.0
 createArgSchema('string', { stdin: {} });
-createArgSchema('string', { stdin: { when: 'dash', consume: 'broadcast' } });
+createArgSchema('string', {
+  stdin: { when: 'dash', consume: 'broadcast' },
+});
 ```
 
 The definition document changes to match. An arg fragment emits
@@ -516,7 +537,10 @@ cannot be both variadic and stdin-backed`. It is now legal, and a `-` among the
 tail tokens splices what the buffer decodes to into that position:
 
 ```ts
-command('build').arg('files', arg.string().variadic().stdin());
+command('build').arg(
+  'files',
+  arg.string().variadic().stdin(),
+);
 ```
 
 ```bash
@@ -573,7 +597,11 @@ Building a schema from a definition object skips the compiler, so the same pass
 also checks the value against the codec itself:
 
 ```ts
-createFlagSchema({ kind: 'enum', enumValues: ['us', 'eu'], defaultValue: 'ap' });
+createFlagSchema({
+  kind: 'enum',
+  enumValues: ['us', 'eu'],
+  defaultValue: 'ap',
+});
 // throws INVALID_DEFAULT: expected one of: us, eu
 ```
 
@@ -599,7 +627,9 @@ empty. `.arg()` and `createCommandSchema()` now share one check:
 
 ```ts
 // 3.x: built fine, then <target> never filled
-command('copy').arg('files', arg.string().variadic()).arg('target', arg.string());
+command('copy')
+  .arg('files', arg.string().variadic())
+  .arg('target', arg.string());
 
 // 4.0: throws INVALID_BUILDER_STATE
 ```
@@ -664,7 +694,10 @@ line terminators.
 flag.array(flag.string()).separator('|').env('REGIONS');
 
 // 4.0: name each source you meant
-flag.array(flag.string()).split({ cli: '|', env: '|' }).env('REGIONS');
+flag
+  .array(flag.string())
+  .split({ cli: '|', env: '|' })
+  .env('REGIONS');
 ```
 
 Code that only ever passed CLI tokens needs no change.
@@ -723,12 +756,12 @@ generators, config and manifest discovery, or the terminal prompter. Each lives 
 and `cli()` loads it on demand, so a program that never renders a completion script, serializes
 `--help --json`, discovers config, or prompts does not load that code.
 
-| v3 import from `@kjanat/dreamcli`                                                                                             | v4 import                      |
-| ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| v3 import from `@kjanat/dreamcli`                                                                                                 | v4 import                      |
+| --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
 | `generateCompletion`, `generateBashCompletion`, `generateZshCompletion`, `generateFishCompletion`, `generatePowerShellCompletion` | `@kjanat/dreamcli/completion`  |
-| `generateSchema`, `generateCommandSchema`, `generateInputSchema`, `definitionMetaSchema`                                     | `@kjanat/dreamcli/json-schema` |
-| `discoverConfig`, `discoverManifest`, `inferCliName`, `buildConfigSearchPaths`, `configFormat`, `packageRepositoryUrl`       | `@kjanat/dreamcli/config`      |
-| `createTerminalPrompter`                                                                                                      | `@kjanat/dreamcli/prompt`      |
+| `generateSchema`, `generateCommandSchema`, `generateInputSchema`, `definitionMetaSchema`                                          | `@kjanat/dreamcli/json-schema` |
+| `discoverConfig`, `discoverManifest`, `inferCliName`, `buildConfigSearchPaths`, `configFormat`, `packageRepositoryUrl`            | `@kjanat/dreamcli/config`      |
+| `createTerminalPrompter`                                                                                                          | `@kjanat/dreamcli/prompt`      |
 
 Every type stays on the root entry, as do `SHELLS`, `DEFINITION_SCHEMA_URL`,
 `DEFINITION_SCHEMA_VERSION`, and `resolvePromptConfig`. `.completions()`, `.config()`,
@@ -736,7 +769,11 @@ Every type stays on the root entry, as do `SHELLS`, `DEFINITION_SCHEMA_URL`,
 
 ```ts
 // v3
-import { cli, configFormat, generateCompletion } from '@kjanat/dreamcli';
+import {
+  cli,
+  configFormat,
+  generateCompletion,
+} from '@kjanat/dreamcli';
 
 // v4
 import { cli } from '@kjanat/dreamcli';

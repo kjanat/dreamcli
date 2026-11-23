@@ -49,7 +49,7 @@ if (import.meta.main) {
 		return result.stdout.toString();
 	};
 	const plugins = (source: string): string[] => {
-		const config: unknown = Bun.JSONC.parse(source);
+		const config: unknown = Bun.TOML.parse(source);
 		if (
 			!config ||
 			typeof config !== 'object' ||
@@ -57,7 +57,7 @@ if (import.meta.main) {
 			!Array.isArray(config.plugins) ||
 			!config.plugins.every((value) => typeof value === 'string')
 		) {
-			throw new Error('Expected a plugins array in .dprint.jsonc');
+			throw new Error('Expected a plugins array in kprint.toml');
 		}
 		return config.plugins;
 	};
@@ -70,8 +70,8 @@ if (import.meta.main) {
 		),
 	].sort();
 	const result = describeChanges(
-		plugins(git('show', 'HEAD:.dprint.jsonc')),
-		plugins(await Bun.file('.dprint.jsonc').text()),
+		plugins(git('show', 'HEAD:kprint.toml')),
+		plugins(await Bun.file('kprint.toml').text()),
 		files,
 	);
 	const output = process.env.GITHUB_OUTPUT;

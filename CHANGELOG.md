@@ -283,9 +283,9 @@ The first stable v4 release includes the changes from the three release candidat
 
   ```ts
   const options = await readFlags({
-  	watch: flag.boolean().alias('w').env('WATCH'),
-  	minify: flag.boolean().env('MINIFY').default(true),
-  	target: flag.enum(['node', 'browser']).env('TARGET').default('node'),
+    watch: flag.boolean().alias('w').env('WATCH'),
+    minify: flag.boolean().env('MINIFY').default(true),
+    target: flag.enum(['node', 'browser']).env('TARGET').default('node'),
   });
 
   options.watch; // boolean

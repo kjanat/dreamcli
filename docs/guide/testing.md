@@ -56,21 +56,21 @@ await runCommand(deploy, ['production'], {
 
 ### Available Options
 
-| Option      | Type                                  | Description                                        |
-| ----------- | ------------------------------------- | -------------------------------------------------- |
-| `env`       | `Record<string, string \| undefined>` | Environment variables                              |
-| `config`    | `Record<string, unknown>`             | Config file values                                 |
-| `stdinData` | `string \| null`                      | Data supplied to command stdin for `.stdin()` inputs |
-| `answers`   | `unknown[]`                           | Prompt answers in order                            |
-| `prompter`  | `PromptEngine`                        | Custom prompt handler                              |
-| `jsonMode`  | `boolean`                             | Simulate `--json` mode                             |
-| `help`      | `HelpOptions`                         | Help formatting options                            |
-| `verbosity` | `Verbosity`                           | Output verbosity level                             |
-| `color`     | `boolean`                             | Force ANSI color on or off                         |
-| `isTTY`     | `boolean`                             | Simulate a TTY stdout connection                   |
-| `stat`      | `(path) => Promise<'file' \| 'directory' \| null>` | Filesystem probe for `flag.path()` / `arg.path()` checks |
-| `mkdir`     | `(path) => Promise<void>`             | Directory creation for `create` checks             |
-| `pathChecks` | `'lenient' \| 'strict'`              | Fail when a declared path check cannot run (default `'lenient'`) |
+| Option       | Type                                               | Description                                                      |
+| ------------ | -------------------------------------------------- | ---------------------------------------------------------------- |
+| `env`        | `Record<string, string \| undefined>`              | Environment variables                                            |
+| `config`     | `Record<string, unknown>`                          | Config file values                                               |
+| `stdinData`  | `string \| null`                                   | Data supplied to command stdin for `.stdin()` inputs             |
+| `answers`    | `unknown[]`                                        | Prompt answers in order                                          |
+| `prompter`   | `PromptEngine`                                     | Custom prompt handler                                            |
+| `jsonMode`   | `boolean`                                          | Simulate `--json` mode                                           |
+| `help`       | `HelpOptions`                                      | Help formatting options                                          |
+| `verbosity`  | `Verbosity`                                        | Output verbosity level                                           |
+| `color`      | `boolean`                                          | Force ANSI color on or off                                       |
+| `isTTY`      | `boolean`                                          | Simulate a TTY stdout connection                                 |
+| `stat`       | `(path) => Promise<'file' \| 'directory' \| null>` | Filesystem probe for `flag.path()` / `arg.path()` checks         |
+| `mkdir`      | `(path) => Promise<void>`                          | Directory creation for `create` checks                           |
+| `pathChecks` | `'lenient' \| 'strict'`                            | Fail when a declared path check cannot run (default `'lenient'`) |
 
 ## Testing Prompts
 
@@ -106,13 +106,24 @@ import { convertCmd } from './docs/.vitepress/twoslash/testing-fixtures.ts';
 // ---cut---
 import { runCommand } from '@kjanat/dreamcli/testkit';
 
-const result = await runCommand(convertCmd, ['in.wasm', 'out.wasm']);
+const result = await runCommand(convertCmd, [
+  'in.wasm',
+  'out.wasm',
+]);
 
 expect(result.exitCode).toBe(0); // the action ran…
 expect(result.skippedPathChecks).toEqual([
   // …but neither path was ever checked
-  expect.objectContaining({ kind: 'arg', name: 'input', missing: 'stat' }),
-  expect.objectContaining({ kind: 'arg', name: 'output', missing: 'stat' }),
+  expect.objectContaining({
+    kind: 'arg',
+    name: 'input',
+    missing: 'stat',
+  }),
+  expect.objectContaining({
+    kind: 'arg',
+    name: 'output',
+    missing: 'stat',
+  }),
 ]);
 ```
 
@@ -139,27 +150,40 @@ import { runCommand } from '@kjanat/dreamcli/testkit';
 
 // A probe is a plain function: no temp files, no mocks.
 const files = new Set(['in.wasm']);
-const stat = async (path: string) => (files.has(path) ? 'file' : null);
+const stat = async (path: string) =>
+  files.has(path) ? 'file' : null;
 
-const ok = await runCommand(convertCmd, ['in.wasm', 'out.wasm'], {
-  stat,
-  pathChecks: 'strict',
-});
+const ok = await runCommand(
+  convertCmd,
+  ['in.wasm', 'out.wasm'],
+  {
+    stat,
+    pathChecks: 'strict',
+  },
+);
 expect(ok.exitCode).toBe(0);
 expect(ok.skippedPathChecks).toEqual([]);
 
 // The probe reports what the real CLI would see: a missing input fails.
-const missing = await runCommand(convertCmd, ['nope.wasm', 'out.wasm'], {
-  stat,
-  pathChecks: 'strict',
-});
+const missing = await runCommand(
+  convertCmd,
+  ['nope.wasm', 'out.wasm'],
+  {
+    stat,
+    pathChecks: 'strict',
+  },
+);
 expect(missing.exitCode).toBe(2);
 expect(missing.error?.code).toBe('CONSTRAINT_VIOLATED');
 
 // Forgetting the probe is now a failure, not a false pass.
-const unchecked = await runCommand(convertCmd, ['in.wasm', 'out.wasm'], {
-  pathChecks: 'strict',
-});
+const unchecked = await runCommand(
+  convertCmd,
+  ['in.wasm', 'out.wasm'],
+  {
+    pathChecks: 'strict',
+  },
+);
 expect(unchecked.exitCode).toBe(1);
 expect(unchecked.error?.code).toBe('PATH_CHECK_SKIPPED');
 ```
@@ -190,13 +214,17 @@ import { runCommand } from '@kjanat/dreamcli/testkit';
 
 const created: string[] = [];
 
-const result = await runCommand(buildCmd, ['--out', 'dist'], {
-  stat: async () => null, // nothing exists yet
-  mkdir: async (path) => {
-    created.push(path);
+const result = await runCommand(
+  buildCmd,
+  ['--out', 'dist'],
+  {
+    stat: async () => null, // nothing exists yet
+    mkdir: async (path) => {
+      created.push(path);
+    },
+    pathChecks: 'strict',
   },
-  pathChecks: 'strict',
-});
+);
 
 expect(result.exitCode).toBe(0);
 expect(created).toEqual(['dist']);
@@ -251,7 +279,6 @@ declare const captured: CapturedOutput;
 - [Arguments](/guide/arguments#filesystem-checks) and [Flags](/guide/flags#filesystem-checks) —
   what `arg.path()` / `flag.path()` check
 - [Output](/guide/output) — output channel behavior
-
 
 ### Color in captured output
 

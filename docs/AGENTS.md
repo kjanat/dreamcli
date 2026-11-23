@@ -18,14 +18,14 @@ public/        # static assets
 
 ## WHERE TO LOOK
 
-| Task                                | Location                                                        | Notes                                                  |
-| ----------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------ |
-| Edit prose                          | `concepts/`, `guide/`, `index.md`                               | source Markdown                                        |
-| Edit example docs pages             | `../examples/*.ts`, `.vitepress/data/examples.ts`               | edit example source and docblock, not generated routes |
+| Task                                | Location                                                         | Notes                                                  |
+| ----------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------ |
+| Edit prose                          | `concepts/`, `guide/`, `index.md`                                | source Markdown                                        |
+| Edit example docs pages             | `../examples/*.ts`, `.vitepress/data/examples.ts`                | edit example source and docblock, not generated routes |
 | Edit API/reference generation       | `.vitepress/data/api-index.ts`, `deno-doc.ts`, `symbol-pages.ts` | drives `/reference/*`                                  |
-| Edit docs build config              | `.vitepress/config.ts`                                          | nav, sidebar, twoslash, Vite wiring                    |
-| Edit theme/client behavior          | `.vitepress/theme/`                                             | toggles, popovers, Mermaid                             |
-| Copy root artifacts into docs build | `.vitepress/vite-plugins/source-artifacts.ts`                   | schema emit for docs dist                              |
+| Edit docs build config              | `.vitepress/config.ts`                                           | nav, sidebar, twoslash, Vite wiring                    |
+| Edit theme/client behavior          | `.vitepress/theme/`                                              | toggles, popovers, Mermaid                             |
+| Copy root artifacts into docs build | `.vitepress/vite-plugins/source-artifacts.ts`                    | schema emit for docs dist                              |
 
 ## CONVENTIONS
 

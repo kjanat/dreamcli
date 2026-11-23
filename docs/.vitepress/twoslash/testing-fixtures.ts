@@ -61,13 +61,19 @@ export const jsonListCmd = command('list').action(
 
 export const convertCmd = command('convert')
   .arg('input', arg.path({ type: 'file' })) // existing input
-  .arg('output', arg.path({ type: 'file', mustExist: false })) // new output is allowed
+  .arg(
+    'output',
+    arg.path({ type: 'file', mustExist: false }),
+  ) // new output is allowed
   .action(({ args, out }) => {
     out.log(`${args.input} -> ${args.output}`);
   });
 
 export const buildCmd = command('build')
-  .flag('out', flag.path({ type: 'directory', create: true }))
+  .flag(
+    'out',
+    flag.path({ type: 'directory', create: true }),
+  )
   .action(({ flags, out }) => {
     out.log(`building into ${flags.out ?? '.'}`);
   });

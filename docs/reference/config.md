@@ -23,7 +23,6 @@ import type {
 
 The option and result types are also exported from the root entry.
 
-
 ## `buildConfigSearchPaths(appName, options)`
 
 Build the default search-path list dreamcli uses for config discovery. This is mainly useful for

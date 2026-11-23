@@ -28,19 +28,19 @@ When the match is ambiguous, the stricter contract applies.
 
 | Category                             | Examples                                                  | Minor releases may                              |
 | ------------------------------------ | --------------------------------------------------------- | ----------------------------------------------- |
-| Sealed framework values              | `Out`, `RenderContext`, `CommandSchema`, `ConfigSettings`  | add readonly members                            |
-| Consumer input options               | `RunOptions`, `CLIExecuteOptions`, `OutputOptions`         | add optional fields                             |
-| Transparent input definitions        | `FlagDefinition`, `CLIDefinition`, `PackageJsonData`       | add optional fields                             |
-| Implementer ports                    | `RuntimeAdapter`, `PromptEngine`, `FormatLoader`           | add optional members only                       |
-| Externally governed protocols        | `StandardSchemaV1` family                                  | track the upstream specification                |
-| Structural consumer configuration    | `CLIPlugin`, `CLIPluginHooks`                              | add optional hooks                              |
-| Closed unions, discriminated results | `Verbosity`, `Shell`, `FlagKind`, `ConfigDiscoveryResult`  | change nothing                                  |
-| Open unions                          | `ErrorCode`                                                | add members in any release                      |
-| Framework-produced callback payloads | `BeforeParseParams`, `DeprecationWarning`                  | add readonly members, required ones included    |
-| Closed constructible DTOs            | `RunResult`, `CommandMeta`                                 | change nothing                                  |
-| Serialized formats                   | `DefinitionDocumentV1` family, `CLIErrorJSON`              | add optional fields at the same `schemaVersion` |
-| Classes and functions                | `CLIBuilder`, `cli()`, `parse()`                           | add optional trailing parameters                |
-| Internal surface                     | underscore members, `Internal*` types, brand symbols       | change anything, any release                    |
+| Sealed framework values              | `Out`, `RenderContext`, `CommandSchema`, `ConfigSettings` | add readonly members                            |
+| Consumer input options               | `RunOptions`, `CLIExecuteOptions`, `OutputOptions`        | add optional fields                             |
+| Transparent input definitions        | `FlagDefinition`, `CLIDefinition`, `PackageJsonData`      | add optional fields                             |
+| Implementer ports                    | `RuntimeAdapter`, `PromptEngine`, `FormatLoader`          | add optional members only                       |
+| Externally governed protocols        | `StandardSchemaV1` family                                 | track the upstream specification                |
+| Structural consumer configuration    | `CLIPlugin`, `CLIPluginHooks`                             | add optional hooks                              |
+| Closed unions, discriminated results | `Verbosity`, `Shell`, `FlagKind`, `ConfigDiscoveryResult` | change nothing                                  |
+| Open unions                          | `ErrorCode`                                               | add members in any release                      |
+| Framework-produced callback payloads | `BeforeParseParams`, `DeprecationWarning`                 | add readonly members, required ones included    |
+| Closed constructible DTOs            | `RunResult`, `CommandMeta`                                | change nothing                                  |
+| Serialized formats                   | `DefinitionDocumentV1` family, `CLIErrorJSON`             | add optional fields at the same `schemaVersion` |
+| Classes and functions                | `CLIBuilder`, `cli()`, `parse()`                          | add optional trailing parameters                |
+| Internal surface                     | underscore members, `Internal*` types, brand symbols      | change anything, any release                    |
 
 ## Sealed framework values
 
@@ -72,9 +72,9 @@ Factories take a plain definition and return the sealed value:
 import { createCommandSchema } from '@kjanat/dreamcli';
 // ---cut---
 const deploy = createCommandSchema({
-	name: 'deploy',
-	flags: { force: { kind: 'boolean' } },
-	args: [{ name: 'target', schema: { kind: 'string' } }],
+  name: 'deploy',
+  flags: { force: { kind: 'boolean' } },
+  args: [{ name: 'target', schema: { kind: 'string' } }],
 });
 ```
 
@@ -82,11 +82,17 @@ The brand rides along on a spread, which is the escape hatch for building a
 variant of an existing schema:
 
 ```ts twoslash
-import { createCommandSchema, type CommandSchema } from '@kjanat/dreamcli';
+import {
+  createCommandSchema,
+  type CommandSchema,
+} from '@kjanat/dreamcli';
 
 const deploy = createCommandSchema({ name: 'deploy' });
 // ---cut---
-const internalDeploy: CommandSchema = { ...deploy, hidden: true };
+const internalDeploy: CommandSchema = {
+  ...deploy,
+  hidden: true,
+};
 ```
 
 A hand-written object literal has no brand to carry, so it is rejected:
@@ -96,16 +102,16 @@ A hand-written object literal has no brand to carry, so it is rejected:
 import type { CommandSchema } from '@kjanat/dreamcli';
 // ---cut---
 const fake: CommandSchema = {
-	name: 'deploy',
-	description: undefined,
-	aliases: [],
-	hidden: false,
-	examples: [],
-	flags: {},
-	args: [],
-	hasAction: true,
-	interactive: undefined,
-	commands: [],
+  name: 'deploy',
+  description: undefined,
+  aliases: [],
+  hidden: false,
+  examples: [],
+  flags: {},
+  args: [],
+  hasAction: true,
+  interactive: undefined,
+  commands: [],
 };
 ```
 
@@ -122,8 +128,11 @@ import type { Out } from '@kjanat/dreamcli';
 // ---cut---
 type InformationalOutput = Pick<Out, 'info' | 'status'>;
 
-function renderRows(out: InformationalOutput, rows: readonly string[]) {
-	for (const row of rows) out.info(row);
+function renderRows(
+  out: InformationalOutput,
+  rows: readonly string[],
+) {
+  for (const row of rows) out.info(row);
 }
 ```
 
@@ -410,18 +419,18 @@ and the arrays stay the framework's own.
 import type { Shell } from '@kjanat/dreamcli';
 // ---cut---
 function scriptFileName(shell: Shell): string {
-	switch (shell) {
-		case 'bash':
-			return 'mycli.bash';
-		case 'zsh':
-			return '_mycli';
-		case 'fish':
-			return 'mycli.fish';
-		case 'powershell':
-			return 'mycli.ps1';
-		default:
-			return shell satisfies never;
-	}
+  switch (shell) {
+    case 'bash':
+      return 'mycli.bash';
+    case 'zsh':
+      return '_mycli';
+    case 'fish':
+      return 'mycli.fish';
+    case 'powershell':
+      return 'mycli.ps1';
+    default:
+      return shell satisfies never;
+  }
 }
 ```
 
@@ -446,9 +455,11 @@ Handle it with a fallback branch rather than an exhaustive switch:
 import type { ErrorCode } from '@kjanat/dreamcli';
 // ---cut---
 function exitCodeFor(code: ErrorCode): number {
-	if (code === 'UNKNOWN_FLAG' || code === 'MISSING_VALUE') return 2;
-	if (code === 'REQUIRED_FLAG' || code === 'REQUIRED_ARG') return 2;
-	return 1;
+  if (code === 'UNKNOWN_FLAG' || code === 'MISSING_VALUE')
+    return 2;
+  if (code === 'REQUIRED_FLAG' || code === 'REQUIRED_ARG')
+    return 2;
+  return 1;
 }
 ```
 
@@ -578,7 +589,9 @@ reader can ignore stay at version 1.
 import { createCLISchema } from '@kjanat/dreamcli';
 import { generateSchema } from '@kjanat/dreamcli/json-schema';
 // ---cut---
-const document = generateSchema(createCLISchema({ name: 'mycli', version: '1.0.0' }));
+const document = generateSchema(
+  createCLISchema({ name: 'mycli', version: '1.0.0' }),
+);
 
 console.log(document.schemaVersion);
 // 1

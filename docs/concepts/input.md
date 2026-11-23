@@ -104,7 +104,7 @@ curl -s https://api.example.com/data | jq '.items[]' | sort | head -5
 Four programs, connected by pipes, each doing one thing well.
 
 A pipe carries bytes, not slots, so a program that accepts several values needs
-a way to say *which* one the pipe fills. The convention is a bare `-`, and it
+a way to say _which_ one the pipe fills. The convention is a bare `-`, and it
 holds the position the piped data takes:
 
 ```bash
@@ -123,7 +123,7 @@ a typed `-` literal.
 One more thing a pipe does that a command line does not: it appends a line
 terminator. `echo ./docs` sends `./docs\n`, not `./docs`. For a number or a
 date that terminator is framing and gets dropped, but for a string the text
-*is* the value, so the newline is part of it unless the program asks for it to
+_is_ the value, so the newline is part of it unless the program asks for it to
 be trimmed. This is the single most common surprise when a piped path fails a
 check that the same path typed by hand passes.
 

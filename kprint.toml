@@ -15,7 +15,6 @@ plugins     = [
   "npm:dprint-plugin-malva@0.16.1",
   "npm:dprint-plugin-markup@0.28.0",
   "npm:dprint-plugin-yaml@0.6.0",
-  "npm:@dprint/prettier@0.73.1",
   "https://plugins.dprint.dev/kjanat/json-schema-sort-0.1.2.wasm",
   "https://plugins.dprint.dev/kjanat/tombi-0.2.1.wasm",
 ]
@@ -29,16 +28,27 @@ indentWidth   = 2
 lineWidth     = 100
 quoteStyle    = "single"
 "css.enabled" = true
-associations  = ["!README.md", "!docs/**/*.md", "!docs/.vitepress/twoslash/*.ts", "*.ts.tpl"]
+associations  = ["*.ts.tpl"]
+
+[[biome.overrides]]
+files       = ["docs/.vitepress/twoslash/*.ts"]
+lineWidth   = 60
+indentStyle = "space"
 
 [markdown]
 "codeBlock.useTabs" = false
 textWrap            = "maintain"
-associations        = ["!README.md", "!docs/**/*.md", "!docs/.vitepress/twoslash/*.ts"]
+"html.useTabs"      = false
+embedded            = { js = ["exec"], json = ["exec"], jsonc = ["exec"], ts = ["exec"] }
+
+[[markdown.overrides]]
+files             = ["README.md", "docs/**/*.md"]
+lineWidth         = 60
+"html.skipFormat" = true
 
 [[markdown.overrides]]
 files               = ["CHANGELOG.md"]
-lineWidth           = 9999
+lineWidth           = 320
 textWrap            = "never"
 "codeBlock.useTabs" = false
 
@@ -50,7 +60,6 @@ styleIndent             = true
 "vue.scriptIndent"      = true
 "vue.styleIndent"       = true
 scriptFormatter         = "biome"
-associations            = ["!README.md", "!docs/**/*.md", "!docs/.vitepress/twoslash/*.ts"]
 
 [yaml]
 printWidth = 160
@@ -58,18 +67,27 @@ printWidth = 160
 [svg]
 useTabs = false
 
-[prettier]
-singleQuote    = true
-"plugin.jsDoc" = true
-printWidth     = 60
-tabWidth       = 2
-useTabs        = false
-endOfLine      = "lf"
-associations   = ["README.md", "docs/**/*.md", "docs/.vitepress/twoslash/*.ts", "!**"]
-
 [ruff]
 preview     = true
 indentWidth = 4
 
 [exec]
 playWithFire = true
+cwd          = "${configDir}"
+associations = ["!**"]
+
+[[exec.commands]]
+exts    = ["js", "json", "jsonc", "ts"]
+command = [
+  "node_modules/.bin/biome",
+  "format",
+  "--stdin-file-path={{file_path}}",
+  "--javascript-formatter-enabled=true",
+  "--javascript-formatter-indent-style=space",
+  "--javascript-formatter-indent-width={{indent_width}}",
+  "--javascript-formatter-line-width={{line_width}}",
+  "--json-formatter-enabled=true",
+  "--json-formatter-indent-style=space",
+  "--json-formatter-indent-width={{indent_width}}",
+  "--json-formatter-line-width={{line_width}}",
+]

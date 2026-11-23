@@ -63,8 +63,8 @@ verbosity:
 import { command } from '@kjanat/dreamcli';
 
 command('gen').action(({ out }) => {
-  out.log('dist/app.js');           // the result, on stdout (stderr in --json)
-  out.status('Wrote dist/app.js');  // the note, on stderr, silenced by -q
+  out.log('dist/app.js'); // the result, on stdout (stderr in --json)
+  out.status('Wrote dist/app.js'); // the note, on stderr, silenced by -q
 });
 ```
 
@@ -104,9 +104,9 @@ output that root `--quiet` suppresses, or release the built-in with
 | -------- | --------------------------- | ------------------- |
 | `log`    | stdout (stderr in `--json`) | no                  |
 | `info`   | stdout (stderr in `--json`) | yes                 |
-| `status` | stderr                     | yes                 |
-| `warn`   | stderr                     | no                  |
-| `error`  | stderr                     | no                  |
+| `status` | stderr                      | yes                 |
+| `warn`   | stderr                      | no                  |
+| `error`  | stderr                      | no                  |
 
 ### Taking a built-in over
 
@@ -118,7 +118,10 @@ routable topic browser. `.builtins()` releases a built-in to the commands.
 import { cli, command, flag } from '@kjanat/dreamcli';
 
 const validate = command('validate')
-  .flag('json', flag.string().describe('Document to validate'))
+  .flag(
+    'json',
+    flag.string().describe('Document to validate'),
+  )
   .action(({ flags, out }) => {
     out.log(`Validating ${flags.json}`);
   });
@@ -182,9 +185,13 @@ const validate = command('validate')
 // ---cut---
 import { runCommand } from '@kjanat/dreamcli/testkit';
 
-const result = await runCommand(validate, ['--json', 'schema.yaml'], {
-  builtins: { json: 'off' },
-});
+const result = await runCommand(
+  validate,
+  ['--json', 'schema.yaml'],
+  {
+    builtins: { json: 'off' },
+  },
+);
 ```
 
 ## Tables
@@ -233,13 +240,16 @@ options accept fixed strings or functions that receive the result or error.
 import { createOutput } from '@kjanat/dreamcli';
 
 const out = createOutput();
-const repositories = await out.spinner('Listing repositories').wrap(
-  Promise.resolve(['dreamcli', 'beepboop']),
-  {
-    succeed: (items) => `Listed ${items.length} repositories`,
-    fail: (error) => error instanceof Error ? error.message : 'Listing failed',
-  },
-);
+const repositories = await out
+  .spinner('Listing repositories')
+  .wrap(Promise.resolve(['dreamcli', 'beepboop']), {
+    succeed: (items) =>
+      `Listed ${items.length} repositories`,
+    fail: (error) =>
+      error instanceof Error
+        ? error.message
+        : 'Listing failed',
+  });
 ```
 
 `wrap()` returns the original result and rethrows a rejected promise's error.
@@ -270,12 +280,12 @@ progress.done('Upload complete');
 
 The output channel automatically adjusts behavior:
 
-| Context  | Behavior                                             |
-| -------- | ---------------------------------------------------- |
-| TTY      | Pretty formatting, spinners animate, colors          |
-| Piped    | Minimal stable output, spinners suppressed           |
+| Context   | Behavior                                                                                         |
+| --------- | ------------------------------------------------------------------------------------------------ |
+| TTY       | Pretty formatting, spinners animate, colors                                                      |
+| Piped     | Minimal stable output, spinners suppressed                                                       |
 | `--quiet` | `info()`, `status()`, and rendered spinner/progress activity suppressed; `log()` remains enabled |
-| `--json` | Structured JSON to stdout, everything else to stderr |
+| `--json`  | Structured JSON to stdout, everything else to stderr                                             |
 
 One code path, correct output everywhere.
 
@@ -311,7 +321,8 @@ const ctx = resolveRenderContext(process.argv.slice(2), {
 // Identity formatters when color is off — style unconditionally
 const banner = ctx.color.bold('mycli');
 // `ctx.jsonMode` used pre-separator-aware --json detection
-if (!ctx.jsonMode && ctx.verbosity !== 'quiet') console.error(banner);
+if (!ctx.jsonMode && ctx.verbosity !== 'quiet')
+  console.error(banner);
 ```
 
 The returned `color` is the same gated palette the channel will expose as
@@ -330,7 +341,6 @@ For just the `--`-aware flag reads, the primitives are also exported:
 - [Errors](/guide/errors) — structured error handling
 - [Testing](/guide/testing) — capturing output in tests
 
-
 ## Concurrent activities
 
 Pass `concurrent: true` to each spinner or progress bar that should remain active
@@ -340,8 +350,14 @@ alongside the others. They share a block of terminal lines and finish independen
 import { createOutput } from '@kjanat/dreamcli';
 
 const out = createOutput();
-const build = out.spinner('Building binaries', { concurrent: true });
-const upload = out.progress({ label: 'Uploading assets', total: 4, concurrent: true });
+const build = out.spinner('Building binaries', {
+  concurrent: true,
+});
+const upload = out.progress({
+  label: 'Uploading assets',
+  total: 4,
+  concurrent: true,
+});
 upload.increment();
 build.succeed('Binaries built');
 upload.update(4);

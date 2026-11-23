@@ -7,14 +7,14 @@ Positional arguments are declared with `arg` and appear after the command name.
 An argument declaration decides the same six things a
 [flag](/guide/flags#six-axes) declaration does:
 
-| Axis                        | What it decides                                         | Declared with                                                            |
-| --------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------ |
-| [Value](#value)             | what one value is and what type it resolves to          | `arg.string()`, `arg.number()`, `arg.url()`, `arg.custom()`, and the rest |
-| [Cardinality](#cardinality) | how many values the slot carries and how they combine    | `.variadic()`, `arg.keyValue()`, `.split()`, `.unique()`                 |
-| [Sources](#sources)         | where a value may come from and which one wins           | `.stdin()`, `.env()`, `.config()`, `.prompt()`, `.default()`             |
-| [Syntax](#syntax)           | how the slot is filled on the command line               | declaration order, `.optional()`, `.variadic()` placement                |
-| [Validation](#validation)   | what a resolved value has to satisfy                     | constraints, `.standard()`, `arg.path()` filesystem checks               |
-| [Diagnostics](#diagnostics) | whether diagnostics and help may display the value        | `.sensitive()`                                                           |
+| Axis                        | What it decides                                       | Declared with                                                             |
+| --------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------- |
+| [Value](#value)             | what one value is and what type it resolves to        | `arg.string()`, `arg.number()`, `arg.url()`, `arg.custom()`, and the rest |
+| [Cardinality](#cardinality) | how many values the slot carries and how they combine | `.variadic()`, `arg.keyValue()`, `.split()`, `.unique()`                  |
+| [Sources](#sources)         | where a value may come from and which one wins        | `.stdin()`, `.env()`, `.config()`, `.prompt()`, `.default()`              |
+| [Syntax](#syntax)           | how the slot is filled on the command line            | declaration order, `.optional()`, `.variadic()` placement                 |
+| [Validation](#validation)   | what a resolved value has to satisfy                  | constraints, `.standard()`, `arg.path()` filesystem checks                |
+| [Diagnostics](#diagnostics) | whether diagnostics and help may display the value    | `.sensitive()`                                                            |
 
 Value, sources, validation, and diagnostics are identical to the flag surface:
 the same kinds, option objects, parsers, six-stage chain, error codes, and
@@ -111,7 +111,9 @@ Usage renders the choices rather than the slot name, so
 ```ts twoslash
 import { arg, type InferArg } from '@kjanat/dreamcli';
 
-const customArg = arg.custom((v) => v.split(',').map(Number));
+const customArg = arg.custom((v) =>
+  v.split(',').map(Number),
+);
 
 declare const argTypes: {
   custom: InferArg<typeof customArg>;
@@ -242,11 +244,11 @@ An argument carries one value, an ordered list, or a record of key-value
 entries. There is no positional counterpart to `flag.count()`, which counts how
 often a named token appears.
 
-| Form    | Declared by                            | Unset resolves to |
-| ------- | -------------------------------------- | ----------------- |
-| one     | every value kind                       | `undefined`       |
-| list    | `.variadic()` on any kind              | `[]`              |
-| entries | `arg.keyValue()`                       | `{}`              |
+| Form    | Declared by               | Unset resolves to |
+| ------- | ------------------------- | ----------------- |
+| one     | every value kind          | `undefined`       |
+| list    | `.variadic()` on any kind | `[]`              |
+| entries | `arg.keyValue()`          | `{}`              |
 
 ### Variadic Arguments
 
@@ -277,7 +279,9 @@ Anything registered behind a variadic argument could never be filled, so both
 construction paths refuse it:
 
 ```ts
-command('copy').arg('files', arg.string().variadic()).arg('target', arg.string());
+command('copy')
+  .arg('files', arg.string().variadic())
+  .arg('target', arg.string());
 ```
 
 ```
@@ -327,9 +331,13 @@ entry values are strings:
 ```ts twoslash
 import { arg, type InferArg } from '@kjanat/dreamcli';
 
-const replicas = arg.keyValue(arg.number().int().min(0)).variadic();
+const replicas = arg
+  .keyValue(arg.number().int().min(0))
+  .variadic();
 
-declare const argTypes: { replicas: InferArg<typeof replicas> };
+declare const argTypes: {
+  replicas: InferArg<typeof replicas>;
+};
 // ---cut---
 argTypes.replicas;
 //        ^?
@@ -398,7 +406,10 @@ definition path throws `INVALID_SCHEMA` at build time:
 ```ts
 arg.string().separator(','); // INVALID_SCHEMA
 createArgSchema('string', { unique: true }); // INVALID_SCHEMA
-createArgSchema('keyValue', { variadic: true, unique: true }); // INVALID_SCHEMA
+createArgSchema('keyValue', {
+  variadic: true,
+  unique: true,
+}); // INVALID_SCHEMA
 ```
 
 ```
@@ -427,7 +438,12 @@ flowchart LR
 ```ts twoslash
 import { arg } from '@kjanat/dreamcli';
 
-arg.string().stdin().env('DEPLOY_TARGET').config('deploy.target').default('local');
+arg
+  .string()
+  .stdin()
+  .env('DEPLOY_TARGET')
+  .config('deploy.target')
+  .default('local');
 ```
 
 ### Environment-Backed Arguments
@@ -465,7 +481,10 @@ instead of one variable. Call `.variadic()` first, since the family yields a lis
 ```ts twoslash
 import { arg } from '@kjanat/dreamcli';
 
-arg.string().variadic().env({ count: 'FILE_COUNT', value: 'FILE_{index}' });
+arg
+  .string()
+  .variadic()
+  .env({ count: 'FILE_COUNT', value: 'FILE_{index}' });
 // FILE_COUNT=2 FILE_0=a.txt FILE_1=b.txt → ['a.txt', 'b.txt']
 ```
 
@@ -515,7 +534,9 @@ import { arg, command } from '@kjanat/dreamcli';
 command('deploy')
   .arg(
     'target',
-    arg.string().prompt({ kind: 'input', message: 'Target:' }),
+    arg
+      .string()
+      .prompt({ kind: 'input', message: 'Target:' }),
   )
   .action(({ args }) => {
     args.target;
@@ -636,7 +657,10 @@ buffer decodes to into that position, and an empty tail under a binding that
 covers a missing input takes the whole buffer:
 
 ```ts
-command('build').arg('files', arg.string().variadic().stdin());
+command('build').arg(
+  'files',
+  arg.string().variadic().stdin(),
+);
 ```
 
 ```bash
@@ -655,7 +679,10 @@ flag surface follows for `--tag - --tag -`.
 piped list of lines does:
 
 ```ts
-command('build').arg('files', arg.string().variadic().stdin().split({ stdin: 'json' }));
+command('build').arg(
+  'files',
+  arg.string().variadic().stdin().split({ stdin: 'json' }),
+);
 ```
 
 ```bash
@@ -699,7 +726,10 @@ Take one command with a stdin-backed argument that also reads an env var:
 import { arg, command } from '@kjanat/dreamcli';
 
 command('format')
-  .arg('data', arg.string().stdin().env('DATA').default('fallback'))
+  .arg(
+    'data',
+    arg.string().stdin().env('DATA').default('fallback'),
+  )
   .action(({ args }) => {
     args.data;
     //     ^?
@@ -764,8 +794,14 @@ buffer among them:
 
 ```ts
 command('convert')
-  .flag('body', flag.string().stdin({ consume: 'broadcast' }))
-  .arg('input', arg.string().stdin({ consume: 'broadcast' }));
+  .flag(
+    'body',
+    flag.string().stdin({ consume: 'broadcast' }),
+  )
+  .arg(
+    'input',
+    arg.string().stdin({ consume: 'broadcast' }),
+  );
 // echo shared | mycli convert → flags.body === 'shared\n', args.input === 'shared\n'
 ```
 
@@ -792,12 +828,20 @@ A handler receives `sources` beside `flags` and `args`, keyed by the same names,
 holding the record the winning stage produced:
 
 ```ts twoslash
-import { arg, command, wasExplicit } from '@kjanat/dreamcli';
+import {
+  arg,
+  command,
+  wasExplicit,
+} from '@kjanat/dreamcli';
 
 command('deploy')
-  .arg('target', arg.string().env('DEPLOY_TARGET').default('local'))
+  .arg(
+    'target',
+    arg.string().env('DEPLOY_TARGET').default('local'),
+  )
   .action(({ sources, out }) => {
-    if (!wasExplicit(sources.args.target)) out.warn('deploying to the default target');
+    if (!wasExplicit(sources.args.target))
+      out.warn('deploying to the default target');
   });
 ```
 
@@ -876,11 +920,11 @@ spell and no repetition to police, so there is nothing for these to configure.
 
 | Flag member     | Why it has no arg equivalent                                                  |
 | --------------- | ----------------------------------------------------------------------------- |
-| `flag.count()`  | Counts how many times `-v` appears. A positional slot is matched by position.  |
-| `.negatable()`  | Synthesizes a `--no-x` spelling for an existing flag name.                     |
-| `.alias()`      | Adds a second CLI spelling for a flag name.                                    |
-| `.duplicates()` | Decides what a repeated `--x` means. A positional slot is filled once.         |
-| `.propagate()`  | Inherits a flag into subcommands. Positional slots belong to one signature.    |
+| `flag.count()`  | Counts how many times `-v` appears. A positional slot is matched by position. |
+| `.negatable()`  | Synthesizes a `--no-x` spelling for an existing flag name.                    |
+| `.alias()`      | Adds a second CLI spelling for a flag name.                                   |
+| `.duplicates()` | Decides what a repeated `--x` means. A positional slot is filled once.        |
+| `.propagate()`  | Inherits a flag into subcommands. Positional slots belong to one signature.   |
 
 One member is served by another spelling rather than missing. `flag.array()` has
 no `arg.array()`: use `.variadic()`, which collects the remaining positional
@@ -990,7 +1034,10 @@ the argument `.sensitive()` to replace framework-controlled value text with
 `<redacted>` and omit raw-derived detail fields:
 
 ```ts
-command('auth').arg('token', arg.string().minLength(5).stdin().sensitive());
+command('auth').arg(
+  'token',
+  arg.string().minLength(5).stdin().sensitive(),
+);
 ```
 
 ```bash

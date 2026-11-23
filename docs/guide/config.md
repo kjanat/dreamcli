@@ -114,9 +114,7 @@ The runtime executes the selected file and its imports with the CLI's permission
 import { cli } from '@kjanat/dreamcli';
 import { configModule } from '@kjanat/dreamcli/config';
 
-cli('mycli')
-  .config('mycli', [configModule()])
-  .run();
+cli('mycli').config('mycli', [configModule()]).run();
 ```
 
 An ES module must default-export a plain object. A CommonJS module uses `module.exports`.
@@ -140,12 +138,18 @@ up edits or retry a module that threw during evaluation.
 For a watcher or editor integration that needs to see edits between runs, opt into fresh loads:
 
 ```ts twoslash
-import { configModule, discoverConfig } from '@kjanat/dreamcli/config';
+import {
+  configModule,
+  discoverConfig,
+} from '@kjanat/dreamcli/config';
 import { createAdapter } from '@kjanat/dreamcli/runtime';
 
 const adapter = createAdapter();
-const loaders = [configModule({ fresh: true, typescript: true })];
-const reload = () => discoverConfig('mycli', adapter, { loaders });
+const loaders = [
+  configModule({ fresh: true, typescript: true }),
+];
+const reload = () =>
+  discoverConfig('mycli', adapter, { loaders });
 
 await reload();
 // After saving mycli.config.ts or a module it imports:

@@ -5,7 +5,10 @@ bug reports, and completion-script headers; they are unrelated to the app versio
 `cli().version(...)` or discovered by `.manifest()`.
 
 ```ts twoslash
-import { DREAMCLI_REVISION, DREAMCLI_VERSION } from '@kjanat/dreamcli/version';
+import {
+  DREAMCLI_REVISION,
+  DREAMCLI_VERSION,
+} from '@kjanat/dreamcli/version';
 ```
 
 ## `DREAMCLI_VERSION`

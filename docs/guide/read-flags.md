@@ -84,7 +84,10 @@ import { flag, readFlags } from '@kjanat/dreamcli';
 // ---cut---
 const values = await readFlags(
   { tag: flag.array(flag.string()).stdin() },
-  { argv: ['--tag', 'before', '--tag', '-'], stdinData: 'a\nb\n' },
+  {
+    argv: ['--tag', 'before', '--tag', '-'],
+    stdinData: 'a\nb\n',
+  },
 );
 
 values.tag; // ['before', 'a', 'b']
@@ -146,7 +149,9 @@ TTY as well as off one.
 import { flag, readFlags } from '@kjanat/dreamcli';
 // ---cut---
 const values = await readFlags(
-  { body: flag.string().stdin().env('BODY').default('none') },
+  {
+    body: flag.string().stdin().env('BODY').default('none'),
+  },
   { argv: [], stdinData: 'piped\n', env: { BODY: 'env' } },
 );
 
@@ -202,14 +207,14 @@ expect(options).toEqual({
 
 ## Adapter Defaults
 
-| Fact               | Source when the caller omits it                                              |
-| ------------------ | ---------------------------------------------------------------------------- |
-| `argv`             | the adapter's argv past its binary and script entries                        |
-| `env`              | the adapter's environment snapshot                                           |
+| Fact               | Source when the caller omits it                                               |
+| ------------------ | ----------------------------------------------------------------------------- |
+| `argv`             | the adapter's argv past its binary and script entries                         |
+| `env`              | the adapter's environment snapshot                                            |
 | `stdinData`        | the adapter's `readStdin()`, called only when a `.stdin()` binding would fire |
-| `stat` and `mkdir` | the adapter's filesystem primitives, used by `flag.path()` checks            |
-| `config`           | nothing, so the config stage is skipped                                      |
-| `prompter`         | nothing, so the prompt stage is skipped                                      |
+| `stat` and `mkdir` | the adapter's filesystem primitives, used by `flag.path()` checks             |
+| `config`           | nothing, so the config stage is skipped                                       |
+| `prompter`         | nothing, so the prompt stage is skipped                                       |
 
 The adapter is built the first time a fact the caller left out is needed, so a
 call given `argv` and `env` builds none at all unless a `.stdin()` binding
@@ -256,7 +261,11 @@ import { flag, readFlags } from '@kjanat/dreamcli';
 // ---cut---
 const values = await readFlags(
   { watch: flag.boolean() },
-  { argv: ['build', '--watch', '--unknown'], env: {}, strict: false },
+  {
+    argv: ['build', '--watch', '--unknown'],
+    env: {},
+    strict: false,
+  },
 );
 
 values.watch; // true
@@ -303,7 +312,11 @@ returned. It is keyed by the definitions record, and a flag that resolved no
 value has no entry:
 
 ```ts twoslash
-import { flag, readFlags, wasExplicit } from '@kjanat/dreamcli';
+import {
+  flag,
+  readFlags,
+  wasExplicit,
+} from '@kjanat/dreamcli';
 // ---cut---
 const options = await readFlags(
   { out: flag.string().env('OUT_DIR').default('dist') },
@@ -311,7 +324,8 @@ const options = await readFlags(
     argv: ['--out', 'build'],
     env: {},
     onSources: (sources) => {
-      if (wasExplicit(sources.out)) console.log(`overridden: ${sources.out?.stage}`);
+      if (wasExplicit(sources.out))
+        console.log(`overridden: ${sources.out?.stage}`);
     },
   },
 );
@@ -334,7 +348,11 @@ covers an object-literal `__proto__` key and `Object.create(base)`.
 script owns what happens next:
 
 ```ts twoslash
-import { flag, isCLIError, readFlags } from '@kjanat/dreamcli';
+import {
+  flag,
+  isCLIError,
+  readFlags,
+} from '@kjanat/dreamcli';
 
 try {
   const options = await readFlags({

@@ -59,7 +59,7 @@ features:
       dark: /icons/structured-output-dark.svg
       height: 48
     title: Structured Output
-    details: 'Spinners, progress bars, tables, JSON mode. Adapts automatically: TTY → pretty, piped → stable.'
+    details: "Spinners, progress bars, tables, JSON mode. Adapts automatically: TTY → pretty, piped → stable."
 ---
 
 <style>

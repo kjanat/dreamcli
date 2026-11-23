@@ -43,20 +43,20 @@ The site walkthrough is at `/guide/argv-transforms`.
 
 ```ts
 flag
-	.enum(['us', 'eu', 'ap'])
-	.stdin()
-	.env('DEPLOY_REGION')
-	.config('deploy.region')
-	.prompt({ kind: 'select', message: 'Which region?' })
-	.default('us');
+  .enum(['us', 'eu', 'ap'])
+  .stdin()
+  .env('DEPLOY_REGION')
+  .config('deploy.region')
+  .prompt({ kind: 'select', message: 'Which region?' })
+  .default('us');
 
 arg
-	.enum(['us', 'eu', 'ap'])
-	.stdin()
-	.env('DEPLOY_REGION')
-	.config('deploy.region')
-	.prompt({ kind: 'select', message: 'Which region?' })
-	.default('us');
+  .enum(['us', 'eu', 'ap'])
+  .stdin()
+  .env('DEPLOY_REGION')
+  .config('deploy.region')
+  .prompt({ kind: 'select', message: 'Which region?' })
+  .default('us');
 ```
 
 Resolution order is fixed: CLI argv, stdin, env, config, prompt, default, and
@@ -205,9 +205,9 @@ On an argument the position in the chain is what decides it, because
 
 ```ts
 flag
-	.array(flag.enum(['us', 'eu', 'ap']))
-	.separator(',')
-	.unique();
+  .array(flag.enum(['us', 'eu', 'ap']))
+  .separator(',')
+  .unique();
 
 flag.keyValue().duplicateKeys('error'); // -e A=1 -e A=2 fails
 arg.keyValue().variadic(); // mycli render a=1 b=2 → { a: '1', b: '2' }
@@ -262,19 +262,19 @@ first. Counted per logical flag, including aliases and negated spellings.
 
 ```ts
 command('serve')
-	.flag('port', flag.number({ int: true }))
-	.flag('socket', flag.string())
-	.derive(({ flags }) => {
-		if (flags.port !== undefined && flags.socket !== undefined) {
-			throw new CLIError('--port and --socket are mutually exclusive', {
-				code: 'INVALID_FLAG_COMBINATION',
-			});
-		}
-		return { mode: flags.socket !== undefined ? 'socket' : 'tcp' } as const;
-	})
-	.action(({ ctx }) => {
-		ctx.mode; // typed, available to the action
-	});
+  .flag('port', flag.number({ int: true }))
+  .flag('socket', flag.string())
+  .derive(({ flags }) => {
+    if (flags.port !== undefined && flags.socket !== undefined) {
+      throw new CLIError('--port and --socket are mutually exclusive', {
+        code: 'INVALID_FLAG_COMBINATION',
+      });
+    }
+    return { mode: flags.socket !== undefined ? 'socket' : 'tcp' } as const;
+  })
+  .action(({ ctx }) => {
+    ctx.mode; // typed, available to the action
+  });
 ```
 
 `.derive()` runs after resolution and before the action. It is the home for
@@ -286,16 +286,16 @@ rules DreamCLI cannot express declaratively, and its return value widens `ctx`.
 import { command, flag, wasExplicit } from '@kjanat/dreamcli';
 
 command('serve')
-	.flag('port', flag.number({ int: true }).env('PORT').default(3000))
-	.derive(({ flags, sources }) => {
-		if (flags.port !== undefined && sources.flags.port?.stage === 'env') {
-			// the environment supplied it, not the command line
-		}
-		return { overridden: wasExplicit(sources.flags.port) };
-	})
-	.action(({ ctx }) => {
-		ctx.overridden; // boolean
-	});
+  .flag('port', flag.number({ int: true }).env('PORT').default(3000))
+  .derive(({ flags, sources }) => {
+    if (flags.port !== undefined && sources.flags.port?.stage === 'env') {
+      // the environment supplied it, not the command line
+    }
+    return { overridden: wasExplicit(sources.flags.port) };
+  })
+  .action(({ ctx }) => {
+    ctx.overridden; // boolean
+  });
 ```
 
 `sources` is keyed like `flags` and `args`, and each entry names the stage that
@@ -313,10 +313,10 @@ drops `defaultValue` from `--help --json` and the exported schema.
 
 ```ts
 .action(({ out }) => {
-	out.log('primary result');       // stdout (stderr in --json)
-	out.status('working on it');     // stderr, hidden by --quiet
-	out.warn('deprecated flag used');// stderr, always shown
-	out.error('could not reach api');// stderr, always shown
+  out.log('primary result');       // stdout (stderr in --json)
+  out.status('working on it');     // stderr, hidden by --quiet
+  out.warn('deprecated flag used');// stderr, always shown
+  out.error('could not reach api');// stderr, always shown
 });
 ```
 
@@ -327,14 +327,14 @@ global flag; it silences `status` and `info` but never warnings or errors.
 
 ```ts
 .action(({ out }) => {
-	const data = { service: 'api', healthy: true };
+  const data = { service: 'api', healthy: true };
 
-	if (out.jsonMode) {
-		out.json(data);
-		return;
-	}
+  if (out.jsonMode) {
+    out.json(data);
+    return;
+  }
 
-	out.log('Service api is healthy');
+  out.log('Service api is healthy');
 });
 ```
 
@@ -344,8 +344,8 @@ Never mix human text into stdout in the same branch as `out.json()`.
 
 ```ts
 out.table(rows, [
-	{ key: 'name', header: 'Service' },
-	{ key: 'status', header: 'Status' },
+  { key: 'name', header: 'Service' },
+  { key: 'status', header: 'Status' },
 ]);
 ```
 
@@ -357,8 +357,8 @@ force a human table alongside JSON stdout.
 
 ```ts
 .action(({ out }) => {
-	out.log(out.color.green('✔ done'));
-	if (out.isHyperlinkSupported) out.log(osc8('https://example.com', 'docs'));
+  out.log(out.color.green('✔ done'));
+  if (out.isHyperlinkSupported) out.log(osc8('https://example.com', 'docs'));
 });
 ```
 
@@ -370,8 +370,8 @@ output, so gate them on `out.isHyperlinkSupported`.
 
 ```ts
 .action(({ out }) => {
-	out.log('3 of 5 checks failed');
-	out.setExitCode(1);
+  out.log('3 of 5 checks failed');
+  out.setExitCode(1);
 });
 ```
 
@@ -382,10 +382,10 @@ For check/status commands: keeps normal output, avoids an error payload in
 
 ```ts
 throw new CLIError('Deployment target not found', {
-	code: 'NOT_FOUND',
-	exitCode: 1,
-	suggest: 'Run: mycli deploy --help',
-	details: { requested: name },
+  code: 'NOT_FOUND',
+  exitCode: 1,
+  suggest: 'Run: mycli deploy --help',
+  details: { requested: name },
 });
 ```
 
@@ -397,9 +397,9 @@ Serializes cleanly in `--json` mode and prints a suggestion line otherwise.
 
 ```ts
 cli('mycli').help({
-	flagOrder: 'declaration', // or a sortFlags comparator
-	theme: (c) => ({ sectionTitle: c.magenta }),
-	footer: false,
+  flagOrder: 'declaration', // or a sortFlags comparator
+  theme: (c) => ({ sectionTitle: c.magenta }),
+  footer: false,
 });
 ```
 
@@ -436,8 +436,8 @@ cli('mycli').completions({ as: 'flag' }); // mycli --completions (shell auto-det
 
 ```ts
 cli('mycli')
-	.config('mycli')
-	.configLoader(configFormat(['yaml', 'yml'], parseYaml));
+  .config('mycli')
+  .configLoader(configFormat(['yaml', 'yml'], parseYaml));
 ```
 
 Discovery probes project scope (cwd and every ancestor: `.mycli.json`,
@@ -464,11 +464,11 @@ captures stdout/stderr as arrays of written chunks — assert trailing newlines.
 
 ```ts
 await runCommand(deploy, ['--json'], {
-	env: { DEPLOY_REGION: 'eu' },
-	config: { deploy: { region: 'ap' } },
-	stdinData: 'piped\n', // bytes a `.stdin()` input reads; `null` for nothing piped
-	answers: ['production'], // queued prompt answers
-	stat: async (p) => (p === '/data' ? 'directory' : null),
+  env: { DEPLOY_REGION: 'eu' },
+  config: { deploy: { region: 'ap' } },
+  stdinData: 'piped\n', // bytes a `.stdin()` input reads; `null` for nothing piped
+  answers: ['production'], // queued prompt answers
+  stat: async (p) => (p === '/data' ? 'directory' : null),
 });
 ```
 
