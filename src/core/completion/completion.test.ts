@@ -274,7 +274,7 @@ describe('generateBashCompletion', () => {
 			const script = generateBashCompletion(minimalSchema());
 
 			expect(script).toContain('local cur prev words cword');
-			expect(script).toContain('_init_completion || return');
+			expect(script).toContain('_init_completion -n = || return');
 		});
 
 		it('registers with complete -F', () => {

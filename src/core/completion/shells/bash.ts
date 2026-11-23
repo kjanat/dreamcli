@@ -111,7 +111,7 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 	lines.push(
 		hasDynamicCompletion(schema)
 			? '\t_init_completion -n =: || return'
-			: '\t_init_completion || return',
+			: '\t_init_completion -n = || return',
 	);
 	lines.push('\tlocal readline_prefix=""');
 	lines.push('\tif [[ $# -ge 2 && "$cur" == *"$2" ]]; then');
@@ -215,7 +215,6 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 		for (const node of nodes) {
 			const pathKey = node.path.join(' ');
 			const mergedFlags = node.mergedFlags;
-			const enumCases = collectEnumCasesFromFlags(mergedFlags);
 			const flagWords = collectFlagWords(mergedFlags);
 			const childNames = dedupeWords(
 				node.children.flatMap((child) => [child.name, ...child.aliases]),
@@ -232,26 +231,7 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 
 			lines.push(`\t\t${quoteShellCasePattern(pathKey)})`);
 
-			if (enumCases.length > 0) {
-				lines.push('\t\t\tlocal enum_flag=""');
-				lines.push('\t\t\tlocal enum_cur="$cur"');
-				lines.push('\t\t\tlocal enum_prefix=""');
-				lines.push('\t\t\tif [[ "$cur" == --*=* ]]; then');
-				lines.push(`\t\t\t\tenum_flag="\${cur%%=*}"`);
-				lines.push(`\t\t\t\tenum_cur="\${cur#*=}"`);
-				lines.push(`\t\t\t\tenum_prefix="\${cur%%=*}="`);
-				lines.push('\t\t\tfi');
-				lines.push(`\t\t\tcase "\${enum_flag:-$prev}" in`);
-				for (const ec of enumCases) {
-					lines.push(`\t\t\t\t${ec.flags})`);
-					lines.push(formatBashEnumCompletion(ec.values, '\t\t\t\t\t', 'enum_cur', 'enum_prefix'));
-					lines.push('\t\t\t\t\treturn');
-					lines.push('\t\t\t\t\t;;');
-				}
-				lines.push('\t\t\t\t*)');
-				lines.push('\t\t\t\t\t;;');
-				lines.push('\t\t\tesac');
-			}
+			emitBashValueCompletions(lines, mergedFlags, '\t\t\t');
 
 			lines.push(`\t\t\tCOMPREPLY=($(compgen -W '${completionWords.trim()}' -- "$cur"))`);
 			lines.push('\t\t\treturn');
@@ -262,28 +242,20 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 		lines.push('\t\t\t;;');
 		lines.push('\tesac');
 		lines.push('');
-
-		// --- Root-level: visible root surface ---
-		const rootFlagWords = collectFlagWords(rootSurface.rootFlags).split(' ').filter(Boolean);
-		const defaultFlagWords = rootSurface.includeDefaultFlags
-			? collectFlagWords(rootSurface.defaultFlags).split(' ').filter(Boolean)
-			: [];
-		const completionWords = dedupeWords([
-			...visibleCommands.flatMap((command) => [command.name, ...command.aliases]),
-			...rootFlagWords,
-			...defaultFlagWords,
-		])
-			.map(escapeForSingleQuote)
-			.join(' ');
-		lines.push(`\t# Root-level completions: visible root surface`);
-		lines.push(`\tCOMPREPLY=($(compgen -W '${completionWords}' -- "$cur"))`);
-	} else {
-		const globalFlags = collectFlagWords({
-			...rootSurface.rootFlags,
-			...(rootSurface.includeDefaultFlags ? rootSurface.defaultFlags : {}),
-		});
-		lines.push(`\tCOMPREPLY=($(compgen -W '${globalFlags}' -- "$cur"))`);
 	}
+
+	const rootFlags = {
+		...rootSurface.rootFlags,
+		...(rootSurface.includeDefaultFlags ? rootSurface.defaultFlags : {}),
+	};
+	emitBashValueCompletions(lines, rootFlags, '\t');
+	const rootWords = dedupeWords([
+		...visibleCommands.flatMap((command) => [command.name, ...command.aliases]),
+		...collectFlagWords(rootFlags).split(' ').filter(Boolean),
+	])
+		.map(escapeForSingleQuote)
+		.join(' ');
+	lines.push(`\tCOMPREPLY=($(compgen -W '${rootWords}' -- "$cur"))`);
 
 	lines.push('}');
 	lines.push('');
@@ -294,6 +266,33 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 }
 
 // --- Bash helpers — internal
+
+function emitBashValueCompletions(
+	lines: string[],
+	flags: Readonly<Record<string, FlagSchema>>,
+	indent: string,
+): void {
+	const enumCases = collectEnumCasesFromFlags(flags);
+	if (enumCases.length === 0) return;
+	lines.push(`${indent}local enum_flag=""`);
+	lines.push(`${indent}local enum_cur="$cur"`);
+	lines.push(`${indent}local enum_prefix=""`);
+	lines.push(`${indent}if [[ "$cur" == --*=* ]]; then`);
+	lines.push(`${indent}\tenum_flag="\${cur%%=*}"`);
+	lines.push(`${indent}\tenum_cur="\${cur#*=}"`);
+	lines.push(`${indent}\tenum_prefix="\${cur%%=*}="`);
+	lines.push(`${indent}fi`);
+	lines.push(`${indent}case "\${enum_flag:-$prev}" in`);
+	for (const ec of enumCases) {
+		lines.push(`${indent}\t${ec.flags})`);
+		lines.push(formatBashEnumCompletion(ec.values, `${indent}\t\t`, 'enum_cur', 'enum_prefix'));
+		lines.push(`${indent}\t\treturn`);
+		lines.push(`${indent}\t\t;;`);
+	}
+	lines.push(`${indent}\t*)`);
+	lines.push(`${indent}\t\t;;`);
+	lines.push(`${indent}esac`);
+}
 
 /**
  * Emit bash case branches for progressive subcommand path detection.

@@ -11,6 +11,48 @@ import { flag } from '#internals/core/schema/flag.ts';
 import { generateBashCompletion } from './shells/bash.ts';
 import { quoteShellArg } from './shells/shared.ts';
 
+const hasBash = spawnSync('bash', ['--version']).status === 0;
+
+it.skipIf(!hasBash)('completes static default-command values on the visible root surface', () => {
+	const root = command('run')
+		.flag('mode', flag.enum(['fast', 'full']).alias('m'))
+		.flag('level', flag.string().complete(['low', 'high']));
+	const single = cli('demo').default(root);
+	const hybrid = single.command(command('sub').flag('mode', flag.enum(['child'])));
+	function replies(script: string, ...words: string[]) {
+		const result = spawnSync(
+			'bash',
+			[
+				'-c',
+				[
+					script,
+					// biome-ignore lint/suspicious/noTemplateCurlyInString: Bash array expansion
+					'_init_completion() { words=("${COMP_WORDS[@]}"); cword=$COMP_CWORD; cur=${words[cword]}; prev=${words[cword-1]}; }',
+					'COMP_WORDS=(demo "$@"); COMP_CWORD=$#',
+					'_demo_completions',
+					// biome-ignore lint/suspicious/noTemplateCurlyInString: Bash array expansion
+					'printf "%s\\n" "${COMPREPLY[@]}"',
+				].join('\n'),
+				'bash',
+				...words,
+			],
+			{ encoding: 'utf8' },
+		);
+		expect(result.status, result.stderr).toBe(0);
+		return result.stdout.trim().split('\n');
+	}
+	for (const script of [
+		generateBashCompletion(single.schema),
+		generateBashCompletion(hybrid.schema, { rootMode: 'surface' }),
+	]) {
+		expect(replies(script, '--mode', '')).toEqual(['fast', 'full']);
+		expect(replies(script, '-m', 'fu')).toEqual(['full']);
+		expect(replies(script, '--level=hi')).toEqual(['--level=high']);
+	}
+	expect(replies(generateBashCompletion(hybrid.schema), '--mode', '')).not.toContain('fast');
+	expect(replies(generateBashCompletion(hybrid.schema), 'sub', '--mode', '')).toEqual(['child']);
+});
+
 const runReadline = String.raw`
 import json, os, pty, select, signal, sys, time
 
