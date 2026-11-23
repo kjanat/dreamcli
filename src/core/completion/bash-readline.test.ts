@@ -79,6 +79,18 @@ const cases = [
 		line: 'dcfixture adopt --no-config --config=settings.json --mo',
 		argv: ['adopt', '--no-config', '--config=settings.json', '--mo'],
 	},
+	{
+		line: 'dcfixture adopt --no-config --config settings.json --mo',
+		argv: ['adopt', '--no-config', '--config', 'settings.json', '--mo'],
+	},
+	{
+		line: 'dcfixture adopt --config=settings.json --no-config --mo',
+		argv: ['adopt', '--config=settings.json', '--no-config', '--mo'],
+	},
+	{
+		line: 'dcfixture adopt --config settings.json --no-config --mo',
+		argv: ['adopt', '--config', 'settings.json', '--no-config', '--mo'],
+	},
 	{ line: 'dcfixture adopt --literal="sp', argv: ['adopt', '--literal=space value'] },
 	{ line: 'dcfixture adopt "--literal=sp', argv: ['adopt', '--literal=space value'] },
 	{ line: "dcfixture adopt --literal='sp", argv: ['adopt', '--literal=space value'] },
