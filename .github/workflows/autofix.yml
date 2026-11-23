@@ -10,13 +10,14 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 jobs:
   autofix:
-    # Beepboop exclusively owns the maintenance ref. A fork's branch is independent.
+    # Beepboop exclusively owns the maintenance refs. A fork's branches are independent.
     if: >- # actionlint:ignore case-insensitive-conditions -- also reserve case variants from ordinary autofix
       ${{ github.repository == 'kjanat/dreamcli' && case(
-        github.ref == 'refs/heads/master' || github.ref == 'refs/heads/maintenance/autofix', false,
+        github.ref == 'refs/heads/master' || github.ref == 'refs/heads/maintenance/autofix' || github.ref == 'refs/heads/maintenance/bun-lockfile', false,
         github.event_name == 'pull_request',
           github.event.pull_request.stack == null &&
-          (github.event.pull_request.head.repo.full_name != github.repository || github.head_ref != 'maintenance/autofix'),
+          (github.event.pull_request.head.repo.full_name != github.repository ||
+            (github.head_ref != 'maintenance/autofix' && github.head_ref != 'maintenance/bun-lockfile')),
         true
       ) }}
     runs-on: ubuntu-latest

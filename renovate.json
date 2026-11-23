@@ -53,6 +53,7 @@
 			"description": "Batch workspace devDependencies and their Bun catalog entries once a week.",
 			"matchDepTypes": ["devDependencies", "bun.catalog"],
 			"groupName": "weekly dev dependencies",
+			"groupSlug": "weekly-dev-dependencies",
 			"groupSingleUpdates": true,
 			"separateMajorMinor": false,
 			"schedule": ["* 0-5 * * 1"],
