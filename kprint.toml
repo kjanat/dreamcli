@@ -1,0 +1,75 @@
+#:schema https://raw.githubusercontent.com/kjanat/kjanat/refs/heads/master/schemas/dprint.schema.json
+
+useTabs     = true
+indentWidth = 2
+newLineKind = "lf"
+lineWidth   = 100
+excludes    = ["**/node_modules", "**/{*-,bun}lock(.*)?", "**/snapshots"]
+plugins     = [
+  "https://plugins.dprint.dev/kjanat/svg-v0.4.1.wasm",
+  "https://plugins.dprint.dev/kjanat/sortpackagejson-0.2.1.wasm",
+  "npm:@dprint/biome@0.15.7",
+  "npm:@dprint/markdown@0.29.0",
+  "npm:@dprint/ruff@0.12.3",
+  "npm:@dprint/json@0.26.0",
+  "npm:dprint-plugin-malva@0.16.1",
+  "npm:dprint-plugin-markup@0.28.0",
+  "npm:dprint-plugin-yaml@0.6.0",
+  "npm:@dprint/prettier@0.73.1",
+  "https://plugins.dprint.dev/kjanat/json-schema-sort-0.1.2.wasm",
+  "https://plugins.dprint.dev/kjanat/tombi-0.2.1.wasm",
+]
+
+[jsonSchemaSort]
+associations = ["**/schema.json", "**/*.schema.json"]
+
+[biome]
+indentStyle   = "tab"
+indentWidth   = 2
+lineWidth     = 100
+quoteStyle    = "single"
+"css.enabled" = true
+associations  = ["!README.md", "!docs/**/*.md", "!docs/.vitepress/twoslash/*.ts", "*.ts.tpl"]
+
+[markdown]
+"codeBlock.useTabs" = false
+textWrap            = "maintain"
+associations        = ["!README.md", "!docs/**/*.md", "!docs/.vitepress/twoslash/*.ts"]
+
+[[markdown.overrides]]
+files               = ["CHANGELOG.md"]
+lineWidth           = 9999
+textWrap            = "never"
+"codeBlock.useTabs" = false
+
+[markup]
+"html.void.selfClosing" = false
+formatComments          = true
+scriptIndent            = true
+styleIndent             = true
+"vue.scriptIndent"      = true
+"vue.styleIndent"       = true
+scriptFormatter         = "biome"
+associations            = ["!README.md", "!docs/**/*.md", "!docs/.vitepress/twoslash/*.ts"]
+
+[yaml]
+printWidth = 160
+
+[svg]
+useTabs = false
+
+[prettier]
+singleQuote    = true
+"plugin.jsDoc" = true
+printWidth     = 60
+tabWidth       = 2
+useTabs        = false
+endOfLine      = "lf"
+associations   = ["README.md", "docs/**/*.md", "docs/.vitepress/twoslash/*.ts", "!**"]
+
+[ruff]
+preview     = true
+indentWidth = 4
+
+[exec]
+playWithFire = true
