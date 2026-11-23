@@ -3,6 +3,8 @@
 	"extends": ["config:recommended", ":semanticCommits"],
 	"timezone": "Europe/Amsterdam",
 	"automerge": false,
+	"labels": ["kind: dependencies"],
+	"assignees": ["kjanat"],
 	"gitIgnoredAuthors": ["114827586+autofix-ci[bot]@users.noreply.github.com"],
 	"prConcurrentLimit": 5,
 	"prHourlyLimit": 2,
@@ -61,6 +63,22 @@
 			"automerge": true,
 			"platformAutomerge": false,
 			"automergeSchedule": ["* 6-23 * * 1", "* * * * 0,2-6"]
+		},
+		{
+			"description": "Label runtime, compiler, bundler, formatter, linter, and test runner updates as toolchain updates.",
+			"matchPackageNames": [
+				"node",
+				"bun",
+				"typescript",
+				"@biomejs/biome",
+				"@kprint/kprint",
+				"tsdown",
+				"esbuild",
+				"vitest",
+				"@vitest/coverage-v8",
+				"runner-run"
+			],
+			"labels": ["kind: toolchain"]
 		}
 	]
 }

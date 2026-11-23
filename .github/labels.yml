@@ -22,6 +22,14 @@ labels:
     color: "#b60205"
     description: Breaking API, runtime, or packaging change
 
+  - name: "kind: dependencies"
+    color: "#0550ae"
+    description: Dependency updates opened by Renovate
+
+  - name: "kind: toolchain"
+    color: "#8250df"
+    description: Runtime, compiler, bundler, formatter, linter, or test runner updates
+
   - name: "area: cli"
     color: "#1d76db"
     description: CLI dispatch, planning, root UX, or plugins
