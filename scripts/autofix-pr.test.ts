@@ -15,7 +15,7 @@ describe('maintenance PR metadata', () => {
 	it('lists version updates, additions, removals, and changed paths', () => {
 		const before = ['npm:@dprint/biome@0.15.6', 'npm:old-plugin@1.0.0'];
 		const after = ['npm:@dprint/biome@0.15.7', 'npm:new-plugin@2.0.0'];
-		expect(describeChanges(before, after, ['.dprint.jsonc', 'docs/a page.md'])).toEqual({
+		expect(describeChanges(before, after, ['docs/a page.md', 'kprint.toml'])).toEqual({
 			changed: true,
 			title: 'chore(deps): update @dprint/biome 0.15.7, new-plugin 2.0.0',
 			body: [
@@ -27,8 +27,8 @@ describe('maintenance PR metadata', () => {
 				'',
 				'Changed files:',
 				'',
-				'- `.dprint.jsonc`',
 				'- `docs/a page.md`',
+				'- `kprint.toml`',
 			].join('\n'),
 		});
 	});
@@ -49,7 +49,7 @@ describe('maintenance PR metadata', () => {
 			mkdirSync(cwd);
 			const git = (...args: string[]) => execFileSync('git', args, { cwd });
 			git('init', '--quiet', '--template=');
-			writeFileSync(join(cwd, '.dprint.jsonc'), '{ "plugins": ["npm:formatter@1.0.0"] }');
+			writeFileSync(join(cwd, 'kprint.toml'), 'plugins = ["npm:formatter@1.0.0"]\n');
 			writeFileSync(join(cwd, 'deleted.md'), 'old');
 			git('add', '.');
 			git(
@@ -70,8 +70,8 @@ describe('maintenance PR metadata', () => {
 			};
 			expect(generate()).toMatch(/^changed<<(\S+)\nfalse\n\1\n/u);
 
-			writeFileSync(join(cwd, '.dprint.jsonc'), '{ "plugins": ["npm:formatter@2.0.0"] }');
-			git('add', '.dprint.jsonc');
+			writeFileSync(join(cwd, 'kprint.toml'), 'plugins = ["npm:formatter@2.0.0"]\n');
+			git('add', 'kprint.toml');
 			rmSync(join(cwd, 'deleted.md'));
 			writeFileSync(join(cwd, 'new file.md'), 'new');
 			const result = generate();
@@ -79,7 +79,7 @@ describe('maintenance PR metadata', () => {
 			expect(result).toMatch(/^title<<(\S+)\nchore\(deps\): update formatter 2\.0\.0\n\1$/mu);
 			expect(result).toMatch(/^body<<(\S+)\n([\s\S]*)\n\1\n$/mu);
 			expect(result).toContain('- `npm:formatter@1.0.0` → `npm:formatter@2.0.0`');
-			expect(result).toContain('- `.dprint.jsonc`\n- `deleted.md`\n- `new file.md`');
+			expect(result).toContain('- `deleted.md`\n- `kprint.toml`\n- `new file.md`');
 		} finally {
 			rmSync(directory, { recursive: true, force: true });
 		}
