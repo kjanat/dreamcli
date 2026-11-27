@@ -119,7 +119,19 @@ function walkAndFix(node: HastNode, symbolRoutes: ReadonlyMap<string, string>): 
 			modified = true;
 		} else {
 			walkAndFix(child, symbolRoutes);
-			newChildren.push(child);
+			// The upstream JSDoc renderer wraps highlighted multiline fences in an inline <code>.
+			const block = child.children?.[0];
+			if (
+				child.tagName === 'code' &&
+				child.children?.length === 1 &&
+				block?.tagName === 'pre' &&
+				Object.keys(child.properties ?? {}).length === 0
+			) {
+				newChildren.push(block);
+				modified = true;
+			} else {
+				newChildren.push(child);
+			}
 		}
 	}
 
