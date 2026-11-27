@@ -2,13 +2,40 @@
 import { createHash } from 'node:crypto';
 import type { ShikiTransformer } from '@shikijs/core';
 import { hastToHtml } from '@shikijs/core';
+import type { VitePressPluginTwoslashOptions } from '@shikijs/vitepress-twoslash';
+import { transformerTwoslash } from '@shikijs/vitepress-twoslash';
 import type { Element, Root } from 'hast';
 import type { Plugin } from 'vitepress';
 
 export function twoslashPayloads() {
 	const name = 'dreamcli-twoslash-payloads';
 	const assets = new Map<string, string>();
+	const highlights = new Map<string, Root>();
 	let building = false;
+
+	function twoslash(options: VitePressPluginTwoslashOptions): ShikiTransformer {
+		const transformer = transformerTwoslash(options);
+		const render = transformer.code;
+		if (!render) return transformer;
+		return {
+			...transformer,
+			code(node) {
+				if (!building) return render.call(this, node);
+				const highlight = this.codeToHast;
+				const cachedHighlight: typeof highlight = (code, highlightOptions) => {
+					const key = JSON.stringify([code, highlightOptions]);
+					let tree = highlights.get(key);
+					if (!tree) {
+						tree = highlight(code, highlightOptions);
+						highlights.set(key, tree);
+					}
+					// Later Shiki transforms can mutate the tree attached to an individual popup.
+					return structuredClone(tree);
+				};
+				return render.call({ ...this, codeToHast: cachedHighlight }, node);
+			},
+		};
+	}
 
 	function visit(node: Element | Root): void {
 		if (node.type === 'element' && node.tagName === 'v-menu') {
@@ -40,7 +67,7 @@ export function twoslashPayloads() {
 			if ('twoslash' in this.meta) visit(root);
 		},
 	};
-	const plugin: Plugin = {
+	const plugin = {
 		name,
 		apply: 'build',
 		configResolved() {
@@ -51,6 +78,6 @@ export function twoslashPayloads() {
 				this.emitFile({ type: 'asset', fileName: `assets/twoslash/${id}.txt`, source });
 			}
 		},
-	};
-	return { transformer, plugin };
+	} satisfies Plugin;
+	return { twoslash, transformer, plugin };
 }

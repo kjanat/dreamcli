@@ -1,7 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { normalize } from 'node:path';
 import { env } from 'node:process';
-import { transformerTwoslash } from '@shikijs/vitepress-twoslash';
 import { ModuleDetectionKind, ModuleKind, ModuleResolutionKind } from 'typescript';
 import { defineConfig } from 'vitepress';
 import pkg from '../../package.json' with { type: 'json' };
@@ -304,7 +303,7 @@ export default defineConfig({
 	},
 	markdown: {
 		codeTransformers: [
-			transformerTwoslash({
+			popups.twoslash({
 				explicitTrigger: true,
 				typesCache: analyzer.typesCache,
 				twoslashOptions: {
