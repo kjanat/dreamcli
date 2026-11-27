@@ -26,22 +26,6 @@
 
 ## Workflow & Tracking
 
-- While the `dreamcli-re-foundation` PRD is active, the GitHub project is expected to reflect live task state, not just end-of-task cleanup. When running `/complete-next-task`, update project item workflow at task start (`In Progress`) and at task end (`Done`), and move newly unblocked follow-up items to `Ready`. End-only updates leave the board misleading for the next agent/session.
-
-### dreamcli-re-foundation project commands
-
-- Use GitHub Project `4`.
-- Use `scripts/gh-project.ts` instead of ad hoc `gh project` calls. It is Bun-native, uses DreamCLI for the command surface, reads `.opencode/state/dreamcli-re-foundation/prd.json`, and batches project metadata fetches once per invocation.
-- The visible board state on GitHub is driven by built-in `Status`, not the custom `Workflow` field. The helper must update both. Workflow keeps `Backlog/Ready/Blocked` detail; Status is the coarse mirror the board actually shows: `Backlog|Ready -> Todo`, `In Progress|Blocked -> In Progress`, `Done -> Done`.
-- Exact commands future agents should use:
-
-```bash
-bun run gh-project:start <task-id>
-bun run gh-project:finish <task-id>
-bun run gh-project:sync
-bun run gh-project:list
-```
-
-- `finish` updates project state and, by default, writes `passes: true` back to `.opencode/state/dreamcli-re-foundation/prd.json`. Use `--skip-pass` only if the PRD state is being updated elsewhere.
-- `sync` uses PRD truth to set passed tasks to `Done`, unblocked tasks to `Ready`, and the rest to `Backlog` while preserving `In Progress` and `Blocked` unless `--overwrite-active` is passed.
-- For rate-limit efficiency, prefer one script invocation that batches work over several raw `gh project` calls. The script fetches project metadata once, then applies all needed edits.
+- `scripts/gh-project.ts` defaults to GitHub Project `4` and PRD name `dreamcli-re-foundation`. It walks upward from cwd for `.opencode/state/<name>/prd.json`. This checkout has no such file, so `bun run gh-project:*` cannot read or write task state until that file exists.
+- The visible board is built-in `Status`. The helper also writes the custom `Workflow` field. `statusForWorkflow()` maps `Backlog` and `Ready` to `Todo`, `In Progress` and `Blocked` to `In Progress`, and `Done` to `Done`.
+- `finish` writes `passes: true` into `prd.json` unless `--skip-pass` is set. `sync` sets passed tasks to `Done`, unblocked tasks to `Ready`, and the rest to `Backlog`, and it leaves `In Progress` and `Blocked` unless `--overwrite-active` is set.

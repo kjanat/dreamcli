@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
-import { normalize } from 'node:path';
+import { homedir } from 'node:os';
+import { join, normalize } from 'node:path';
 import { env } from 'node:process';
 import { ModuleDetectionKind, ModuleKind, ModuleResolutionKind } from 'typescript';
 import { defineConfig } from 'vitepress';
@@ -13,6 +14,7 @@ import {
 	toCollisionKey,
 	toSymbolPageRoute,
 } from './data/symbol-pages.ts';
+import { highlightCache } from './vite-plugins/highlight-cache.ts';
 import { dreamcliDocsPlugin, shikiClasses } from './vite-plugins/index.ts';
 import { localSearchPayload } from './vite-plugins/local-search-payload.ts';
 import { fixTsProcessedLinkcode, transformerJSDocTags } from './vite-plugins/shiki-jsdoc-tags.ts';
@@ -50,7 +52,14 @@ const symbolRoutes = new Map<string, string>();
 }
 const isCI = Boolean(env.CI);
 const ifCI = (ifCiThen: string, ifNotCiThen: string) => (isCI ? ifCiThen : ifNotCiThen);
-const popups = twoslashPayloads();
+const popups = twoslashPayloads(
+	env.WORKERS_CI === '1'
+		? highlightCache(
+				join(homedir(), '.bun/install/cache/dreamcli-docs'),
+				join(projectRoot, 'bun.lock'),
+			)
+		: undefined,
+);
 const analyzer = createBuildAnalyzer(projectRoot);
 
 const compilerOptions = {
@@ -73,7 +82,10 @@ const links = {
 } as const;
 
 export default defineConfig({
-	buildEnd: () => analyzer.finish(),
+	buildEnd() {
+		analyzer.finish();
+		popups.finish();
+	},
 	title: pkg.name,
 	description: pkg.description,
 	cleanUrls: true,
@@ -302,6 +314,7 @@ export default defineConfig({
 		},
 	},
 	markdown: {
+		shikiSetup: popups.shikiSetup,
 		codeTransformers: [
 			popups.twoslash({
 				explicitTrigger: true,

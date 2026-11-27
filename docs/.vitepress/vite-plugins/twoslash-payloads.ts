@@ -5,13 +5,34 @@ import { hastToHtml } from '@shikijs/core';
 import type { VitePressPluginTwoslashOptions } from '@shikijs/vitepress-twoslash';
 import { transformerTwoslash } from '@shikijs/vitepress-twoslash';
 import type { Element, Root } from 'hast';
-import type { Plugin } from 'vitepress';
+import type { MarkdownOptions, Plugin } from 'vitepress';
+import type { highlightCache } from './highlight-cache.ts';
 
-export function twoslashPayloads() {
+export function twoslashPayloads(cache?: ReturnType<typeof highlightCache>) {
 	const name = 'dreamcli-twoslash-payloads';
 	const assets = new Map<string, string>();
+	const fences = new Map<string, string>();
 	const highlights = new Map<string, Root>();
+	let restored = new Map<string, Root>();
+	let hits = 0;
 	let building = false;
+
+	// Page and search renderers share the same popup assets for the lifetime of a build.
+	const shikiSetup: NonNullable<MarkdownOptions['shikiSetup']> = (highlighter) => {
+		const render = highlighter.codeToHtml.bind(highlighter);
+		highlighter.codeToHtml = (code, options) => {
+			if (!building || !/\btwoslash\b/.test(String(options.meta?.__raw ?? ''))) {
+				return render(code, options);
+			}
+			const { transformers, ...settings } = options;
+			const key = JSON.stringify([code, settings, transformers?.map((t) => t.name)]);
+			const cached = fences.get(key);
+			if (cached !== undefined) return cached;
+			const html = render(code, options);
+			fences.set(key, html);
+			return html;
+		};
+	};
 
 	function twoslash(options: VitePressPluginTwoslashOptions): ShikiTransformer {
 		const transformer = transformerTwoslash(options);
@@ -26,7 +47,9 @@ export function twoslashPayloads() {
 					const key = JSON.stringify([code, highlightOptions]);
 					let tree = highlights.get(key);
 					if (!tree) {
-						tree = highlight(code, highlightOptions);
+						tree = restored.get(key);
+						if (tree) hits++;
+						else tree = highlight(code, highlightOptions);
 						highlights.set(key, tree);
 					}
 					// Later Shiki transforms can mutate the tree attached to an individual popup.
@@ -71,6 +94,7 @@ export function twoslashPayloads() {
 		name,
 		apply: 'build',
 		configResolved() {
+			if (!building && cache) restored = cache.restore();
 			building = true;
 		},
 		generateBundle() {
@@ -79,5 +103,13 @@ export function twoslashPayloads() {
 			}
 		},
 	} satisfies Plugin;
-	return { twoslash, transformer, plugin };
+	function finish() {
+		fences.clear();
+		if (!cache) return;
+		console.log(
+			`Twoslash highlights: ${hits} restored from disk, ${highlights.size - hits} generated.`,
+		);
+		if (hits !== highlights.size || hits !== restored.size) cache.save(highlights);
+	}
+	return { shikiSetup, twoslash, transformer, plugin, finish };
 }

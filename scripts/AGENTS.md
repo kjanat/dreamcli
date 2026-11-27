@@ -1,54 +1,31 @@
-# scripts — Build, release, and workflow automation
+# scripts: build, release, and checks
 
-## OVERVIEW
-
-Operational scripts live here. They are Bun-first, side-effectful, and tightly coupled to CI,
-publishing, generated artifacts, and the re-foundation project workflow.
-
-## STRUCTURE
-
-```text
-build-meta-descriptions.ts # rebuild generated source from docs data
-check-package-budget.ts    # npm tarball size and hot-path budgets
-check-version-sync.ts      # package.json <-> deno.json guard
-deno-smoke-test.ts         # runtime smoke verification
-emit-definition-schema.ts  # writes root `dreamcli.schema.json`
-gh-project.ts              # thin wrapper for project helper CLI
-gh-project/                # typed command surface for project automation
-release-meta.sh            # release tag metadata for workflows
-```
+Bun-first host tooling. `process.*`, `node:*`, and external CLIs are allowed here.
 
 ## WHERE TO LOOK
 
-| Task                            | Location                       | Notes                                                                           |
-| ------------------------------- | ------------------------------ | ------------------------------------------------------------------------------- |
-| Regenerate source descriptions  | `build-meta-descriptions.ts`   | imports docs data; writes `src/core/json-schema/meta-descriptions.generated.ts` |
-| Emit definition schema artifact | `emit-definition-schema.ts`    | writes root `dreamcli.schema.json`                                              |
-| Enforce version consistency     | `check-version-sync.ts`        | package and deno versions must match                                            |
-| Enforce package size budgets    | `check-package-budget.ts`      | packs, inspects the tarball, fails over budget; runs in `bd`                    |
-| Verify Deno runtime             | `deno-smoke-test.ts`           | CI/runtime guard                                                                |
-| Update GitHub project workflow  | `gh-project/`, `gh-project.ts` | DreamCLI-powered helper, not ad hoc shell                                       |
-| Compute release metadata        | `release-meta.sh`              | workflow env and tag parsing                                                    |
-
-## CONVENTIONS
-
-- Inspect the shebang and imports before editing; this directory mixes Bun TypeScript and shell
-- Scripts may use `process.*`, `node:*`, or external CLIs because they are host-side tooling, not
-  core library code
-- `gh-project` is a real DreamCLI app; extend the command surface there instead of bolting shell
-  logic onto workflows
-- Favor deterministic exit codes and messages; CI and workflow callers depend on them
+| Task                                | Location                                                                                                   |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Generated schema descriptions       | `build-meta-descriptions.ts` writes `src/core/json-schema/meta-descriptions.generated.ts`                  |
+| Root definition schema              | `emit-definition-schema.ts`. `tsdown` calls it on `build:prepare`. `bun run schema:emit` calls it directly |
+| package.json and deno.json versions | `check-version-sync.ts`                                                                                    |
+| npm tarball and hot-path budget     | `check-package-budget.ts`, part of `bd`                                                                    |
+| Lazy feature imports                | `check-lazy-loading.ts`, fixtures in `lazy-loading/`                                                       |
+| Published bundle entry shape        | `check-consumer-bundles.ts`, fixtures in `consumer-bundles/`                                               |
+| Feature-loader bundle graph         | `packaging/bundle-features.ts`                                                                             |
+| Deno adapter smoke                  | `deno-smoke-test.ts`                                                                                       |
+| GitHub Project 4                    | `gh-project.ts` and `gh-project/`                                                                          |
+| Release tag metadata                | `release-meta.sh`                                                                                          |
+| PR autofix                          | `autofix-pr.ts`                                                                                            |
 
 ## ANTI-PATTERNS
 
-- Do not bypass `check-version-sync.ts` or `release-meta.sh` checks in publish flows
-- Do not hand-edit generated artifacts when a script is already the source of truth
-- Do not replace `bun run gh-project:*` with ad hoc `gh project` calls for routine task-state
-  updates
-- Do not assume scripts are isolated from docs; `build-meta-descriptions.ts` and docs data are
-  coupled
+- Do not hand-edit a generated artifact when one of these scripts writes it
+- Do not call `gh project` for task state. Use `bun run gh-project:*`
+- Do not treat this directory as core. It imports docs data and mutates the repo
 
 ## NOTES
 
-- `gh-project` mutates both GitHub Project `4` and `.opencode/state/dreamcli-re-foundation/prd.json`
-- `emit-definition-schema.ts` matters to both package builds and docs deploys
+- `gh-project` defaults to project `4` and walks upward for `.opencode/state/dreamcli-re-foundation/prd.json`. This checkout has no `prd.json`
+- The helper writes GitHub `Status` and the custom `Workflow` field. `Backlog` and `Ready` map to Status `Todo`. `In Progress` and `Blocked` map to `In Progress`. `Done` maps to `Done`
+- `emit-definition-schema.ts` switches on `REGISTRY` and rewrites both `$id` and `properties.$schema.const`

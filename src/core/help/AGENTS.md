@@ -1,46 +1,30 @@
-# help — Schema-driven help formatter
+# help: schema-driven help text
 
-## OVERVIEW
-
-Formatter for usage, description, args, flags, and examples. It turns `CommandSchema`
-into stable text output, with width-aware wrapping and metadata annotations. `formatHelp()` lives
-in `index.ts`; theming and ANSI-aware measurement sit beside it.
+`formatHelp()` and `formatHelpTopic()` read `CommandSchema`. Width, theme, and ANSI measurement stay here. TTY color decisions stay in `output/`.
 
 ## FILES
 
-| File            | Purpose                                                                  |
-| --------------- | ------------------------------------------------------------------------ |
-| `index.ts`      | `formatHelp()`, wrapping and padding helpers, arg/flag/example rendering |
-| `theme.ts`      | `HelpTheme` roles, the built-in theme, `HelpThemeFactory` resolution     |
-| `ansi.ts`       | ANSI-aware width and padding used by the tables                          |
-| `help.test.ts`  | formatting contract and regression coverage                              |
-| `theme.test.ts` | theme role resolution and factory merging                                |
-| `ansi.test.ts`  | ANSI-aware width and padding                                             |
-
-## WHERE TO LOOK
-
-| Task                          | Location                                                            | Notes                                                            |
-| ----------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| Change width or bin defaults  | `HelpOptions`, `resolveOptions()`                                   | default width 80, optional bin name                              |
-| Change flag table formatting  | `formatFlagLeft()`, `formatFlagDescription()`, `buildFlagEntries()` | aliases, stdin/env/config/prompt/default/deprecation annotations |
-| Change usage or arg rendering | arg and usage helpers in `index.ts`                                 | positional syntax and defaults                                   |
-| Change text wrapping          | `wrapText()`                                                        | continuation indentation is part of the contract                 |
+| File        | Role                                                   |
+| ----------- | ------------------------------------------------------ |
+| `index.ts`  | `formatHelp()`, usage, args, flags, examples, wrapping |
+| `header.ts` | program name, version, OSC 8 links                     |
+| `theme.ts`  | `HelpTheme`, built-in theme, `HelpThemeFactory`        |
+| `ansi.ts`   | visible width and padding                              |
 
 ## CONVENTIONS
 
-- Help text is generated from schema metadata; keep formatting rules derived, not duplicated per
-  caller
-- Flags with short aliases sort before long-only flags, then alphabetically
-- Boolean defaults stay implicit; non-boolean default values render explicitly
-- Output should remain stable enough for explicit string assertions in tests
+- Default width is 80
+- Short aliases sort before long-only flags, then alphabetically
+- Boolean defaults stay implicit. Other defaults render through `formatDisplayValue()` from `output/`
+- Tests assert the formatted string
 
 ## ANTI-PATTERNS
 
-- Do not pull TTY or color logic into help formatting; that belongs in output
-- Do not special-case caller behavior when schema metadata already expresses it
-- Do not simplify wrapping or padding without checking narrow alignment regressions in tests
+- Do not read the TTY or pick colors in this directory
+- Do not special-case a caller when the schema already carries the metadata
+- Do not change `wrapText()` continuation indent without the narrow-width tests
 
 ## NOTES
 
-- `formatDisplayValue()` from `output/` is the shared path for default-value rendering
-- `isDefaultHelp` exists for merged root/default help flows from `cli/`
+- `isDefaultHelp` marks help merged from the root default command
+- `cli/root-help.ts` renders the root page and calls into this formatter for command bodies

@@ -1,53 +1,30 @@
-# docs/.vitepress — Docs app internals
+# docs/.vitepress: site internals
 
-## OVERVIEW
-
-This is a small app/toolchain, not just config. `data/` builds example/reference models, `theme/`
-owns client behavior, and `vite-plugins/` wires repo artifacts into the site build.
-
-## STRUCTURE
-
-```text
-config.ts      # site config + sidebar/nav generation
-data/          # API inventory, Deno API normalization, example parsing, docs contract tests
-theme/         # custom client theme, toggles, popovers, Mermaid boot
-twoslash/      # twoslash fixtures/helpers
-vite-plugins/  # source artifact copy + Shiki CSS transforms
-dist/          # generated output
-cache/         # generated cache
-```
+`data/` builds the example and reference models. `theme/` is the client. `vite-plugins/` copies repo artifacts and shapes Shiki and twoslash output.
 
 ## WHERE TO LOOK
 
-| Task                               | Location                                                                       | Notes                                              |
-| ---------------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------- |
-| Sidebar, nav, examples sidebar     | `config.ts`, `data/examples.ts`                                                | `config.ts` calls `collectExampleMeta()`           |
-| API/reference pages                | `data/api-index.ts`, `deno-doc.ts`, `symbol-pages.ts`                          | package exports -> deno doc -> symbol routes       |
-| Shared repo paths and source links | `data/paths.ts`                                                                | `DOCS_GIT_REF` override, else `git rev-parse HEAD` |
-| Schema/meta description pipeline   | `data/meta-schema-descriptions.ts`, `../../scripts/build-meta-descriptions.ts` | docs data feeds source generation                  |
-| Artifact copying                   | `vite-plugins/source-artifacts.ts`                                             | moves root schema into docs dist                   |
-| Theme interactivity                | `theme/`                                                                       | client-only toggles, mobile twoslash UX, Mermaid   |
-
-## CONVENTIONS
-
-- `data/` code is test-heavy and imported by scripts; keep it deterministic and Node-friendly
-- `config.ts` reads package and tsconfig, then builds the examples sidebar from repo-root example
-  docblocks
-- Theme code has SSR/client split handling; browser-only logic belongs behind client guards
-- `dreamcliDocsPlugin()` intentionally keeps the old twoslash style-dedupe plugin disabled
+| Task                                              | Location                                                                                   |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Nav, sidebar, example sidebar                     | `config.ts`, `data/examples.ts`                                                            |
+| API and symbol pages                              | `data/api-index.ts`, `data/deno-doc.ts`, `data/symbol-pages.ts`, `data/reference-model.ts` |
+| Source links                                      | `data/paths.ts`. `DOCS_GIT_REF`, otherwise `git rev-parse HEAD`                            |
+| Schema descriptions                               | `data/meta-schema-descriptions.ts`, consumed by `scripts/build-meta-descriptions.ts`       |
+| Copy `dreamcli.schema.json` into the site         | `vite-plugins/source-artifacts.ts`                                                         |
+| Search, highlight cache, Shiki, twoslash payloads | `vite-plugins/`                                                                            |
+| Client toggles, Mermaid, mobile twoslash          | `theme/`                                                                                   |
 
 ## ANTI-PATTERNS
 
-- Do not re-enable raw chunk rewrites for Shiki or twoslash without an AST-safe approach
-- Do not hardcode source-link refs when `DOCS_GIT_REF` or git state should supply them
-- Do not treat `dist/` or `cache/` as source
-- Do not move docs data helpers into source modules casually; scripts already depend on them
+- Do not edit `dist/` or `cache/`
+- Do not rewrite minified chunks with a string replace. `shiki-dedupe-popup-styles.ts` stays AST-aware, and `dreamcliDocsPlugin()` leaves the old dedupe transform off
+- Do not hardcode a git ref for source links
+- Do not move `data/` helpers into `src/`. Scripts already import them
 
 ## NOTES
 
-- `source-artifacts.ts` exists because docs deploy uploads `docs/.vitepress/dist`, not repo-root
-  artifacts
-- Mermaid loads client-side from CDN; keep that assumption in mind when editing theme code
-- Docs deployed via `wrangler deploy` (static assets Worker) with `html_handling: drop-trailing-slash`
-  to match VitePress `cleanUrls: true`; also deployed to GitHub Pages as fallback
-- `wrangler.jsonc` `vars` are Worker runtime vars, not build env vars — don't put build flags there
+- Deploy uploads `docs/.vitepress/dist`. `source-artifacts.ts` copies the root schema to `schemas/definition/v1.schema.json` and `dreamcli.schema.json`
+- Root `wrangler.toml` is the Worker config. Assets directory is `docs/.vitepress/dist`. `html_handling` is `auto-trailing-slash`. `drop-trailing-slash` sent `/raw/` through a 307
+- `bun run docs:deploy` is `wrangler deploy`. `bun run docs:upload` is `wrangler versions upload`, which publishes a preview version and leaves production traffic where it is
+- `.github/workflows/docs.yml` uploads the same dist as a GitHub Pages artifact
+- Mermaid loads in the browser from a CDN

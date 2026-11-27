@@ -1,52 +1,25 @@
-# json-schema — Definition metadata + input schema generation
+# json-schema: definition metadata and input schemas
 
-## OVERVIEW
-
-Single large module plus one generated companion file. It emits both DreamCLI definition metadata
-and draft-2020-12 input schemas, and it bridges the string-literal schema DSL into JSON Schema
-output.
+Emits the DreamCLI definition document and draft-2020-12 input schemas. The published artifact is root `dreamcli.schema.json`.
 
 ## FILES
 
-| File                             | Purpose                                                                                                               |
-| -------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `index.ts`                       | `generateSchema()`, `generateCommandSchema()`, `generateInputSchema()`, `definitionMetaSchema`, serialization helpers |
-| `constants.ts`                   | `DEFINITION_SCHEMA_URL`, `DEFINITION_SCHEMA_VERSION`; root re-exports these                                           |
-| `meta-descriptions.generated.ts` | generated descriptions injected into the definition meta-schema                                                       |
-| `json-schema.test.ts`            | behavior contract for both outputs                                                                                    |
-
-## WHERE TO LOOK
-
-| Task                             | Location                                                                        | Notes                                                        |
-| -------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| Change definition schema shape   | `generateSchema()`                                                              | CLI tree, flags, args, examples, hidden and prompt filtering |
-| Change input validation schema   | `generateInputSchema()`                                                         | JSON Schema 2020-12 for config/editor use cases              |
-| Change DSL -> JSON Schema bridge | `parseSchema()`, `nodeToJsonSchema()` in `index.ts`                             | feeds custom and DSL flag shapes                             |
-| Regenerate descriptions          | `meta-descriptions.generated.ts`, `../../../scripts/build-meta-descriptions.ts` | script is source of truth                                    |
-
-## CONVENTIONS
-
-- Output must stay JSON-serializable; runtime handlers and interactive functions are omitted by
-  design
-- `includeHidden` and `includePrompts` are the public switches; preserve their semantics across
-  both schema generators
-- `@internal` JSDoc tags matter: docs and meta-description tooling filter on them
-- Build-time schema description data comes from docs data modules, not hand-maintained constants
-- Consumers import the generators from `@kjanat/dreamcli/json-schema`; the root entry re-exports
-  only the types and `constants.ts`. `cli/index.ts` and `execution/index.ts` reach `index.ts` with
-  `await import(...)`, so `--help --json` is the only CLI runtime path that loads it; the subpath
-  entry and `scripts/emit-definition-schema.ts` import it statically
+| File                             | Role                                                                   |
+| -------------------------------- | ---------------------------------------------------------------------- |
+| `index.ts`                       | `generateSchema()`, `generateCommandSchema()`, `generateInputSchema()` |
+| `definition-meta-schema.ts`      | JSON Schema for definition documents                                   |
+| `constants.ts`                   | `DEFINITION_SCHEMA_URL`, `DEFINITION_SCHEMA_VERSION`                   |
+| `meta-descriptions.generated.ts` | generated descriptions. `bun run meta-descriptions` writes it          |
 
 ## ANTI-PATTERNS
 
-- Do not hand-edit `meta-descriptions.generated.ts`
-- Do not leak non-serializable runtime values into schema output
-- Do not forget the package-level schema artifact: build emits root `dreamcli.schema.json` from
-  this surface
+- Do not hand-edit `meta-descriptions.generated.ts` or `dreamcli.schema.json`
+- Do not put handlers, prompt functions, or other non-JSON values in the output
+- Do not static-import this directory from `cli/` or `execution/`. `loadJsonSchema()` is the runtime entry. `scripts/emit-definition-schema.ts` imports it statically
 
 ## NOTES
 
-- Definition schema URL is the self-hosted, format-versioned
-  `https://dreamcli.kjanat.dev/schemas/definition/v1.schema.json`; the npm package copy and the
-  jsDelivr URL are mirrors of the same bytes
-- This module sits on the boundary between public API docs, config validation, and build artifacts
+- Canonical URL is `https://dreamcli.kjanat.dev/schemas/definition/v1.schema.json`. The npm `./schema` export and the jsDelivr copy are the same bytes
+- `includeHidden` and `includePrompts` apply to both generators
+- Descriptions come from `docs/.vitepress/data/`, through `scripts/build-meta-descriptions.ts`
+- Consumers import generators from `@kjanat/dreamcli/json-schema`. The root entry re-exports types and `constants.ts`
