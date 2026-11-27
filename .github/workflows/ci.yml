@@ -73,7 +73,9 @@ jobs:
   actionlint:
     runs-on: ubuntu-latest
     timeout-minutes: 2
+    env:
+      "${{ insert }}": "${{ fromjson(vars.ACTIONLINT || '{''rev'': ''012540dc1978b569525e00a136a9617763de3455'', ''flags'': ''--experimental --strict --ignore unpinned-reference -v --dependency-findings=full''}') }}"
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
-      - run: bunx x@https://pkg.pr.new/kjanat/actionlint/@kjanat/actionlint@012540dc1978b569525e00a136a9617763de3455 check --experimental --strict --ignore unpinned-reference -v --dependency-findings=full
+      - run: 'bunx "x@https://pkg.pr.new/kjanat/actionlint/@kjanat/actionlint@${rev}" check ${{ env.flags }}' # actionlint-ignore script-interpolation
