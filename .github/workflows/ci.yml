@@ -76,4 +76,4 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
-      - run: bunx x@https://pkg.pr.new/kjanat/actionlint/@kjanat/actionlint@4a57c72 check --experimental --strict --ignore unpinned-reference
+      - run: bunx x@https://pkg.pr.new/kjanat/actionlint/@kjanat/actionlint@012540dc1978b569525e00a136a9617763de3455 check --experimental --strict --ignore unpinned-reference -v --dependency-findings=full
