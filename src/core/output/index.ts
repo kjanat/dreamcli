@@ -11,7 +11,8 @@
  * @module dreamcli/core/output
  */
 
-import { type Colors, createColors, isColorSupported } from 'ansispeck';
+import type { Colors } from 'ansispeck';
+import { createColors, isColorSupported } from 'ansispeck';
 import { padEnd, visibleWidth } from '#internals/core/help/ansi.ts';
 import { includesBeforeSeparator } from '#internals/core/parse/argv-boundaries.ts';
 import type {
@@ -23,7 +24,8 @@ import type {
 	TableColumn,
 	TableOptions,
 } from '#internals/core/schema/activity.ts';
-import { type Out, outBrand } from '#internals/core/schema/command.ts';
+import type { Out } from '#internals/core/schema/command.ts';
+import { outBrand } from '#internals/core/schema/command.ts';
 import type { TerminalSize } from '#internals/runtime/adapter.ts';
 import { CaptureProgressHandle, CaptureSpinnerHandle } from './activity.ts';
 import { ActivityBlock } from './activity-block.ts';

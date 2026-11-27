@@ -12,6 +12,7 @@ import './twoslash-mobile.css';
 import './settings.css';
 import './custom.css';
 import SettingsGear from './components/SettingsGear.vue';
+import TwoslashMenu from './components/TwoslashMenu.vue';
 import type { Runtime } from './composables/use-doc-settings.ts';
 import { useDocSettings } from './composables/use-doc-settings.ts';
 
@@ -353,25 +354,8 @@ function applyRuntime(runtime: Runtime): void {
 export default {
 	extends: DefaultTheme,
 	enhanceApp({ app }: EnhanceAppContext) {
-		if (typeof window !== 'undefined') {
-			app.use(TwoslashFloatingVue, twoslashFloatingOptions());
-		} else {
-			// SSR: register stub components that render slot content without floating-vue popover
-			// machinery (which crashes during SSR with popperId destructure error).
-			// This preserves identifier text in the static HTML for hydration.
-			// Render slot content only — floating-vue Popper crashes during SSR (popperId destructure).
-			// Duplicate @vue/runtime-core copies (hoisted vs .bun/) make Component types incompatible.
-			const SlotPassthrough = (
-				_: unknown,
-				{ slots }: { slots: Record<string, (...args: unknown[]) => unknown> },
-			) => slots['default']?.() ?? null;
-			// @ts-expect-error — dual @vue/runtime-core copies produce incompatible Component types
-			app.component('VMenu', SlotPassthrough);
-			// @ts-expect-error — same as above
-			app.component('VDropdown', SlotPassthrough);
-			// @ts-expect-error — same as above
-			app.component('VTooltip', SlotPassthrough);
-		}
+		app.component('TwoslashMenu', TwoslashMenu);
+		app.use(TwoslashFloatingVue, typeof window === 'undefined' ? {} : twoslashFloatingOptions());
 	},
 	Layout() {
 		return h(DefaultTheme.Layout, null, {

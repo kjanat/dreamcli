@@ -51,6 +51,7 @@ export default defineConfig({
 		enabled: true,
 		entry: ['src/*.ts'],
 		tsc: { newContext: true },
+		tsrs: { runExternalCode: true },
 		resolver: 'oxc',
 		oxc: {
 			stripInternal: true,

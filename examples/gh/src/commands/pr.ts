@@ -6,7 +6,7 @@
 
 import { arg, CLIError, flag, group } from '@kjanat/dreamcli';
 
-import pullRequests from '../data/pull-requests.yaml' with { type: 'yaml' };
+import pullRequests from '../data/pull-requests.yaml';
 import { authedCommand } from '../lib/auth.ts';
 import { normalizeLimit, sleep } from '../lib/utils.ts';
 

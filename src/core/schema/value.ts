@@ -18,29 +18,29 @@
 
 import type { ArgSchema } from './arg.ts';
 import type { FlagSchema } from './flag.ts';
+import type { NumberConstraints, NumberConstraintViolation } from './number-constraints.ts';
 import {
 	describeNumberConstraintViolation,
-	type NumberConstraints,
-	type NumberConstraintViolation,
 	validateNumberConstraints,
 } from './number-constraints.ts';
 import type { StandardSchemaV1 } from './standard.ts';
+import type { StringConstraints, StringConstraintViolation } from './string-constraints.ts';
 import {
 	describeStringConstraintViolation,
-	type StringConstraints,
-	type StringConstraintViolation,
 	validateStringConstraints,
 } from './string-constraints.ts';
+import type {
+	DateFlagOptions,
+	PathChecks,
+	PathFlagOptions,
+	UrlFlagOptions,
+} from './value-parsers.ts';
 import {
 	buildPathChecks,
-	type DateFlagOptions,
-	type PathChecks,
-	type PathFlagOptions,
 	parseBytesValue,
 	parseDateValue,
 	parseDurationValue,
 	parseUrlValue,
-	type UrlFlagOptions,
 } from './value-parsers.ts';
 
 // --- Decoding contract

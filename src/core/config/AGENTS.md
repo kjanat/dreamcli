@@ -1,4 +1,4 @@
-# config — Config discovery + manifest metadata walk-up
+# config: config discovery and manifest metadata walk-up
 
 ## OVERVIEW
 
@@ -38,9 +38,9 @@ user config discovery and `manifest()` metadata inference.
 - Do not import `node:path` or `process.cwd()` into core config code
 - Do not skip plain-object validation at the discovery boundary
 - Do not couple config discovery to command schema or resolve precedence logic
-- Do not import `index.ts` or `package-json.ts` statically from `cli/`; `runtime-preflight.ts`
-  loads them with `await import(...)`, and only when discovery actually runs (pre-loaded
-  `.manifest(data)` never loads `package-json.ts`). Consumers use `@kjanat/dreamcli/config`
+- Do not value-import `index.ts` or `package-json.ts` from `cli/`. `runtime-preflight.ts` calls
+  `loadConfig()` and `loadManifest()` from `feature-loaders.ts`, and only when discovery runs.
+  Pre-loaded `.manifest(data)` never loads `package-json.ts`. Consumers use `@kjanat/dreamcli/config`
 
 ## NOTES
 

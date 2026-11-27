@@ -24,6 +24,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Treat an empty environment variable as unset for a flag or argument with `.env('NAME', { empty: 'missing' })`. Resolution then continues to config, a prompt, or the default. ([#322](https://github.com/kjanat/dreamcli/pull/322))
 - Use `flag.string().allowHyphenValues()` to accept separate values such as `--token -v` or `--token --help`. The option is available on value-taking flags. ([#318](https://github.com/kjanat/dreamcli/pull/318))
 
+### Changed
+
+- Documentation pages load type details when a hover opens and fetch the compressed search index when search opens. The production docs build reuses type analysis across pages and generated examples. ([#327](https://github.com/kjanat/dreamcli/pull/327))
+
 ### Fixed
 
 - Bash completes enum values and static suggestions for flags exposed by the default command at the root. ([#316](https://github.com/kjanat/dreamcli/pull/316))

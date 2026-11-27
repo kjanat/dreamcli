@@ -9,7 +9,8 @@
  * @module dreamcli/core/cli
  */
 
-import { type Colors, createColors } from 'ansispeck';
+import type { Colors } from 'ansispeck';
+import { createColors } from 'ansispeck';
 import type { CompletionOptions, Shell } from '#internals/core/completion/shell.ts';
 import { detectShell, normalizeShell, SHELLS } from '#internals/core/completion/shell.ts';
 import type { ConfigLoader } from '#internals/core/config/index.ts';

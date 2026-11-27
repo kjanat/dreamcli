@@ -7,7 +7,8 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import { arg } from '#internals/core/schema/arg.ts';
 import { command } from '#internals/core/schema/command.ts';
-import { flag, type InferFlag } from '#internals/core/schema/flag.ts';
+import type { InferFlag } from '#internals/core/schema/flag.ts';
+import { flag } from '#internals/core/schema/flag.ts';
 import type { StandardSchemaV1 } from '#internals/core/schema/standard.ts';
 import { runCommand } from '#internals/core/testkit/index.ts';
 

@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
-import { normalize } from 'node:path';
+import { homedir } from 'node:os';
+import { join, normalize } from 'node:path';
 import { env } from 'node:process';
-import { transformerTwoslash } from '@shikijs/vitepress-twoslash';
 import { ModuleDetectionKind, ModuleKind, ModuleResolutionKind } from 'typescript';
 import { defineConfig } from 'vitepress';
 import pkg from '../../package.json' with { type: 'json' };
@@ -14,8 +14,12 @@ import {
 	toCollisionKey,
 	toSymbolPageRoute,
 } from './data/symbol-pages.ts';
+import { highlightCache } from './vite-plugins/highlight-cache.ts';
 import { dreamcliDocsPlugin, shikiClasses } from './vite-plugins/index.ts';
+import { localSearchPayload } from './vite-plugins/local-search-payload.ts';
 import { fixTsProcessedLinkcode, transformerJSDocTags } from './vite-plugins/shiki-jsdoc-tags.ts';
+import { createBuildAnalyzer } from './vite-plugins/twoslash-analysis.ts';
+import { twoslashPayloads } from './vite-plugins/twoslash-payloads.ts';
 
 const projectRoot = normalize(`${import.meta.dirname}/../..`);
 
@@ -25,6 +29,9 @@ const projectRoot = normalize(`${import.meta.dirname}/../..`);
 execFileSync('bun', ['scripts/emit-definition-schema.ts'], { cwd: projectRoot });
 const exampleMeta = await collectExampleMeta(examplesRoot);
 const apiIndex = await collectPublicApiIndex(packageJsonPath);
+const [pagesOwner, pagesRepo] = env.GITHUB_ACTIONS ? (env.GITHUB_REPOSITORY ?? '').split('/') : [];
+const pagesHost = pagesOwner && pagesRepo ? `${pagesOwner.toLowerCase()}.github.io` : undefined;
+const sitePrefix = pagesHost && pagesRepo?.toLowerCase() !== pagesHost ? `/${pagesRepo}` : '';
 const symbolRoutes = new Map<string, string>();
 {
 	const allSymbols = apiIndex.flatMap((ep) =>
@@ -36,18 +43,24 @@ const symbolRoutes = new Map<string, string>();
 
 	for (const sym of allSymbols) {
 		if (symbolRoutes.has(sym.name)) continue;
-		symbolRoutes.set(
-			sym.name,
-			toSymbolPageRoute(sym.entrypoint, sym.name, {
-				publicKind: sym.kind,
-				hasCaseInsensitiveCollision: collisions.has(toCollisionKey(sym.entrypoint, sym.name)),
-			}),
-		);
+		const route = toSymbolPageRoute(sym.entrypoint, sym.name, {
+			publicKind: sym.kind,
+			hasCaseInsensitiveCollision: collisions.has(toCollisionKey(sym.entrypoint, sym.name)),
+		});
+		symbolRoutes.set(sym.name, `${sitePrefix}${route}`);
 	}
 }
 const isCI = Boolean(env.CI);
 const ifCI = (ifCiThen: string, ifNotCiThen: string) => (isCI ? ifCiThen : ifNotCiThen);
-const isGithubActions = Boolean(env.GITHUB_ACTIONS);
+const popups = twoslashPayloads(
+	env.WORKERS_CI === '1'
+		? highlightCache(
+				join(homedir(), '.bun/install/cache/dreamcli-docs'),
+				join(projectRoot, 'bun.lock'),
+			)
+		: undefined,
+);
+const analyzer = createBuildAnalyzer(projectRoot);
 
 const compilerOptions = {
 	baseUrl: projectRoot,
@@ -69,13 +82,17 @@ const links = {
 } as const;
 
 export default defineConfig({
+	buildEnd() {
+		analyzer.finish();
+		popups.finish();
+	},
 	title: pkg.name,
 	description: pkg.description,
 	cleanUrls: true,
-	base: isGithubActions ? '/dreamcli' : '/',
+	base: `${sitePrefix}/`,
 	sitemap: {
-		hostname: isGithubActions
-			? 'https://kjanat.github.io/dreamcli'
+		hostname: pagesHost
+			? `https://${pagesHost}${sitePrefix}/`
 			: ifCI(pkg.homepage, 'http://localhost'),
 	},
 	head: [
@@ -84,7 +101,7 @@ export default defineConfig({
 			{
 				rel: 'icon',
 				type: 'image/svg+xml',
-				href: '/favicon.svg',
+				href: `${sitePrefix}/favicon.svg`,
 				media: '(prefers-color-scheme: light)',
 			},
 		],
@@ -93,7 +110,7 @@ export default defineConfig({
 			{
 				rel: 'icon',
 				type: 'image/svg+xml',
-				href: '/favicon-dark.svg',
+				href: `${sitePrefix}/favicon-dark.svg`,
 				media: '(prefers-color-scheme: dark)',
 			},
 		],
@@ -101,7 +118,7 @@ export default defineConfig({
 			'link',
 			{
 				rel: 'apple-touch-icon',
-				href: '/apple-touch-icon.png',
+				href: `${sitePrefix}/apple-touch-icon.png`,
 				sizes: '180x180',
 			},
 		],
@@ -110,7 +127,7 @@ export default defineConfig({
 			{
 				rel: 'manifest',
 				type: 'application/manifest+json',
-				href: '/manifest.json',
+				href: `${sitePrefix}/manifest.json`,
 			},
 		],
 		['meta', { name: 'theme-color', content: '#f8f3e7' }],
@@ -297,9 +314,11 @@ export default defineConfig({
 		},
 	},
 	markdown: {
+		shikiSetup: popups.shikiSetup,
 		codeTransformers: [
-			transformerTwoslash({
+			popups.twoslash({
 				explicitTrigger: true,
+				typesCache: analyzer.typesCache,
 				twoslashOptions: {
 					vfsRoot: projectRoot,
 					compilerOptions,
@@ -310,11 +329,12 @@ export default defineConfig({
 			}),
 			transformerJSDocTags({ symbolRoutes }),
 			shikiClasses,
+			popups.transformer,
 		],
 		languages: ['bash', 'js', 'jsx', 'json', 'ts', 'tsx'],
 	},
 	vite: {
-		plugins: dreamcliDocsPlugin(),
+		plugins: [...dreamcliDocsPlugin(), popups.plugin, localSearchPayload(), analyzer.plugin],
 		ssr: { noExternal: ['vue'] },
 		build: {
 			chunkSizeWarningLimit: 600,

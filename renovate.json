@@ -65,6 +65,31 @@
 			"automergeSchedule": ["* 6-23 * * 1", "* * * * 0,2-6"]
 		},
 		{
+			"matchPackageNames": ["twoslash", "twoslash-*", "shiki", "@shikijs/*"],
+			"groupName": "Shiki and Twoslash",
+			"groupSlug": "shiki-twoslash"
+		},
+		{
+			"matchPackageNames": ["vitest", "@vitest/*"],
+			"groupName": "Vitest",
+			"groupSlug": "vitest"
+		},
+		{
+			"matchPackageNames": ["typescript", "tsrs"],
+			"groupName": "TypeScript compilers",
+			"groupSlug": "typescript-compilers"
+		},
+		{
+			"matchPackageNames": ["vite", "vitepress"],
+			"groupName": "Vite and VitePress",
+			"groupSlug": "vite-vitepress"
+		},
+		{
+			"matchPackageNames": ["tsdown", "esbuild", "publint", "@arethetypeswrong/core"],
+			"groupName": "package build and validation",
+			"groupSlug": "package-build"
+		},
+		{
 			"description": "Label runtime, compiler, bundler, formatter, linter, and test runner updates as toolchain updates.",
 			"matchPackageNames": [
 				"node",

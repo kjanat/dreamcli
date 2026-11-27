@@ -560,9 +560,7 @@ expect(activity.activity).toContainEqual(
 controllable from tests, and a `flag.path()` / `arg.path()` check that could not run is listed in
 `result.skippedPathChecks` (or fails the run under `pathChecks: 'strict'`).
 
-## Package structure
-
-The code lives behind three focused subpath exports:
+## Common imports
 
 | Import                     | Purpose                                                                                |
 | -------------------------- | -------------------------------------------------------------------------------------- |
@@ -570,7 +568,7 @@ The code lives behind three focused subpath exports:
 | `@kjanat/dreamcli/testkit` | `runCommand()`, `createCaptureOutput()`, `createTestPrompter()`, `createTestAdapter()` |
 | `@kjanat/dreamcli/runtime` | `createAdapter()`, `RuntimeAdapter`, runtime detection, platform adapters              |
 
-A fourth export, `@kjanat/dreamcli/schema`, ships the bundled JSON Schema (`dreamcli.schema.json`)
+`@kjanat/dreamcli/schema` ships the bundled JSON Schema (`dreamcli.schema.json`)
 for editor and config validation.
 
 ESM-only. Source included in package (`src/`).
@@ -584,14 +582,6 @@ ESM-only. Source included in package (`src/`).
 | Deno >= 2.6.0      | Supported (`jsr:@kjanat/dreamcli`) |
 
 Runtime detection is automatic.
-The core framework never imports platform-specific APIs directly — a thin `RuntimeAdapter` interface
-handles the divergent edges (argv, env, filesystem, TTY detection, exit behavior).
-
-## Building the docs
-
-Install [Deno 2.9.8 or newer](https://docs.deno.com/runtime/getting_started/installation/)
-alongside Bun, then run `bun install`. The docs build, docs tests, and
-`bun run meta-descriptions:check` use the v2 JSON graph from `deno doc`.
 
 ## License
 
