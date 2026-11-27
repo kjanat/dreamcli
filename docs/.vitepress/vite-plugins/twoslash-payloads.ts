@@ -21,7 +21,14 @@ export function twoslashPayloads(cache?: ReturnType<typeof highlightCache>) {
 	const shikiSetup: NonNullable<MarkdownOptions['shikiSetup']> = (highlighter) => {
 		const render = highlighter.codeToHtml.bind(highlighter);
 		highlighter.codeToHtml = (code, options) => {
-			if (!building || !/\btwoslash\b/.test(String(options.meta?.__raw ?? ''))) {
+			const meta = String(options.meta?.__raw ?? '');
+			// Includes read or update Shiki's shared definitions during preprocessing.
+			if (
+				!building ||
+				!/\btwoslash\b/.test(meta) ||
+				/include\s+[\w-]+/.test(meta) ||
+				code.includes('// @include: ')
+			) {
 				return render(code, options);
 			}
 			const { transformers, ...settings } = options;

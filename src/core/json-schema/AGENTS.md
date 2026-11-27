@@ -15,7 +15,7 @@ Emits the DreamCLI definition document and draft-2020-12 input schemas. The publ
 
 - Do not hand-edit `meta-descriptions.generated.ts` or `dreamcli.schema.json`
 - Do not put handlers, prompt functions, or other non-JSON values in the output
-- Do not static-import this directory from `cli/` or `execution/`. `loadJsonSchema()` is the runtime entry. `scripts/emit-definition-schema.ts` imports it statically
+- Do not static-import this directory from `cli/` or `execution/`. `loadJsonSchema()` is the runtime entry. The build script `scripts/emit-definition-schema.ts` statically imports `definitionMetaSchema` from `@kjanat/dreamcli/json-schema`
 
 ## NOTES
 

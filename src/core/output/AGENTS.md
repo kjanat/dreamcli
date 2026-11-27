@@ -27,7 +27,7 @@
 | Non-TTY | stdout     | stdout     | static lines   |
 | Capture | array      | array      | capture events |
 
-Activity writes go to stderr. One spinner or progress handle is active. Starting another stops the previous one.
+Activity writes go to stderr. A new spinner or progress handle stops all active handles unless it and the most recently started handle both use `concurrent: true`. In TTY mode, concurrent handles share the channel's `ActivityBlock`.
 
 ## ANTI-PATTERNS
 

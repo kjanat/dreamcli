@@ -34,7 +34,7 @@ Host I/O lives here. Core receives a `RuntimeAdapter`. This directory imports `W
 
 ## NOTES
 
-- `adapter.exit()` throws `ExitError`. CLI dispatch catches it
+- Node and Bun exit through `process.exit()`. Deno uses `Deno.exit()`. The default test adapter throws `ExitError`, which propagates to the caller of `CLIBuilder.run()`
 - Empty-string env fallbacks are unset in `node.ts`
 - Deno argv has no binary. The adapter prepends `['deno', 'run']`
 - `deno-permissions.test.ts` spawns Deno. Under Deno that spawn uses `Deno.Command`. `node:child_process` rewrites a spawn of Deno's executable into `deno run -A`

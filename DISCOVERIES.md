@@ -26,6 +26,6 @@
 
 ## Workflow & Tracking
 
-- `scripts/gh-project.ts` defaults to GitHub Project `4` and PRD name `dreamcli-re-foundation`. It walks upward from cwd for `.opencode/state/<name>/prd.json`. This checkout has no such file, so `bun run gh-project:*` cannot read or write task state until that file exists.
+- `scripts/gh-project.ts` defaults to GitHub Project `4` and PRD name `dreamcli-re-foundation`. `list`, `sync`, and `finish` search upward from cwd for `.opencode/state/<name>/prd.json`, which is absent in this checkout. `start` and `set` update existing project items directly.
 - The visible board is built-in `Status`. The helper also writes the custom `Workflow` field. `statusForWorkflow()` maps `Backlog` and `Ready` to `Todo`, `In Progress` and `Blocked` to `In Progress`, and `Done` to `Done`.
-- `finish` writes `passes: true` into `prd.json` unless `--skip-pass` is set. `sync` sets passed tasks to `Done`, unblocked tasks to `Ready`, and the rest to `Backlog`, and it leaves `In Progress` and `Blocked` unless `--overwrite-active` is set.
+- `finish` writes `passes: true` into `prd.json` unless `--skip-pass` is set. `sync` always moves passed tasks to `Done`. For unpassed tasks it preserves `In Progress` and `Blocked` unless `--overwrite-active` is set. It assigns the remaining tasks to `Ready` or `Backlog` according to their dependencies.

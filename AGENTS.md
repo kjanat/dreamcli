@@ -5,7 +5,8 @@
 ## OVERVIEW
 
 Schema-first TypeScript CLI framework. One runtime dependency, `ansispeck`. Published
-`package.json` exports point at `dist/*.mjs` on every runtime. Inside this repo, `tsconfig.json`
+TypeScript modules resolve to `dist/*.mjs` on every runtime. The `./schema` export resolves
+to `dreamcli.schema.json`. Inside this repo, `tsconfig.json`
 paths and `deno.json` exports point at `src/*.ts`, so Bun and Deno load source and Node loads `dist`.
 
 Read @DISCOVERIES.md before planning, editing, or running task workflows.
@@ -122,4 +123,4 @@ Engines: Bun `packageManager` pin 1.4.5 (`engines.bun` `>=1.3`), Node `>=22.22.2
 - CI base branch is `master`
 - Docs deploy from root `wrangler.toml` (`docs:deploy`, assets in `docs/.vitepress/dist`, `html_handling = "auto-trailing-slash"`). `.github/workflows/docs.yml` also publishes GitHub Pages
 - Cloudflare docs builds run VitePress and twoslash under a tight memory limit. A flaky OOM gets a retry before a code investigation
-- `bun run gh-project:*` walks upward for `.opencode/state/dreamcli-re-foundation/prd.json` and defaults to GitHub Project `4`. This checkout has no `prd.json`
+- The project helpers default to GitHub Project `4`. Only `list`, `sync`, and `finish` need the local PRD. See DISCOVERIES.md for its path
