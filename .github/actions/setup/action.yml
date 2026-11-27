@@ -4,6 +4,14 @@ inputs:
   bun-version-file:
     description: Read a pinned Bun version from this file instead of using canary.
     required: false
+  kprint-engine:
+    description: |
+      How Wasm plugins without native code format:
+      - auto (default): picks depending on bytes of code per formatter whether compiling would be faster.
+      - interpreter: slower but more reliable option, might jit same formatter in multiple calls, but less prone to hang.
+      - native: when cached, formats the fastest. uses compiled .cwasm thingies.
+    default: ${{ case(github.workflow == 'autofix.ci', 'interpreter', 'auto') }}
+    choices: [auto, interpreter, native]
 runs:
   using: composite
   steps:
@@ -18,4 +26,5 @@ runs:
       with: { node-version-file: .node-version }
     - name: Prevent kprint from compiling plugins to cwasm
       shell: bash
-      run: echo "DPRINT_WASM_FORMAT_ENGINE=interpreter" >> "${GITHUB_ENV}"
+      env: { engine: "${{ inputs.kprint-engine }}" }
+      run: echo "DPRINT_WASM_FORMAT_ENGINE=${engine}" >> "${GITHUB_ENV}"
