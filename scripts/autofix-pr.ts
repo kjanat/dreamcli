@@ -2,6 +2,21 @@
 /** Generate maintenance PR metadata from the checkout's actual changes. */
 
 import { appendFileSync } from 'node:fs';
+import { basename } from 'node:path';
+
+function plugins(path: string, source: string): string[] {
+	const config: unknown = path.endsWith('.toml') ? Bun.TOML.parse(source) : Bun.JSONC.parse(source);
+	if (config && typeof config === 'object' && !Array.isArray(config)) {
+		if (!('plugins' in config)) return [];
+		if (
+			Array.isArray(config.plugins) &&
+			config.plugins.every((value) => typeof value === 'string')
+		) {
+			return config.plugins;
+		}
+	}
+	throw new Error(`Expected a formatter configuration with an optional plugins array in ${path}`);
+}
 
 function pluginName(reference: string): string {
 	return reference.match(/^npm:((?:@[^/]+\/)?[^@]+)@/)?.[1] ?? reference.replace(/-v?\d[^/]*$/, '');
@@ -48,32 +63,32 @@ if (import.meta.main) {
 		if (result.exitCode !== 0) throw new Error(result.stderr.toString());
 		return result.stdout.toString();
 	};
-	const plugins = (source: string): string[] => {
-		const config: unknown = Bun.TOML.parse(source);
-		if (
-			!config ||
-			typeof config !== 'object' ||
-			!('plugins' in config) ||
-			!Array.isArray(config.plugins) ||
-			!config.plugins.every((value) => typeof value === 'string')
-		) {
-			throw new Error('Expected a plugins array in kprint.toml');
-		}
-		return config.plugins;
-	};
 	const files = [
 		...new Set(
 			[
-				...git('diff', '--name-only', '-z', 'HEAD').split('\0'),
+				...git('diff', '--no-renames', '--name-only', '-z', 'HEAD').split('\0'),
 				...git('ls-files', '--others', '--exclude-standard', '-z').split('\0'),
 			].filter(Boolean),
 		),
 	].sort();
-	const result = describeChanges(
-		plugins(git('show', 'HEAD:kprint.toml')),
-		plugins(await Bun.file('kprint.toml').text()),
-		files,
+	const configs = files.filter((path) =>
+		/^\.?(?:kprint|dprint)\.(?:toml|jsonc?)$/.test(basename(path)),
 	);
+	const before = new Set<string>();
+	const after = new Set<string>();
+	if (configs.length) {
+		const tracked = git('ls-tree', '-rz', '--name-only', 'HEAD', '--', ...configs).split('\0');
+		for (const path of configs) {
+			if (tracked.includes(path)) {
+				for (const reference of plugins(path, git('show', `HEAD:${path}`))) before.add(reference);
+			}
+			const file = Bun.file(path);
+			if (await file.exists()) {
+				for (const reference of plugins(path, await file.text())) after.add(reference);
+			}
+		}
+	}
+	const result = describeChanges([...before], [...after], files);
 	const output = process.env.GITHUB_OUTPUT;
 	if (!output) throw new Error('GITHUB_OUTPUT is required');
 	for (const [name, value] of Object.entries(result)) {

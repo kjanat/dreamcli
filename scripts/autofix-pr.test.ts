@@ -49,7 +49,12 @@ describe('maintenance PR metadata', () => {
 			mkdirSync(cwd);
 			const git = (...args: string[]) => execFileSync('git', args, { cwd });
 			git('init', '--quiet', '--template=');
-			writeFileSync(join(cwd, 'kprint.toml'), 'plugins = ["npm:formatter@1.0.0"]\n');
+			const nested = join(cwd, 'tooling');
+			mkdirSync(nested);
+			writeFileSync(
+				join(nested, '.kprint.jsonc'),
+				'{\n// pins\n"plugins":["npm:formatter@1.0.0",],\n}',
+			);
 			writeFileSync(join(cwd, 'deleted.md'), 'old');
 			git('add', '.');
 			git(
@@ -70,8 +75,9 @@ describe('maintenance PR metadata', () => {
 			};
 			expect(generate()).toMatch(/^changed<<(\S+)\nfalse\n\1\n/u);
 
-			writeFileSync(join(cwd, 'kprint.toml'), 'plugins = ["npm:formatter@2.0.0"]\n');
-			git('add', 'kprint.toml');
+			rmSync(join(nested, '.kprint.jsonc'));
+			expect(generate()).toContain('- Removed `npm:formatter@1.0.0`');
+			writeFileSync(join(nested, 'kprint.toml'), 'plugins = ["npm:formatter@2.0.0"]\n');
 			rmSync(join(cwd, 'deleted.md'));
 			writeFileSync(join(cwd, 'new file.md'), 'new');
 			const result = generate();
@@ -79,7 +85,18 @@ describe('maintenance PR metadata', () => {
 			expect(result).toMatch(/^title<<(\S+)\nchore\(deps\): update formatter 2\.0\.0\n\1$/mu);
 			expect(result).toMatch(/^body<<(\S+)\n([\s\S]*)\n\1\n$/mu);
 			expect(result).toContain('- `npm:formatter@1.0.0` → `npm:formatter@2.0.0`');
-			expect(result).toContain('- `deleted.md`\n- `kprint.toml`\n- `new file.md`');
+			expect(result).toContain(
+				'- `deleted.md`\n- `new file.md`\n- `tooling/.kprint.jsonc`\n- `tooling/kprint.toml`',
+			);
+
+			git('add', '-A');
+			expect(generate()).toContain('- `npm:formatter@1.0.0` → `npm:formatter@2.0.0`');
+
+			git('restore', '--staged', '--worktree', '--', '.');
+			writeFileSync(join(cwd, 'deleted.md'), 'formatted');
+			expect(generate()).toContain('style: apply formatting and lint fixes to deleted.md');
+			writeFileSync(join(nested, 'dprint.json'), '{"plugins":["npm:new-plugin@2.0.0"]}');
+			expect(generate()).toContain('- Added `npm:new-plugin@2.0.0`');
 		} finally {
 			rmSync(directory, { recursive: true, force: true });
 		}
