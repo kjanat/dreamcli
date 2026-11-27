@@ -15,7 +15,18 @@ import { normalizeShell } from '#internals/core/completion/shell.ts';
 import { CLIError, ParseError } from '#internals/core/errors/index.ts';
 import type { HelpOptions } from '#internals/core/help/index.ts';
 import type { OutputPolicy } from '#internals/core/output/contracts.ts';
-import { adjacentArgvValue, sliceArgvHead } from '#internals/core/parse/argv-boundaries.ts';
+import {
+	adjacentArgvValue,
+	argvSourceIndex,
+	hasArgvBoundary,
+	isHyphenOperand,
+	markArgvBoundaries,
+	markHyphenOperand,
+	pushArgvToken,
+	sliceArgv,
+	sliceArgvHead,
+	trackArgvToken,
+} from '#internals/core/parse/argv-boundaries.ts';
 import type { ParseOptions } from '#internals/core/parse/index.ts';
 import {
 	buildFlagLookup,
@@ -26,6 +37,7 @@ import {
 	requestedHelpMode,
 	requestsHelp,
 	variadicLongValueCount,
+	withHyphenOperands,
 } from '#internals/core/parse/index.ts';
 import type { CommandMeta, CommandSchema } from '#internals/core/schema/command.ts';
 import { declaredFlagNames, flagOrderOverride } from '#internals/core/schema/command.ts';
@@ -33,7 +45,9 @@ import { acceptsArgv } from '#internals/core/schema/stdin.ts';
 import type { BuiltinsConfig } from './builtins.ts';
 import { builtinEnabled } from './builtins.ts';
 import type { CompiledCLI, CompiledCommand } from './compiled.ts';
-import { dispatch, findClosestCommand } from './dispatch.ts';
+import { extractConfigFlag } from './config-flag.ts';
+import type { DispatchResult } from './dispatch.ts';
+import { dispatch, findClosestCommand, followingDispatchValueCount } from './dispatch.ts';
 import type { HelpOutputFlags } from './help-output-flags.ts';
 import { readHelpOutputFlags } from './help-output-flags.ts';
 import type { CLIPlugin } from './plugin.ts';
@@ -71,6 +85,10 @@ interface PlannerSchemaLike {
 	 * and bare `help` routing, and `json`/`quiet` stop being read out of argv.
 	 */
 	readonly builtins: BuiltinsConfig | undefined;
+}
+
+interface InvocationArgvSchema extends PlannerSchemaLike {
+	readonly configSettings?: { readonly noConfigFlag?: boolean } | undefined;
 }
 
 /** Root-level help interception outcome. */
@@ -338,6 +356,17 @@ function canDelegateUnknownRootToDefault(command: CompiledCommand, input: string
 	return input === '' || command.schema.args.some((entry) => acceptsArgv(entry.schema));
 }
 
+function selectsDefaultCommand(result: DispatchResult, command: CompiledCommand): boolean {
+	if (result.kind !== 'unknown' || result.parentPath.length !== 0) return false;
+	// Explicit filesystem syntax is positional input, not a command typo (#238).
+	const { input, candidates } = result;
+	const pathInput = input === '.' || input === '..' || input.includes('/') || input.includes('\\');
+	return (
+		canDelegateUnknownRootToDefault(command, input) &&
+		(input === '' || pathInput || findClosestCommand(input, candidates) === undefined)
+	);
+}
+
 function findUnknownFlagBeforePositional(
 	argv: readonly string[],
 	flags: CommandSchema['flags'],
@@ -418,8 +447,7 @@ function scanRootHead(
 ): RootHeadScan {
 	for (let index = 0; index < head.length; index++) {
 		const token = head[index];
-		if (token === undefined) continue;
-
+		if (token === undefined || isHyphenOperand(head, index)) continue;
 		const helpMode = helpOwned ? helpFlagMode(token) : undefined;
 		if (helpMode !== undefined) {
 			return { helpBeforeCommand: helpMode, firstCommandToken: undefined, commandTokenIndex: -1 };
@@ -431,18 +459,7 @@ function scanRootHead(
 		}
 
 		if (token.startsWith('--')) {
-			const equalsIndex = token.indexOf('=');
-			const name = token.slice(2, equalsIndex === -1 ? undefined : equalsIndex);
-			const entry = valueFlags?.get(name);
-			if (entry?.schema.variadic === true && valueFlags !== undefined) {
-				index += variadicLongValueCount(head, index, valueFlags, equalsIndex !== -1);
-			} else if (
-				entry !== undefined &&
-				equalsIndex === -1 &&
-				(flagExpectsValue(entry.schema) ||
-					consumesSeparateBoolean(entry, adjacentArgvValue(head, index)))
-			)
-				index++;
+			index += followingDispatchValueCount(head, index, token, valueFlags);
 			continue;
 		}
 
@@ -498,7 +515,7 @@ function planCompletionsFlag(
 
 	for (let index = 0; index < scanEnd; index++) {
 		const token = argv[index];
-		if (token === undefined) continue;
+		if (token === undefined || isHyphenOperand(argv, index)) continue;
 
 		let rawShell: string | undefined;
 		if (token === '--completions') {
@@ -532,6 +549,173 @@ function planCompletionsFlag(
 	return undefined;
 }
 
+/** Root routes include a named default only when the builder explicitly exposes it. */
+function rootCommandMap(compiled: CompiledCLI, schema: PlannerSchemaLike) {
+	const fallback = compiled.defaultCommand;
+	return buildRootCommandMap(
+		fallback !== undefined && schema.defaultCommandRouted
+			? [...compiled.commands, fallback]
+			: compiled.commands,
+	);
+}
+
+function rootArgvHead(argv: readonly string[]): readonly string[] {
+	const separator = argv.indexOf('--');
+	return separator === -1 ? argv : sliceArgvHead(argv, separator);
+}
+
+function hasAdjacentHyphenTokens(argv: readonly string[]): boolean {
+	for (const [index, token] of argv.entries()) {
+		if (token === '--') return false;
+		if (!token.startsWith('-')) continue;
+		const next = adjacentArgvValue(argv, index);
+		if (next?.startsWith('-') && next !== '--' && next !== '-') return true;
+	}
+	return false;
+}
+
+/** Test only routes whose names or aliases appear in argv, in argv order. */
+function findOperandRoute(
+	argv: readonly string[],
+	routes: ReadonlyMap<string, CompiledCommand>,
+	select: (
+		command: CompiledCommand,
+		path: readonly CommandSchema[],
+	) => readonly string[] | undefined,
+	path: readonly CommandSchema[] = [],
+	start = 0,
+): readonly string[] | undefined {
+	if (routes.size === 0) return undefined;
+	const visited = new Set<CompiledCommand>();
+	for (let index = start; index < argv.length; index++) {
+		const command = routes.get(argv[index] ?? '');
+		if (command === undefined || visited.has(command)) continue;
+		visited.add(command);
+		const commandPath = [...path, command.schema];
+		const marked =
+			findOperandRoute(argv, command.subcommands, select, commandPath, index + 1) ??
+			select(command, commandPath);
+		if (marked !== undefined) return marked;
+	}
+	return undefined;
+}
+
+/** Resolve the flag schema for operand ownership before framework flags intercept argv. */
+function invocationArgv(
+	argv: readonly string[],
+	compiled: CompiledCLI,
+	schema: InvocationArgvSchema,
+	helpOutputFlags?: HelpOutputFlags,
+	withConfig = false,
+): readonly string[] {
+	if (!hasAdjacentHyphenTokens(argv)) return argv;
+
+	const settings = schema.flagSettings;
+	const fallback = compiled.defaultCommand;
+	const routes = rootCommandMap(compiled, schema);
+	const rootFlags =
+		fallback === undefined ? undefined : buildFlagLookup(fallback.schema.flags, settings);
+	const helpOwned = builtinEnabled(schema.builtins, 'help');
+	const virtualHelp = helpOwned && !routes.has('help');
+	const tracked = virtualHelp ? trackArgvToken(argv, 'help') : argv;
+
+	const routeFor = (marked: readonly string[]): { result: DispatchResult; helpIndex?: number } => {
+		const configArgv =
+			withConfig && schema.configSettings !== undefined
+				? extractConfigFlag(marked, schema.configSettings.noConfigFlag).filteredArgv
+				: marked;
+		const helpArgv =
+			helpOwned && helpOutputFlags !== undefined
+				? helpOutputArgv(configArgv, readHelpOutputFlags(configArgv, helpOutputFlags))
+				: configArgv;
+		const useHelpArgv =
+			helpArgv !== configArgv &&
+			isPlannedHelp(
+				planInvocation({
+					schema,
+					compiled,
+					argv: helpArgv,
+					help: { binName: schema.name },
+					output: { jsonMode: false, isTTY: false, verbosity: 'normal' },
+				}),
+				schema.builtins,
+			);
+		let filtered = readRootOutputFlags(useHelpArgv ? helpArgv : configArgv, schema.builtins).argv;
+		let helpIndex: number | undefined;
+		while (virtualHelp) {
+			const head = scanRootHead(rootArgvHead(filtered), rootFlags, false);
+			if (head.firstCommandToken !== 'help') break;
+			helpIndex = argvSourceIndex(filtered, head.commandTokenIndex);
+			filtered = sliceArgv(filtered, head.commandTokenIndex + 1);
+		}
+		return {
+			result: dispatch(filtered, routes, [], rootFlags, settings),
+			...(helpIndex !== undefined ? { helpIndex } : {}),
+		};
+	};
+	const select = (
+		flags: CommandSchema['flags'],
+		accept: (result: DispatchResult) => boolean,
+	): readonly string[] | undefined => {
+		const marked = withHyphenOperands(tracked, flags, settings);
+		if (marked === tracked) return undefined;
+		const { result, helpIndex } = routeFor(marked);
+		if (!accept(result)) return undefined;
+		if (helpIndex === undefined) return marked;
+
+		// Bare help discards everything preceding its route, so the target only owns the tail.
+		const start = helpIndex + 1;
+		const tail = sliceArgv(tracked, start);
+		const markedTail = withHyphenOperands(tail, flags, settings);
+		if (markedTail === tail) return undefined;
+		const scoped = sliceArgv(tracked, 0);
+		for (let index = 0; index < markedTail.length; index++) {
+			if (isHyphenOperand(markedTail, index)) markHyphenOperand(scoped, start + index);
+		}
+		const checked = routeFor(scoped);
+		return checked.helpIndex === helpIndex && accept(checked.result) ? scoped : undefined;
+	};
+
+	const markedRoute = findOperandRoute(argv, routes, (command, path) =>
+		select(
+			mergeCommandSchema(command, path).flags,
+			(result) => result.kind !== 'unknown' && result.command === command,
+		),
+	);
+	if (markedRoute !== undefined) return markedRoute;
+	if (fallback !== undefined) {
+		const marked = select(fallback.schema.flags, (result) =>
+			selectsDefaultCommand(result, fallback),
+		);
+		if (marked !== undefined) return marked;
+	}
+
+	const { result } = routeFor(tracked);
+	if (result.kind !== 'unknown') return argv;
+	const parent = result.parentPath.at(-1);
+	if (parent === undefined) return argv;
+	const propagated = collectPropagatedFlagEntries(result.parentPath);
+	return (
+		select(
+			{ ...Object.fromEntries(propagated), ...parent.flags },
+			(checked) => checked.kind === 'unknown' && checked.parentPath.at(-1) === parent,
+		) ?? argv
+	);
+}
+
+/** Forward a bare help route while retaining the operand and boundary metadata. */
+function forwardHelpArgv(argv: readonly string[]): readonly string[] {
+	const result: string[] = [];
+	const boundaries = new Set([argv.length]);
+	for (const [index, token] of argv.entries()) {
+		if (hasArgvBoundary(argv, index)) boundaries.add(index);
+		pushArgvToken(result, argv, index, token);
+	}
+	result.push('--help');
+	markArgvBoundaries(result, boundaries);
+	return result;
+}
+
 /**
  * Decide what to do with an argv invocation before any command executes.
  *
@@ -544,11 +728,10 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 	const helpOwned = builtinEnabled(options.schema.builtins, 'help');
 	const rootOutputFlags = readRootOutputFlags(options.argv, options.schema.builtins);
 	const filteredArgv = rootOutputFlags.argv;
-	const separatorIndex = filteredArgv.indexOf('--');
-	const filteredHead =
-		separatorIndex === -1 ? filteredArgv : sliceArgvHead(filteredArgv, separatorIndex);
+	const filteredHead = rootArgvHead(filteredArgv);
 
 	const defaultCommand = options.compiled.defaultCommand;
+	const rootCommands = rootCommandMap(options.compiled, options.schema);
 	// At the root, a default command's flags govern value-flag arity so a
 	// space-separated value (`mycli --region eu`) is not misread as a command
 	// name — both for root interception below and dispatch (see #25).
@@ -594,54 +777,32 @@ function planInvocation(options: PlanInvocationOptions): InvocationPlan {
 
 	// Bare `help` token: a root help request (or `<command> --help` forwarding)
 	// when it is the first command token and no real `help` command is registered.
-	if (helpOwned && headScan.firstCommandToken === 'help') {
-		const hasRealHelpCommand = options.compiled.commands.some(
-			(command) => command.schema.name === 'help' || command.schema.aliases.includes('help'),
-		);
-		if (!hasRealHelpCommand) {
-			const rest = filteredArgv.slice(headScan.commandTokenIndex + 1);
-			if (rest.length === 0) {
-				return {
-					kind: 'root-help',
-					help: options.help,
-				};
-			}
-
-			return planInvocation({
-				...options,
-				argv: [...rest, '--help'],
-			});
+	if (helpOwned && headScan.firstCommandToken === 'help' && !rootCommands.has('help')) {
+		const rest = sliceArgv(filteredArgv, headScan.commandTokenIndex + 1);
+		if (rest.length === 0) {
+			return {
+				kind: 'root-help',
+				help: options.help,
+			};
 		}
+
+		return planInvocation({
+			...options,
+			argv: forwardHelpArgv(rest),
+		});
 	}
 
-	// A routed default is also dispatchable by its name; otherwise it is only the root fallback.
-	const rootCommands =
-		defaultCommand !== undefined && options.schema.defaultCommandRouted
-			? [...options.compiled.commands, defaultCommand]
-			: options.compiled.commands;
 	const result = dispatch(
 		filteredArgv,
-		buildRootCommandMap(rootCommands),
+		rootCommands,
 		[],
 		rootValueFlags,
 		options.schema.flagSettings,
 	);
-	let selectedDefault: CompiledCommand | undefined;
-	if (result.kind === 'unknown' && defaultCommand !== undefined && result.parentPath.length === 0) {
-		// Explicit filesystem syntax is positional input, not a command typo (#238).
-		const pathInput =
-			result.input === '.' ||
-			result.input === '..' ||
-			result.input.includes('/') ||
-			result.input.includes('\\');
-		const suggestion =
-			result.input !== '' && !pathInput
-				? findClosestCommand(result.input, result.candidates)
-				: undefined;
-		if (suggestion === undefined && canDelegateUnknownRootToDefault(defaultCommand, result.input)) {
-			selectedDefault = defaultCommand;
-		}
-	}
+	const selectedDefault =
+		defaultCommand !== undefined && selectsDefaultCommand(result, defaultCommand)
+			? defaultCommand
+			: undefined;
 	const selectedCommand = result.kind === 'unknown' ? selectedDefault : result.command;
 	const helpTopics = selectedCommand?.schema.helpTopics;
 	if (rootOutputFlags.kind === 'failed' && !(helpOwned && requestsHelp(filteredArgv, helpTopics))) {
@@ -774,6 +935,20 @@ function isPlannedHelp(plan: InvocationPlan, builtins: BuiltinsConfig | undefine
 }
 
 /** Normalize help-only output flags using the same routing in preflight and execution. */
+function helpOutputArgv(
+	argv: readonly string[],
+	helpOutput: ReturnType<typeof readHelpOutputFlags>,
+) {
+	return helpOutput.argv !== argv &&
+		argv.some(
+			(token, index) =>
+				!isHyphenOperand(argv, index) &&
+				(token === '-h' || token === 'help' || token === '--help' || token.startsWith('--help=')),
+		)
+		? helpOutput.argv
+		: argv;
+}
+
 function planInvocationWithHelpOutput(
 	options: PlanInvocationOptions,
 	flags: HelpOutputFlags | undefined,
@@ -783,15 +958,7 @@ function planInvocationWithHelpOutput(
 		flags !== undefined && builtinEnabled(schema.builtins, 'help')
 			? readHelpOutputFlags(argv, flags)
 			: undefined;
-	const helpArgv =
-		helpOutput !== undefined &&
-		helpOutput.argv !== argv &&
-		argv.some(
-			(token) =>
-				token === '-h' || token === 'help' || token === '--help' || token.startsWith('--help='),
-		)
-			? helpOutput.argv
-			: argv;
+	const helpArgv = helpOutput === undefined ? argv : helpOutputArgv(argv, helpOutput);
 	const proposed = planInvocation({ ...options, argv: helpArgv });
 	const plan =
 		helpArgv !== argv && !isPlannedHelp(proposed, schema.builtins)
@@ -804,6 +971,7 @@ export type {
 	CommandExecutionPlan,
 	DispatchErrorOutcome,
 	DispatchOutcome,
+	InvocationArgvSchema,
 	InvocationPlan,
 	NeedsSubcommandOutcome,
 	OutputPolicy,
@@ -818,6 +986,7 @@ export {
 	buildCommandExecutionPlan,
 	buildRootCommandMap,
 	canDelegateUnknownRootToDefault,
+	invocationArgv,
 	isPlannedHelp,
 	mergeCommandSchema,
 	planInvocation,

@@ -1,64 +1,22 @@
-# testkit — In-process test harness (public API)
+# testkit: in-process harness
 
-First-class module exported from `@kjanat/dreamcli/testkit` subpath (curating barrel at `src/testkit.ts`).
+Public entry `@kjanat/dreamcli/testkit` (`src/testkit.ts`). `runCommand()` builds capture output and calls `execution/`.
 
-## CORE API
+## SURFACE
 
-**`runCommand(cmd, argv, options?): Promise<RunResult>`**
+`RunResult` comes from `schema/run.ts`: `exitCode`, `stdout`, `stderr`, `activity`, optional `error`, `skippedPathChecks`.
 
-Thin in-process wrapper over the shared executor (`execution/`): create capture output, forward
-injected execution options, and return captured output.
+`RunOptions` injects `env`, `config`, `answers`, `prompter`, `verbosity`, `jsonMode`, `isTTY`, `help`, `stat`, `mkdir`, and `pathChecks`. `cli().run()` always supplies the adapter filesystem, so its skipped-path list stays empty.
 
-**`RunResult`** (defined in `schema/run.ts`, re-exported here):
-`{ exitCode, stdout: string[], stderr: string[], activity: ActivityEvent[], error? }`
+## ANTI-PATTERNS
 
-**`RunOptions`** — the injectable testing seam:
+- Do not spawn a process to test a command built in this repo. `runCommand()` is the harness
+- Do not assert stdout without the trailing newline. Captured lines look like `['Hello\n']`
+- Do not import command, flag, or arg builders through the schema barrel
 
-| Option       | Purpose                                                |
-| ------------ | ------------------------------------------------------ |
-| `env`        | `Record<string, string>` — replaces `process.env`      |
-| `config`     | JSON config object                                     |
-| `answers`    | `Record<string, TestAnswer>` — prompt responses        |
-| `prompter`   | Full `PromptEngine` override                           |
-| `verbosity`  | `'normal' \| 'quiet'`                                  |
-| `jsonMode`   | boolean — enable JSON output                           |
-| `isTTY`      | boolean — simulate TTY                                 |
-| `help`       | `HelpOptions` — help formatting (width, binName)       |
-| `stat`       | Filesystem probe for `flag.path()` / `arg.path()`      |
-| `mkdir`      | Directory creation for `create` checks                 |
-| `pathChecks` | `'lenient' \| 'strict'` — fail when a check cannot run |
+## NOTES
 
-`RunResult.skippedPathChecks` lists declared path checks that did not run (no `stat`, or no
-`mkdir` for `create`). Empty under `cli().run()`, which always supplies the adapter's filesystem.
-
-## TEST FILES (11)
-
-| File                             | Tests                                             |
-| -------------------------------- | ------------------------------------------------- |
-| `testkit.test.ts`                | Core `runCommand()` behavior                      |
-| `testkit-json.test.ts`           | JSON mode output                                  |
-| `testkit-tty.test.ts`            | TTY detection + behavior                          |
-| `testkit-prompt.test.ts`         | Prompt resolution via answers                     |
-| `testkit-nesting.test.ts`        | Nested command dispatch via testkit               |
-| `testkit-stdin.test.ts`          | Stdin-based input testing                         |
-| `testkit-source-model.test.ts`   | The shared source chain end to end, both surfaces |
-| `sources-e2e.test.ts`            | The `sources` bag a handler receives, per stage   |
-| `output-e2e.test.ts`             | Full pipeline: output modes x verbosity x CLI     |
-| `middleware-context-e2e.test.ts` | Middleware composition + context typing           |
-| `executor-contract.test.ts`      | Executor contract verification                    |
-
-## ASSERTIONS
-
-- Output arrays include trailing `\n` — assert `['Hello\n']` not `['Hello']`
-- JSON output: `JSON.parse(result.stdout[0] ?? '')` then `toEqual`
-- Error checking: `result.error?.code` for structured errors
-- Activity events: `result.activity` array of `ActivityEvent` discriminated unions
-- Type testing: `expectTypeOf(ctx).toEqualTypeOf<Readonly<...>>()` in middleware E2E
-
-## GOTCHAS
-
-- `mergedSchema` field on `RunOptions` is `@internal` — read by `runCommandInternal()` for callers
-  that emulate dispatch; CLI dispatch hands its merged schema to `executeCommand()` directly
-- `CaptureOutputChannel` (from output/) wired here for output + activity capture
-- Execution pipeline shared with CLI via `execution/index.ts` (@internal)
-- Direct imports: `schema/command.ts`, `schema/flag.ts`, `schema/arg.ts` (not through barrel)
+- JSON assertions parse `result.stdout[0]`
+- Structured failures use `result.error?.code`
+- `CaptureOutputChannel` records `activity`
+- `mergedSchema` on `RunOptions` is `@internal`, for callers that already dispatched

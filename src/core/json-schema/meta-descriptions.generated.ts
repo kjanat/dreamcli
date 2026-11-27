@@ -193,6 +193,10 @@ const definitionMetaSchemaDescriptions = {
 					description:
 						'Treat a zero-length env value (the count for an indexed family) as missing.',
 				},
+				allowHyphenValues: {
+					description:
+						'Whether a separate value may start with a dash (except the separator `--`).',
+				},
 				completionValues: {
 					description: 'Static shell completion suggestions for this flag.',
 				},

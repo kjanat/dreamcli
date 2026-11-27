@@ -1,49 +1,30 @@
-# prompt — Prompt engines and test seams
+# prompt: engines and sessions
 
-## OVERVIEW
-
-Prompting is a pluggable engine, not hard-wired terminal code. This module ships a terminal
-implementation and a test prompter, each in its own file so neither sits on the hot path, and it
-receives already-resolved prompt configs from the resolve layer.
+Engines are pluggable. The resolver imports `index.ts` statically. Terminal and test engines load on first use.
 
 ## FILES
 
-| File               | Purpose                                                                                |
-| ------------------ | -------------------------------------------------------------------------------------- |
-| `index.ts`         | `PromptEngine`, resolved prompt types, config resolution                               |
-| `terminal.ts`      | `createTerminalPrompter()`; loaded on first prompt by `cli/runtime-preflight.ts`       |
-| `test-prompter.ts` | `createTestPrompter()`, `PROMPT_CANCEL`; loaded by `execution/` for `answers`, testkit |
-| `prompt.test.ts`   | terminal behavior, test sentinel, resolved prompt guarantees                           |
-
-## WHERE TO LOOK
-
-| Task                          | Location                               | Notes                                                                             |
-| ----------------------------- | -------------------------------------- | --------------------------------------------------------------------------------- |
-| Change engine contract        | `PromptEngine`, `ResolvedPromptConfig` | select and multiselect choices are guaranteed non-empty                           |
-| Change test prompts           | `createTestPrompter()`                 | queue-driven; runs `input` `validate`, supports malformed values and cancellation |
-| Change terminal prompts       | `createTerminalPrompter()`             | line-based read/write seam, no raw mode                                           |
-| Change cancellation semantics | `PROMPT_CANCEL`                        | shared sentinel for test flows                                                    |
-
-## CONVENTIONS
-
-- This module imports `schema/prompt.ts` directly; the direct edge is intentional
-- Prompt engines present one prompt per `promptOne()` call and may retain state across calls
-- Choice merging happens before the engine sees config; engines should not infer enum choices
-  themselves
-- `TestAnswer` stays `unknown` so downstream validation paths can be tested
-- The test prompter mirrors the terminal `input` contract: a string answer is run through
-  `config.validate`, and a failing answer is rejected as a cancellation (not accepted verbatim)
+| File               | Role                                                          |
+| ------------------ | ------------------------------------------------------------- |
+| `index.ts`         | `PromptEngine`, `resolvePromptConfig()`                       |
+| `definitions.ts`   | `Ask`, `InferPrompt`                                          |
+| `session.ts`       | `createPromptSession()` for handlers and scripts              |
+| `text.ts`          | shared text policy for terminal, scripted, and hosted prompts |
+| `errors.ts`        | `PromptCancelledError`                                        |
+| `terminal.ts`      | `createTerminalPrompter()`, line-based                        |
+| `test-prompter.ts` | `createTestPrompter()`, `PROMPT_CANCEL`                       |
 
 ## ANTI-PATTERNS
 
-- Do not wire runtime stdin or stdout directly into callers; use injected `ReadFn` and `WriteFn`
-- Do not add raw mode or terminal-specific state here unless all runtimes can support it cleanly
-- Do not move non-TTY gating into the prompt engine; CLI and resolve decide when prompts are allowed
-- Do not re-export `terminal.ts` or `test-prompter.ts` from `index.ts`; the resolver imports
-  `index.ts` statically and both engines must stay off that path. Consumers use
-  `@kjanat/dreamcli/prompt` and `@kjanat/dreamcli/testkit`
+- Do not re-export `terminal.ts` or `test-prompter.ts` from `index.ts`
+- Do not open stdin in this module. Callers pass `ReadFn` and `WriteFn`
+- Do not decide whether a prompt is allowed. CLI and resolve own that gate
+- Do not import `schema/prompt.ts` through the schema barrel
 
 ## NOTES
 
-- EOF from `ReadFn` is treated as cancellation
-- The terminal prompter is intentionally line-based for Node, Bun, and Deno portability
+- `feature-loaders.ts` exposes `loadPromptSession`, `loadTerminal`, and `loadTestPrompter`
+- Choice lists are filled before the engine sees the config
+- A string answer to `input` runs `config.validate`. A failing test answer cancels
+- EOF from `ReadFn` cancels
+- Consumers use `@kjanat/dreamcli/prompt`. Test helpers ship from `@kjanat/dreamcli/testkit`

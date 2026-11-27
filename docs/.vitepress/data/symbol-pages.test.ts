@@ -4,8 +4,8 @@
 
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
-
-import { collectPublicApiIndex, type PublicApiEntrypoint } from './api-index.ts';
+import type { PublicApiEntrypoint } from './api-index.ts';
+import { collectPublicApiIndex } from './api-index.ts';
 import type {
 	NormalizedApiComment,
 	NormalizedApiModel,

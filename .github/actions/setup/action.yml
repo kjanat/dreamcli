@@ -4,18 +4,27 @@ inputs:
   bun-version-file:
     description: Read a pinned Bun version from this file instead of using canary.
     required: false
+  kprint-engine:
+    description: |
+      How Wasm plugins without native code format:
+      - auto (default): picks depending on bytes of code per formatter whether compiling would be faster.
+      - interpreter: slower but more reliable option, might jit same formatter in multiple calls, but less prone to hang.
+      - native: when cached, formats the fastest. uses compiled .cwasm thingies.
+    default: ${{ case(github.workflow == 'autofix.ci', 'interpreter', 'auto') }}
+    choices: [auto, interpreter, native]
 runs:
   using: composite
   steps:
     - uses: kjanat/runner@master
-    - uses: kjanat/setup-tombi@master
-    # install-dprint@v2 defaults to kjanat/kprint. It warms the plugin cache.
-    - uses: kjanat/install-dprint@v2
     - uses: denoland/setup-deno@v2
     - uses: oven-sh/setup-bun@v2
       with:
-        bun-version: ${{ !inputs.bun-version-file && 'canary' || '' }}
+        bun-version: ${{ case(inputs.bun-version-file == null, 'canary', '') }}
         bun-version-file: ${{ inputs.bun-version-file }}
         no-cache: true
     - uses: actions/setup-node@v7
-      with: { node-version: latest }
+      with: { node-version-file: .node-version }
+    - name: Prevent kprint from compiling plugins to cwasm
+      shell: bash
+      env: { engine: "${{ inputs.kprint-engine }}" }
+      run: echo "DPRINT_WASM_FORMAT_ENGINE=${engine}" >> "${GITHUB_ENV}"

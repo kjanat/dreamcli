@@ -30,7 +30,8 @@ import {
 	normalizeEnvEmpty,
 	normalizeIndexedEnvBinding,
 } from './env-binding.ts';
-import { assertNumberConstraints, type NumberConstraints } from './number-constraints.ts';
+import type { NumberConstraints } from './number-constraints.ts';
+import { assertNumberConstraints } from './number-constraints.ts';
 import type {
 	ConfirmPromptConfig,
 	InputPromptConfig,
@@ -39,10 +40,12 @@ import type {
 	PromptConfig,
 	SelectPromptConfig,
 } from './prompt.ts';
-import { type InferStandardOutput, isStandardSchemaV1, type StandardSchemaV1 } from './standard.ts';
+import type { InferStandardOutput, StandardSchemaV1 } from './standard.ts';
+import { isStandardSchemaV1 } from './standard.ts';
 import type { StdinBinding, StdinOptions } from './stdin.ts';
 import { normalizeStdinBinding } from './stdin.ts';
-import { assertStringConstraints, type StringConstraints } from './string-constraints.ts';
+import type { StringConstraints } from './string-constraints.ts';
+import { assertStringConstraints } from './string-constraints.ts';
 import {
 	bytesValue,
 	customValue,
@@ -464,6 +467,8 @@ interface FlagSchema<K extends FlagKind = FlagKind> {
 	 * called (`undefined` otherwise). See {@link FlagNegation}.
 	 */
 	readonly negation: FlagNegation | undefined;
+	/** Whether a separate value may start with a dash (except the separator `--`). */
+	readonly allowHyphenValues: true | undefined;
 	/** Whether a long boolean flag may consume a separate boolean literal. */
 	readonly separateValue: true | undefined;
 	/** Whether one long array flag occurrence consumes multiple argv tokens. */
@@ -613,8 +618,14 @@ interface FlagDefinitionBase {
 	readonly duplicates?: DuplicatePolicy | undefined;
 }
 
-/** Definition of a `string` flag. */
-interface StringFlagDefinition extends FlagDefinitionBase {
+/** Definition fields shared by flags that take an operand. */
+interface ValueFlagDefinition extends FlagDefinitionBase {
+	/** Allow the next token to be a dash-prefixed value, including a built-in flag spelling. */
+	readonly allowHyphenValues?: true | undefined;
+}
+
+/** Definition of a string flag. */
+interface StringFlagDefinition extends ValueFlagDefinition {
 	/** Kind discriminator. */
 	readonly kind: 'string';
 	/**
@@ -630,7 +641,7 @@ interface StringFlagDefinition extends FlagDefinitionBase {
 }
 
 /** Definition of a `number` flag. */
-interface NumberFlagDefinition extends FlagDefinitionBase {
+interface NumberFlagDefinition extends ValueFlagDefinition {
 	/** Kind discriminator. */
 	readonly kind: 'number';
 	/**
@@ -654,7 +665,7 @@ interface BooleanFlagDefinition extends FlagDefinitionBase {
 }
 
 /** Definition of an `enum` flag. */
-interface EnumFlagDefinition extends FlagDefinitionBase {
+interface EnumFlagDefinition extends ValueFlagDefinition {
 	/** Kind discriminator. */
 	readonly kind: 'enum';
 	/** Allowed literal values. */
@@ -662,7 +673,7 @@ interface EnumFlagDefinition extends FlagDefinitionBase {
 }
 
 /** Definition of an `array` flag. */
-interface ArrayFlagDefinition extends FlagDefinitionBase {
+interface ArrayFlagDefinition extends ValueFlagDefinition {
 	/** Kind discriminator. */
 	readonly kind: 'array';
 	/** Collect consecutive values after a single long flag occurrence. */
@@ -690,7 +701,7 @@ interface ArrayFlagDefinition extends FlagDefinitionBase {
 }
 
 /** Definition of a `custom` flag. */
-interface CustomFlagDefinition extends FlagDefinitionBase {
+interface CustomFlagDefinition extends ValueFlagDefinition {
 	/** Kind discriminator. */
 	readonly kind: 'custom';
 	/**
@@ -707,7 +718,7 @@ interface CountFlagDefinition extends FlagDefinitionBase {
 }
 
 /** Definition of a `keyValue` flag. */
-interface KeyValueFlagDefinition extends FlagDefinitionBase {
+interface KeyValueFlagDefinition extends ValueFlagDefinition {
 	/** Kind discriminator. */
 	readonly kind: 'keyValue';
 	/**
@@ -873,6 +884,7 @@ const NORMALIZED_FLAG_SCHEMA_KEYS: readonly (keyof FlagSchema)[] = [
 	'deprecated',
 	'propagate',
 	'negation',
+	'allowHyphenValues',
 	'separateValue',
 	'variadic',
 	'duplicates',
@@ -925,6 +937,7 @@ function assertEligibleFlagElementBuilder(schema: FlagSchema): void {
 		['deprecated', undefined],
 		['propagate', false],
 		['negation', undefined],
+		['allowHyphenValues', undefined],
 		['separateValue', undefined],
 		['duplicates', 'last'],
 	];
@@ -947,8 +960,9 @@ function assertEligibleFlagElementBuilder(schema: FlagSchema): void {
 
 /** Reject unsupported input metadata on a flag element definition. */
 function assertValidFlagElementSchema(schema: FlagSchema): void {
-	const unsupportedField =
-		schema.advanced !== undefined
+	const unsupportedField = schema.allowHyphenValues
+		? 'allowHyphenValues'
+		: schema.advanced !== undefined
 			? 'advanced'
 			: schema.group !== undefined
 				? 'group'
@@ -1050,6 +1064,7 @@ const KIND_SPECIFIC_FLAG_FIELDS: readonly (readonly [
 	['aggregateStandard', COLLECTION_FLAG_KINDS],
 	['parseFn', ['custom']],
 	['negation', ['boolean']],
+	['allowHyphenValues', ['string', 'number', 'enum', 'array', 'custom', 'keyValue']],
 	['separateValue', ['boolean']],
 	['variadic', ['array']],
 ];
@@ -1360,6 +1375,7 @@ function assembleFlagSchema<K extends FlagKind>(
 		deprecated: undefined,
 		propagate: propagate ?? false,
 		negation: undefined,
+		allowHyphenValues: undefined,
 		separateValue: undefined,
 		variadic: undefined,
 		duplicates: duplicates ?? 'last',
@@ -1524,6 +1540,19 @@ class FlagBuilder<C extends FlagConfig> {
 				? { completion: candidates, completionValues: undefined }
 				: { completion: undefined, completionValues: [...candidates] }),
 		});
+	}
+
+	/**
+	 * Accept a dash-prefixed token as this flag's separate value, even when it
+	 * spells another option. The standalone `--` still ends option parsing.
+	 *
+	 * @example `flag.string().allowHyphenValues()` accepts `--token --help`.
+	 */
+	allowHyphenValues(
+		this: FlagBuilder<C & { readonly flagKind: Exclude<FlagKind, 'boolean' | 'count'> }>,
+	): FlagBuilder<WithoutElementEligibility<C>> {
+		assertValidFlagDefinition(this.schema.kind, { allowHyphenValues: true });
+		return new FlagBuilder({ ...this.schema, allowHyphenValues: true });
 	}
 
 	// -- Presence modifiers --------------------------------------------------

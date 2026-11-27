@@ -12,7 +12,8 @@
 import { describe, expect, expectTypeOf, it, test } from 'vitest';
 import { parse } from '#internals/core/parse/index.ts';
 import { command } from './command.ts';
-import { flag, type InferFlag } from './flag.ts';
+import type { InferFlag } from './flag.ts';
+import { flag } from './flag.ts';
 
 describe('flag.array() element eligibility', () => {
 	it('accepts pristine element builders of every element-meaningful kind', () => {

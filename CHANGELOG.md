@@ -17,12 +17,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - [ ] Verify the version PR's latest commit is signed and all required checks pass before merging. Merging starts publication automatically, with no further approval.
 - [ ] Follow Beepboop's release execution through npm and JSR publication, the version tag and GitHub Release, and the docs deployment.
 
-## [5.7.0] - 2026-11-27
+## [5.7.0] - 2026-11-28
 
 ### Added
 
 - Treat an empty environment variable as unset for a flag or argument with `.env('NAME', { empty: 'missing' })`. Resolution then continues to config, a prompt, or the default. ([#322](https://github.com/kjanat/dreamcli/pull/322))
 - Use `flag.string().allowHyphenValues()` to accept separate values such as `--token -v` or `--token --help`. The option is available on value-taking flags. ([#318](https://github.com/kjanat/dreamcli/pull/318))
+
+### Changed
+
+- Documentation pages load type details when a hover opens and fetch the compressed search index when search opens. The production docs build reuses type analysis across pages and generated examples. ([#327](https://github.com/kjanat/dreamcli/pull/327))
 
 ### Fixed
 

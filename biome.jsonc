@@ -16,7 +16,19 @@
 		"enabled": true,
 		"rules": {
 			"style": {
-				"noNonNullAssertion": "info"
+				"noNonNullAssertion": "info",
+				"useImportType": {
+					"level": "error",
+					"options": {
+						"style": "separatedType"
+					}
+				},
+				"useExportType": {
+					"level": "error",
+					"options": {
+						"style": "separatedType"
+					}
+				}
 			},
 			"suspicious": {
 				"noExplicitAny": "warn",

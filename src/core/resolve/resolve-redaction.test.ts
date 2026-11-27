@@ -1,10 +1,12 @@
 import { describe, expect, it, test } from 'vitest';
-import { isValidationError, type ValidationError } from '#internals/core/errors/index.ts';
+import type { ValidationError } from '#internals/core/errors/index.ts';
+import { isValidationError } from '#internals/core/errors/index.ts';
 import { parse } from '#internals/core/parse/index.ts';
 import { arg } from '#internals/core/schema/arg.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
 import { createCommandSchema } from '#internals/core/schema/command.ts';
-import { type FlagSchema, flag } from '#internals/core/schema/flag.ts';
+import type { FlagSchema } from '#internals/core/schema/flag.ts';
+import { flag } from '#internals/core/schema/flag.ts';
 import type { StandardSchemaV1 } from '#internals/core/schema/standard.ts';
 import type { ResolveOptions } from './index.ts';
 import { resolve } from './index.ts';

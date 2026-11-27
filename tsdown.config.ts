@@ -22,7 +22,7 @@ const SEPARATE_MODULES = [
 	/\/src\/core\/feature-loaders\.ts$/,
 	/\/src\/core\/json-schema\/constants\.ts$/,
 	/\/src\/core\/completion\/(index|dynamic|shells\/[^/]+)\.ts$/,
-	/\/src\/core\/json-schema\/(index|meta-descriptions\.generated)\.ts$/,
+	/\/src\/core\/json-schema\/(index|definition-meta-schema|meta-descriptions\.generated)\.ts$/,
 	/\/src\/core\/config\/(index|package-json)\.ts$/,
 	/\/src\/core\/prompt\/(terminal|test-prompter|session)\.ts$/,
 ];
@@ -43,13 +43,15 @@ export default defineConfig({
 		__DREAMCLI_REVISION__: JSON.stringify((await Bun.$`git rev-parse --short HEAD`.text()).trim()),
 	},
 	entry: entries,
-	external: ['#internals/core/feature-loaders.ts'],
+	deps: { neverBundle: ['#internals/core/feature-loaders.ts'] },
+	inputOptions: { preserveEntrySignatures: 'allow-extension' },
 	format: 'esm',
 	target: [`node${engines.node.replace('>=', '')}`, `deno${engines.deno.replace('>=', '')}`],
 	dts: {
 		enabled: true,
 		entry: ['src/*.ts'],
 		tsc: { newContext: true },
+		tsrs: { runExternalCode: true },
 		resolver: 'oxc',
 		oxc: {
 			stripInternal: true,

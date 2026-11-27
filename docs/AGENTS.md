@@ -1,4 +1,4 @@
-# docs — VitePress site + source-backed content
+# docs: VitePress site and source-backed content
 
 ## OVERVIEW
 

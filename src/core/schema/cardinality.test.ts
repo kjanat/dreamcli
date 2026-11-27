@@ -6,7 +6,8 @@
  */
 
 import { describe, expect, it, test } from 'vitest';
-import { type CLIError, isCLIError } from '#internals/core/errors/index.ts';
+import type { CLIError } from '#internals/core/errors/index.ts';
+import { isCLIError } from '#internals/core/errors/index.ts';
 import { parse } from '#internals/core/parse/index.ts';
 import { resolve } from '#internals/core/resolve/index.ts';
 import { arg, createArgSchema } from './arg.ts';
@@ -21,7 +22,8 @@ import {
 	splitManyText,
 } from './cardinality.ts';
 import { createCommandSchema } from './command.ts';
-import { createFlagSchema, type FlagSchema, flag } from './flag.ts';
+import type { FlagSchema } from './flag.ts';
+import { createFlagSchema, flag } from './flag.ts';
 import type { StandardSchemaV1 } from './standard.ts';
 import { argValueSchema, flagValueSchema } from './value.ts';
 

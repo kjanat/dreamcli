@@ -1182,6 +1182,19 @@ command('serve')
 
 So typing `--skipPass` still arrives as `flags['skip-pass']`.
 
+### Values starting with a dash
+
+Declare `command('run').flag('token', flag.string().allowHyphenValues())` to let
+`--token -v` and `--token --help` pass the literal value to the command. This
+also works with short aliases. The flag claims only its next token, so
+`--token -v --help` still shows help. A standalone `--` ends option parsing;
+use `--token=--` to pass the separator itself.
+
+For a variadic long option, only the first separate value can start with a dash.
+For example, `--items --first second --verbose` collects `['--first', 'second']`
+and leaves `--verbose` for the parser. With `--items=first --verbose`, the inline
+value already fills that first slot.
+
 ### Negatable Booleans
 
 `.negatable()` gives a boolean flag a negated spelling that sets it to `false`, the classic

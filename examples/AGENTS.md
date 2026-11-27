@@ -1,50 +1,25 @@
-# examples — Runnable docs source + consumer canary
+# examples: docs source and consumer canaries
 
-## OVERVIEW
+Root `*.ts` files are the source for docs example pages. `gh/` and `pwsh-demo/` are Bun workspace packages.
 
-Repo-root examples are the source of truth for docs example pages. `examples/gh/` is a real Bun
-workspace package used as a walkthrough and CI canary. `examples/pwsh-demo/` is a Windows-friendly
-workspace package used to exercise PowerShell completions end to end.
+## FILES
 
-## STRUCTURE
+Single-file examples: `argv-transforms.ts`, `basic.ts`, `command-inspection.ts`, `flag-types.ts`, `help-config.ts`, `interactive.ts`, `json-mode.ts`, `middleware.ts`, `multi-command.ts`, `output-extras.ts`, `parser-control.ts`, `spinner-progress.ts`, `standard-schema.ts`, `testing.ts`, `transport-launcher.ts`.
 
-```text
-*.ts       # single-file teaching examples parsed by docs
-gh/        # workspace package: miniature GitHub CLI clone
-pwsh-demo/ # workspace package: PowerShell completion playground
-```
-
-## WHERE TO LOOK
-
-| Task                               | Location                                                                                                                                                                                                                                                                   | Notes                                              |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| Edit a single-feature example      | every root `*.ts` file (`basic.ts`, `flag-types.ts`, `parser-control.ts`, `standard-schema.ts`, `help-config.ts`, `output-extras.ts`, `interactive.ts`, `json-mode.ts`, `middleware.ts`, `multi-command.ts`, `spinner-progress.ts`, `testing.ts`, `transport-launcher.ts`) | keep focused, runnable, public-API only            |
-| Edit docs example metadata         | `../docs/.vitepress/data/examples.ts`                                                                                                                                                                                                                                      | parses example docblocks and related symbols       |
-| Edit the walkthrough package       | `gh/`                                                                                                                                                                                                                                                                      | real package with commands, tests, and build       |
-| Edit the PowerShell demo workspace | `pwsh-demo/`                                                                                                                                                                                                                                                               | real package with native PowerShell smoke coverage |
-| Trace example-backed docs pages    | `../docs/examples/`, `../docs/reference/`                                                                                                                                                                                                                                  | generated from example source                      |
+| Path         | Role                                                               |
+| ------------ | ------------------------------------------------------------------ |
+| `gh/`        | miniature GitHub CLI. `bun run typecheck:gh` and `bun run test:gh` |
+| `pwsh-demo/` | PowerShell completion install and native smoke                     |
 
 ## CONVENTIONS
 
-- Top-level example docblocks are a contract: title line, optional prose, `Demonstrates:`, `Usage:`
-- Examples should import public package exports only, never `#internals/*`
-- Keep examples pedagogical and runnable; they double as docs content
-- `examples/gh` is typechecked and tested separately in CI, so edits there carry real consumer
-  signal
-- `examples/pwsh-demo` is a workspace canary for completion install docs, Windows launcher behavior,
-  and native PowerShell completion execution
+- The top docblock is a contract: title line, optional prose, `Demonstrates:`, `Usage:`
+- Imports use the public package entry, not `#internals/*`
+- Docs metadata is parsed by `docs/.vitepress/data/examples.ts`
+- Related API links come from the named imports in the example
 
 ## ANTI-PATTERNS
 
-- Do not edit generated docs pages when the source of truth is an example file
-- Do not let examples drift into pseudo-internal usage that real consumers cannot copy
-- Do not bloat single-file examples with walkthrough-only complexity; move that to `examples/gh`
-- Do not change PowerShell install behavior without updating the `pwsh-demo` smoke coverage and docs
-
-## NOTES
-
-- `examples/gh/package.json` links `@kjanat/dreamcli` from the workspace and exposes a real `gh`
-  bin
-- `examples/pwsh-demo/package.json` links `@kjanat/dreamcli` from the workspace, exposes a real
-  `pwsh-demo` bin, and includes `smoke:powershell` for end-to-end completion verification
-- Docs build derives related API symbol links from named imports in example source
+- Do not edit `docs/examples/` when the change belongs in one of these files
+- Do not put walkthrough-only commands in a single-file example. That belongs in `gh/`
+- Do not change PowerShell install behavior without `pwsh-demo` smoke coverage and the docs page

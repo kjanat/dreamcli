@@ -1,6 +1,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { StandardSchemaV1 as PublicStandardSchemaV1 } from '../../index.ts';
-import { isStandardSchemaV1, type StandardSchemaV1 } from './standard.ts';
+import type { StandardSchemaV1 } from './standard.ts';
+import { isStandardSchemaV1 } from './standard.ts';
 
 describe('Standard Schema v1 types and detection', () => {
 	it('accepts the official optional validation options', () => {

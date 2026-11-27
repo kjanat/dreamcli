@@ -14,15 +14,22 @@
 		"@kjanat/dreamcli": "file:.."
 	},
 	"devDependencies": {
+		"@shikijs/core": "4.6.0",
 		"@shikijs/transformers": "^4.6.0",
 		"@shikijs/vitepress-twoslash": "^4.6.0",
+		"@types/hast": "3.0.5",
 		"@types/node": "catalog:",
 		"floating-vue": "^5.4.0",
-		"mermaid": "^12.3.0",
+		"mermaid": "12.4.0",
+		"synckit": "0.12.3",
+		"tsrs": "catalog:",
+		"twoslash": "0.3.9",
+		"twoslash-protocol": "0.3.9",
 		"typescript": "catalog:",
-		"vite": "^8.3.8",
+		"vite": "8.4.0",
 		"vitepress": "next",
 		"vitest": "catalog:",
-		"wrangler": "4.166.0"
+		"vscode-jsonrpc": "10.0.2",
+		"wrangler": "4.169.0"
 	}
 }

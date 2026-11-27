@@ -1,10 +1,8 @@
 /**
  * Vite plugin that keeps docs schema artifact available.
  *
- * Twoslash examples import `@kjanat/dreamcli/schema`, which resolves
- * through tsconfig paths to the root `dreamcli.schema.json` file. This
- * plugin ensures that file exists during docs dev/build and emits it into
- * docs dist at the canonical `$schema` path and at the root mirror.
+ * VitePress config generates the root schema before Markdown processing.
+ * This plugin publishes it at both docs URLs and rebuilds it on dev edits.
  *
  * @module
  */
@@ -53,10 +51,6 @@ export function sourceArtifactsPlugin(): Plugin {
 
 	return {
 		name: 'dreamcli-source-artifacts',
-
-		async buildStart() {
-			await ensureSchema();
-		},
 
 		async generateBundle() {
 			const { readFile } = await import('node:fs/promises');

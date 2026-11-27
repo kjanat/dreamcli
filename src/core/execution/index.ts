@@ -23,6 +23,7 @@ import {
 import { formatHelp, formatHelpTopic } from '#internals/core/help/index.ts';
 import type { CapturedOutput } from '#internals/core/output/index.ts';
 import { clearRequestedExitCode, getRequestedExitCode } from '#internals/core/output/index.ts';
+import { copyTransformedArgv, sliceArgv } from '#internals/core/parse/argv-boundaries.ts';
 import type { ParseContext } from '#internals/core/parse/context.ts';
 import {
 	parseForExecution,
@@ -344,9 +345,11 @@ async function prepareCommandArgv(
 	}
 	for (const { hooks } of plugins) {
 		if (!hooks.transformArgv) continue;
-		if (argv === params.argv) argv = Object.freeze([...argv]);
+		if (argv === params.argv) argv = Object.freeze(sliceArgv(argv, 0));
 		const result = await hooks.transformArgv({ ...params, argv, metadata });
-		if (result?.argv !== undefined) argv = Object.freeze([...result.argv]);
+		if (result?.argv !== undefined && result.argv !== argv) {
+			argv = Object.freeze(copyTransformedArgv(argv, result.argv));
+		}
 		if (result?.metadata !== undefined) {
 			metadata = Object.freeze({ __proto__: null, ...metadata, ...result.metadata });
 		}

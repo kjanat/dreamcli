@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createOccurrenceRecorder, type ParseContext } from '#internals/core/parse/context.ts';
+import type { ParseContext } from '#internals/core/parse/context.ts';
+import { createOccurrenceRecorder } from '#internals/core/parse/context.ts';
 import { arg } from '#internals/core/schema/arg.ts';
 import { command, group } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';

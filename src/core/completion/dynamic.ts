@@ -13,19 +13,24 @@ import type { CLISchema } from '#internals/core/cli/index.ts';
 import {
 	buildRootCommandMap,
 	canDelegateUnknownRootToDefault,
+	invocationArgv,
 } from '#internals/core/cli/planner.ts';
 import { collectPropagatedFlags } from '#internals/core/cli/propagate.ts';
-import { readRootOutputFlags } from '#internals/core/cli/root-output-flags.ts';
+import { matchRootToken, readRootOutputFlags } from '#internals/core/cli/root-output-flags.ts';
 import { resolveRootSurface } from '#internals/core/cli/root-surface.ts';
-import { adjacentArgvValue } from '#internals/core/parse/argv-boundaries.ts';
+import { adjacentArgvValue, sliceArgvHead } from '#internals/core/parse/argv-boundaries.ts';
 import type { FlagLookupEntry } from '#internals/core/parse/index.ts';
 import {
+	acceptsVariadicValue,
 	buildFlagLookup,
 	coerceFlagValue,
 	consumesSeparateBoolean,
 	flagExpectsValue,
+	requestedHelpMode,
+	separateFlagValue,
 	variadicLongValueCount,
 } from '#internals/core/parse/index.ts';
+import type { CommandSchema } from '#internals/core/schema/command.ts';
 import type { CompletionContext, CompletionHandler } from '#internals/core/schema/completion.ts';
 import { excludesOtherInputs } from '#internals/core/schema/constraints.ts';
 import { getFlagAliasNames, getVisibleNegatedName } from '#internals/core/schema/flag.ts';
@@ -36,6 +41,38 @@ interface CompletionTarget {
 	readonly context: CompletionContext;
 	readonly tokenPrefix: string;
 	readonly commandCandidates: readonly string[];
+}
+
+/** Framework flags that would intercept a suggested, unprotected variadic operand. */
+function interceptsCandidate(
+	schema: CLISchema,
+	token: string,
+	configPath: string | undefined,
+	topics: CommandSchema['helpTopics'],
+): boolean {
+	if (!token.startsWith('-') || token === '-') return false;
+	if (matchRootToken(token, schema.builtins).kind !== 'unrelated') return true;
+	if (
+		builtinEnabled(schema.builtins, 'help') &&
+		token.startsWith('--help=') &&
+		requestedHelpMode([token], topics) !== undefined
+	)
+		return true;
+	if (
+		schema.version !== undefined &&
+		(token === '--version' || token === `-${schema.versionAlias ?? 'V'}`)
+	)
+		return true;
+	if (
+		schema.completionsFlag !== undefined &&
+		(token === '--completions' || token.startsWith('--completions='))
+	)
+		return true;
+	return (
+		schema.configSettings !== undefined &&
+		((schema.configSettings.noConfigFlag === true && token === '--no-config') ||
+			(configPath === undefined && token.startsWith('--config=') && token !== '--config='))
+	);
 }
 
 function completionPosition(
@@ -79,7 +116,7 @@ function completionPosition(
 	const args = command.args.filter((entry) => acceptsArgv(entry.schema));
 	let positional = 0;
 	let afterSeparator = false;
-	let pending: FlagLookupEntry | undefined;
+	let pending: { entry: FlagLookupEntry; accepts: (value: string) => boolean } | undefined;
 	const lookup = buildFlagLookup(flags, schema.flagSettings);
 	const activeFlags = command.constraints?.some(excludesOtherInputs)
 		? new Map<string, boolean>()
@@ -88,10 +125,6 @@ function completionPosition(
 	for (const [index, token] of remaining.entries()) {
 		if (skip > 0) {
 			skip--;
-			continue;
-		}
-		if (pending !== undefined) {
-			pending = undefined;
 			continue;
 		}
 		if (!afterSeparator && token === '--') {
@@ -141,14 +174,31 @@ function completionPosition(
 					variadicLongValueCount(remaining, index, lookup, match.inline !== undefined, cursor) >
 						skip
 				) {
-					pending = match.entry;
+					const first = match.inline === undefined && skip === 0;
+					const allowsHyphens = match.entry.schema.allowHyphenValues === true;
+					pending = {
+						entry: match.entry,
+						accepts: (value) =>
+							acceptsVariadicValue(value, lookup, first, allowsHyphens) &&
+							(allowsHyphens ||
+								!interceptsCandidate(schema, value, config?.configPath, command.helpTopics)),
+					};
 					break;
 				}
-			} else if (
-				match.inline === undefined &&
-				(flagExpectsValue(match.entry.schema) || separate !== undefined)
-			) {
-				pending = match.entry;
+			} else if (match.inline === undefined) {
+				if (separate !== undefined) skip = 1;
+				else if (
+					flagExpectsValue(match.entry.schema) &&
+					separateFlagValue(remaining, index + 1, match.entry.schema, cursor) !== undefined
+				) {
+					if (index + 1 === remaining.length) {
+						pending = {
+							entry: match.entry,
+							accepts: (value) =>
+								separateFlagValue(remaining, index + 1, match.entry.schema, value) !== undefined,
+						};
+					} else skip = 1;
+				}
 			}
 			continue;
 		}
@@ -219,8 +269,8 @@ function findCompletion(
 	let handler: CompletionHandler | undefined;
 	let commandCandidates: readonly string[] = [];
 	if (pending !== undefined) {
-		input = { kind: 'flag', name: pending.name };
-		handler = pending.schema.completion;
+		input = { kind: 'flag', name: pending.entry.name };
+		handler = pending.entry.schema.completion;
 	} else if (!afterSeparator && prefix.startsWith('-')) {
 		const match = matchFlag(prefix, lookup);
 		if (match?.inline === undefined || match.entry.negated) return undefined;
@@ -295,7 +345,7 @@ async function completeValues(
 	const position =
 		argv.length === 0
 			? undefined
-			: completionPosition(schema, compiled, argv.slice(0, -1), argv.at(-1));
+			: completionPosition(schema, compiled, sliceArgvHead(argv, argv.length - 1), argv.at(-1));
 	if (position === undefined) return { exitCode: 1, candidates: [] };
 	const target = findCompletion(position, argv, env);
 	if (target === undefined) {
@@ -303,6 +353,7 @@ async function completeValues(
 		const blocked = blockedFlagNames(position);
 		if (
 			mode !== 'all' ||
+			position.afterSeparator ||
 			blocked.size === 0 ||
 			position.pending !== undefined ||
 			(prefix !== '' && !prefix.startsWith('-')) ||
@@ -362,15 +413,17 @@ async function completeValues(
 					typeof value === 'string' &&
 					value.length > 0 &&
 					!/\p{Cc}/u.test(value) &&
-					value.startsWith(target.context.prefix),
+					value.startsWith(target.context.prefix) &&
+					(position.pending?.accepts(value) ?? true),
 			)
 			.map((value) => (mode === 'value-only' ? value : target.tokenPrefix + value));
 		return { exitCode: 0, candidates };
 	} catch {
 		return {
 			exitCode: 0,
-			candidates: target.commandCandidates.filter((value) =>
-				value.startsWith(target.context.prefix),
+			candidates: target.commandCandidates.filter(
+				(value) =>
+					value.startsWith(target.context.prefix) && (position.pending?.accepts(value) ?? true),
 			),
 		};
 	}
@@ -383,20 +436,25 @@ async function completeRequest(
 	request: readonly string[],
 	env: CompletionContext['env'],
 ): ReturnType<typeof completeValues> {
-	if (request[0] === '--blocked-flags' && request[1] === '--') {
-		const position = completionPosition(schema, compiled, request.slice(2));
+	const hasMode =
+		request[1] === '--' &&
+		['--blocked-flags', '--value-only', '--values'].includes(request[0] ?? '');
+	const argv = invocationArgv(
+		request.slice(hasMode ? 2 : request[0] === '--' ? 1 : 0),
+		compiled,
+		schema,
+		undefined,
+		schema.configSettings !== undefined,
+	);
+	if (hasMode && request[0] === '--blocked-flags') {
+		const position = completionPosition(schema, compiled, argv);
 		return {
 			exitCode: 0,
 			candidates: position === undefined ? [] : [...blockedFlagNames(position)],
 		};
 	}
-	if (request[1] === '--') {
-		if (request[0] === '--value-only')
-			return completeValues(schema, compiled, request.slice(2), env, 'value-only');
-		if (request[0] === '--values')
-			return completeValues(schema, compiled, request.slice(2), env, 'values');
-	}
-	return completeValues(schema, compiled, request.slice(request[0] === '--' ? 1 : 0), env, 'all');
+	const mode = hasMode && request[0] === '--values' ? 'values' : hasMode ? 'value-only' : 'all';
+	return completeValues(schema, compiled, argv, env, mode);
 }
 
 export { completeRequest };

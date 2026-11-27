@@ -15,13 +15,9 @@ import type {
 	FlagKind,
 	FlagSchema,
 } from '#internals/core/schema/index.ts';
+import { definitionMetaSchema } from './definition-meta-schema.ts';
 import type { FlagElementFragmentV1 } from './index.ts';
-import {
-	definitionMetaSchema,
-	generateCommandSchema,
-	generateInputSchema,
-	generateSchema,
-} from './index.ts';
+import { generateCommandSchema, generateInputSchema, generateSchema } from './index.ts';
 
 // === Test helpers
 
@@ -1227,6 +1223,7 @@ describe('generateSchema — definition metadata', () => {
 				},
 				pathChecks: { mustExist: true, type: 'directory', create: true },
 			}),
+			token: flagDef({ kind: 'string', allowHyphenValues: true }),
 			variadicValues: flagDef({ kind: 'array', variadic: true }),
 			versions: flagDef({
 				kind: 'array',
@@ -1300,6 +1297,7 @@ describe('generateSchema — definition metadata', () => {
 							'advanced',
 							'completionValues',
 							'envEmpty',
+							'allowHyphenValues',
 						].includes(field),
 				)
 				.sort(),
