@@ -17,9 +17,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - [ ] Verify the version PR's latest commit is signed and all required checks pass before merging. Merging starts publication automatically, with no further approval.
 - [ ] Follow Beepboop's release execution through npm and JSR publication, the version tag and GitHub Release, and the docs deployment.
 
+## [5.7.0] - 2026-11-27
+
+### Added
+
+- Treat an empty environment variable as unset for a flag or argument with `.env('NAME', { empty: 'missing' })`. Resolution then continues to config, a prompt, or the default. ([#322](https://github.com/kjanat/dreamcli/pull/322))
+
 ### Fixed
 
-- Bash completes enum values and static suggestions for flags exposed by the default command at the root.
+- Bash completes enum values and static suggestions for flags exposed by the default command at the root. ([#316](https://github.com/kjanat/dreamcli/pull/316))
 
 ## [5.6.0] - 2026-11-19
 
@@ -1268,7 +1274,8 @@ The stable 3.0.0 release. It ships the code of 3.0.0-rc.20 plus the fix and docu
 - MIT License.
 - Markdownlint configuration.
 
-[Unreleased]: https://github.com/kjanat/dreamcli/compare/v5.6.0...HEAD
+[Unreleased]: https://github.com/kjanat/dreamcli/compare/v5.7.0...HEAD
+[5.7.0]: https://github.com/kjanat/dreamcli/compare/v5.6.0...v5.7.0
 [5.6.0]: https://github.com/kjanat/dreamcli/compare/v5.5.0...v5.6.0
 [5.5.0]: https://github.com/kjanat/dreamcli/compare/v5.4.0...v5.5.0
 [5.4.0]: https://github.com/kjanat/dreamcli/compare/v5.3.0...v5.4.0
