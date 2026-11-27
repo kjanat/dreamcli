@@ -27,8 +27,9 @@ const projectRoot = normalize(`${import.meta.dirname}/../..`);
 execFileSync('bun', ['scripts/emit-definition-schema.ts'], { cwd: projectRoot });
 const exampleMeta = await collectExampleMeta(examplesRoot);
 const apiIndex = await collectPublicApiIndex(packageJsonPath);
-const isGithubActions = Boolean(env.GITHUB_ACTIONS);
-const sitePrefix = isGithubActions ? '/dreamcli' : '';
+const [pagesOwner, pagesRepo] = env.GITHUB_ACTIONS ? (env.GITHUB_REPOSITORY ?? '').split('/') : [];
+const pagesHost = pagesOwner && pagesRepo ? `${pagesOwner.toLowerCase()}.github.io` : undefined;
+const sitePrefix = pagesHost && pagesRepo?.toLowerCase() !== pagesHost ? `/${pagesRepo}` : '';
 const symbolRoutes = new Map<string, string>();
 {
 	const allSymbols = apiIndex.flatMap((ep) =>
@@ -76,8 +77,8 @@ export default defineConfig({
 	cleanUrls: true,
 	base: `${sitePrefix}/`,
 	sitemap: {
-		hostname: isGithubActions
-			? 'https://kjanat.github.io/dreamcli'
+		hostname: pagesHost
+			? `https://${pagesHost}${sitePrefix}/`
 			: ifCI(pkg.homepage, 'http://localhost'),
 	},
 	head: [
