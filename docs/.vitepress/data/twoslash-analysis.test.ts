@@ -34,3 +34,42 @@ it('analyzes arbitrary build inputs, reuses their results, and preserves diagnos
 	}
 	expect(read(code)).toBeNull();
 });
+
+it('keeps overload hints, declaration docs, JSON import aliases, and optional-chain types', () => {
+	const analyzer = createBuildAnalyzer(rootDirPath);
+	analyzer.plugin.configResolved();
+	try {
+		const code = [
+			"import { cli } from '@kjanat/dreamcli';",
+			"import definition from '@kjanat/dreamcli/schema';",
+			"import { createInterface } from 'node:readline';",
+			"import { fileURLToPath } from 'node:url';",
+			"cli('test').manifest({ inferName: true });",
+			'const dates: Date[] = [];',
+			"console.log(definition, dates[0]?.getTime(), new Date(), Promise.resolve(), Bun.TOML.parse(''));",
+			'const items: { spelling: string }[] = []; console.log(items[0]?.spelling);',
+			"new Error('message'); createInterface({ input: process.stdin }); fileURLToPath('file:///tmp');",
+			'new Promise<void>((resolve) => setTimeout(resolve, 1));',
+		].join('\n');
+		const hovers = analyzer.typesCache.read(code)?.nodes.filter((node) => node.type === 'hover');
+		const named = (target: string) => hovers?.filter((hover) => hover.target === target);
+		expect(named('manifest')?.[0]?.text).toContain('(+1 overload)');
+		expect(named('resolve')?.[0]?.text).toContain('(+2 overloads)');
+		expect(named('Error')?.[0]?.text).toContain('(+1 overload)');
+		expect(named('createInterface')?.at(-1)?.text).toContain('(+1 overload)');
+		expect(named('fileURLToPath')?.at(-1)?.text).toMatch(
+			/options\?: FileUrlToPathOptions\): string$/,
+		);
+		expect(named('Promise')?.[0]?.docs).toContain('Represents the completion');
+		expect(named('Date')?.at(-1)?.docs).toContain('Enables basic storage');
+		expect(named('Bun')?.[0]?.docs).toContain('Bun runtime APIs');
+		expect(named('setTimeout')?.[0]?.tags).toContainEqual(['param', 'handler function to call']);
+		expect(named('definition')?.map((hover) => hover.text)).toEqual([
+			'import definition',
+			'import definition',
+		]);
+		expect(named('spelling')?.at(-1)?.text).toContain('string | undefined');
+	} finally {
+		analyzer.finish();
+	}
+});
