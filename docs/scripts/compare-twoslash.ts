@@ -28,26 +28,52 @@ for (const page of pages) {
 
 // The server renders the code and annotation targets. Hydration loads popup bodies by hash.
 async function popups(root: string) {
-	const counts = new Map<string, number>();
-	const assets = new Set<string>();
+	const byPage = new Map<string, string[]>();
+	const bodies = new Map<string, string>();
 	for (const path of await files(root, 'assets/*.md.*.lean.js')) {
 		const js = await readFile(join(root, path), 'utf8');
 		const refs = Array.from(js.matchAll(/\/assets\/twoslash\/[\da-f]{24}\.txt/g), ([url]) => url);
-		counts.set(path.slice(0, path.lastIndexOf('.md.') + 3), refs.length);
-		for (const url of refs) assets.add(url);
+		byPage.set(path.slice(0, path.lastIndexOf('.md.') + 3), refs);
+		for (const url of refs) {
+			if (bodies.has(url)) continue;
+			const body = await readFile(join(root, url), 'utf8');
+			assert.match(body, /twoslash-popup/, url);
+			assert.doesNotMatch(body, /href="file:\/\//, url);
+			bodies.set(url, body);
+		}
 	}
-	for (const url of assets) {
-		const body = await readFile(join(root, url), 'utf8');
-		assert.match(body, /twoslash-popup/, url);
-		assert.doesNotMatch(body, /href="file:\/\//, url);
-	}
-	return counts;
+	return { byPage, bodies };
 }
 
-const expectedPopups = await popups(stock);
-assert.deepEqual(await popups(candidate), expectedPopups, 'Popup references per page');
-const references = [...expectedPopups.values()].reduce((sum, count) => sum + count, 0);
+const expected = await popups(stock);
+const actual = await popups(candidate);
+assert.deepEqual(
+	[...actual.byPage.keys()].sort(),
+	[...expected.byPage.keys()].sort(),
+	'Popup pages',
+);
+let references = 0;
+let differences = 0;
+let firstDifference: string | undefined;
+for (const [page, refs] of expected.byPage) {
+	const other = actual.byPage.get(page);
+	assert.ok(other);
+	assert.equal(other.length, refs.length, `Popup count in ${page}`);
+	for (const [index, url] of other.entries()) {
+		const stockUrl = refs[index];
+		assert.ok(stockUrl);
+		if (actual.bodies.get(url) !== expected.bodies.get(stockUrl)) {
+			differences++;
+			firstDifference ??= `${page}, popup ${index + 1} (stock ${stockUrl}, candidate ${url})`;
+		}
+	}
+	references += refs.length;
+}
 assert.ok(fences && references, 'Expected Twoslash examples and popup references');
+assert.ok(
+	!differences,
+	`${differences} of ${references} popup bodies differ. First: ${firstDifference}`,
+);
 console.log(
-	`${pages.length} HTML paths, ${fences} identical rendered examples, ${references} verified popup references.`,
+	`${pages.length} HTML paths, ${fences} identical rendered examples, ${references} identical popup bodies.`,
 );
