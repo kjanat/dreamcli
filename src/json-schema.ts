@@ -7,6 +7,7 @@
  * @module @kjanat/dreamcli/json-schema
  */
 
+export { definitionMetaSchema } from './core/json-schema/definition-meta-schema.ts';
 export type {
 	ArgDefinitionFragmentV1,
 	ArgElementFragmentV1,
@@ -35,7 +36,6 @@ export type {
 export {
 	DEFINITION_SCHEMA_URL,
 	DEFINITION_SCHEMA_VERSION,
-	definitionMetaSchema,
 	generateCommandSchema,
 	generateInputSchema,
 	generateSchema,

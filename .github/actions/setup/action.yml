@@ -18,4 +18,4 @@ runs:
         bun-version-file: ${{ inputs.bun-version-file }}
         no-cache: true
     - uses: actions/setup-node@v7
-      with: { node-version: latest }
+      with: { node-version-file: .node-version }
