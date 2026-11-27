@@ -1,84 +1,53 @@
-/** Run with `bun docs/scripts/compare-twoslash.ts` to compare analyzers on the flags guide. @module */
+/** Compare the rendered examples in two complete VitePress builds. @module */
 import assert from 'node:assert/strict';
-import { defaultHoverInfoProcessor, transformerTwoslash } from '@shikijs/vitepress-twoslash';
-import { createTwoslasher } from 'twoslash';
-import type { TwoslashNode } from 'twoslash-protocol';
-import ts from 'typescript';
-import { createMarkdownRenderer } from 'vitepress';
-import config from '../../tsconfig.json' with { type: 'json' };
-import { docsRoot, rootDirPath } from '../.vitepress/data/paths.ts';
-import { analyzeWithTsrs, loadFlagsGuide } from './tsrs-twoslash.ts';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 
-const { path, guide, snippets } = await loadFlagsGuide(rootDirPath);
-assert.ok(snippets.length > 0);
-
-const start = performance.now();
-const native = await analyzeWithTsrs(rootDirPath, snippets);
-const middle = performance.now();
-const { options } = ts.convertCompilerOptionsFromJson(config.compilerOptions, rootDirPath);
-const classic = createTwoslasher({ vfsRoot: rootDirPath, compilerOptions: options });
-const original = snippets.map((code) => classic(code, 'ts'));
-const end = performance.now();
-
-let queries = 0;
-let identicalQueries = 0;
-let hovers = 0;
-let identicalHovers = 0;
-for (const [index, code] of snippets.entries()) {
-	const expected = original[index];
-	const actual = native.get(code);
-	assert.ok(expected && actual);
-	assert.equal(actual.code, expected.code, `Displayed code in block ${index + 1}`);
-	assert.deepEqual(
-		actual.nodes.map(({ type, start, length }) => [type, start, length]),
-		expected.nodes.map(({ type, start, length }) => [type, start, length]),
-		`Annotations in block ${index + 1}`,
-	);
-	for (const [i, reference] of expected.nodes.entries()) {
-		const node: TwoslashNode | undefined = actual.nodes[i];
-		assert.ok(reference.type === 'query' || reference.type === 'hover');
-		assert.ok(node?.type === reference.type);
-		assert.equal(node.target, reference.target);
-		const nativeText = defaultHoverInfoProcessor(node.text);
-		const classicText = defaultHoverInfoProcessor(reference.text);
-		if (node.type === 'query') {
-			queries++;
-			if (nativeText === classicText) identicalQueries++;
-			else console.log(`Query display differs: ${classicText} → ${nativeText}`);
-		} else {
-			hovers++;
-			if (nativeText === classicText) identicalHovers++;
-		}
-	}
+const [stock, candidate] = process.argv.slice(2);
+if (!stock || !candidate) {
+	throw new Error('Usage: bun docs/scripts/compare-twoslash.ts <stock-dist> <candidate-dist>');
 }
 
-// Shiki's hook is synchronous. Supply the results of the asynchronous LSP queries at render time.
-const used = new Set<string>();
-const md = await createMarkdownRenderer(docsRoot, {
-	codeTransformers: [
-		transformerTwoslash({
-			twoslasher(code: string) {
-				const key = code.trimEnd();
-				const value = native.get(key);
-				assert.ok(value, 'No native analysis for this fence');
-				used.add(key);
-				return value;
-			},
-		}),
-	],
-});
-const html = await md.renderAsync(guide, { path });
-assert.equal(used.size, native.size);
-assert.ok(html.includes('twoslash-popup-code'));
-assert.ok(!html.includes('file://'));
+async function files(root: string, pattern: string) {
+	return (await Array.fromAsync(new Bun.Glob(pattern).scan(root))).sort();
+}
 
-await assert.rejects(analyzeWithTsrs(rootDirPath, ['const count: number = "invalid";']), /TS2322/);
+async function sections(root: string, page: string) {
+	const html = await readFile(join(root, page), 'utf8');
+	return html.match(/<pre\b[^>]*\bclass="[^"]*\btwoslash\b[^"]*"[^>]*>[\s\S]*?<\/pre>/g) ?? [];
+}
+
+const pages = await files(stock, '**/*.html');
+assert.deepEqual(await files(candidate, '**/*.html'), pages, 'Generated HTML paths');
+let fences = 0;
+for (const page of pages) {
+	const expected = await sections(stock, page);
+	assert.deepEqual(await sections(candidate, page), expected, `Rendered examples in ${page}`);
+	fences += expected.length;
+}
+
+// The server renders the code and annotation targets. Hydration loads popup bodies by hash.
+async function popups(root: string) {
+	const counts = new Map<string, number>();
+	const assets = new Set<string>();
+	for (const path of await files(root, 'assets/*.md.*.lean.js')) {
+		const js = await readFile(join(root, path), 'utf8');
+		const refs = Array.from(js.matchAll(/\/assets\/twoslash\/[\da-f]{24}\.txt/g), ([url]) => url);
+		counts.set(path.slice(0, path.lastIndexOf('.md.') + 3), refs.length);
+		for (const url of refs) assets.add(url);
+	}
+	for (const url of assets) {
+		const body = await readFile(join(root, url), 'utf8');
+		assert.match(body, /twoslash-popup/, url);
+		assert.doesNotMatch(body, /href="file:\/\//, url);
+	}
+	return counts;
+}
+
+const expectedPopups = await popups(stock);
+assert.deepEqual(await popups(candidate), expectedPopups, 'Popup references per page');
+const references = [...expectedPopups.values()].reduce((sum, count) => sum + count, 0);
+assert.ok(fences && references, 'Expected Twoslash examples and popup references');
 console.log(
-	`${snippets.length} fences rendered; all ${queries} query and ${hovers} hover ranges match`,
-);
-console.log(
-	`Identical rendered signature text: ${identicalQueries}/${queries} queries, ${identicalHovers}/${hovers} hovers`,
-);
-console.log(
-	`Analysis: tsrs ${Math.round(middle - start)} ms, TypeScript ${ts.version} ${Math.round(end - middle)} ms`,
+	`${pages.length} HTML paths, ${fences} identical rendered examples, ${references} verified popup references.`,
 );

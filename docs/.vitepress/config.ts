@@ -17,6 +17,7 @@ import {
 import { dreamcliDocsPlugin, shikiClasses } from './vite-plugins/index.ts';
 import { localSearchPayload } from './vite-plugins/local-search-payload.ts';
 import { fixTsProcessedLinkcode, transformerJSDocTags } from './vite-plugins/shiki-jsdoc-tags.ts';
+import { createBuildAnalyzer } from './vite-plugins/twoslash-analysis.ts';
 import { twoslashPayloads } from './vite-plugins/twoslash-payloads.ts';
 
 const projectRoot = normalize(`${import.meta.dirname}/../..`);
@@ -51,15 +52,7 @@ const symbolRoutes = new Map<string, string>();
 const isCI = Boolean(env.CI);
 const ifCI = (ifCiThen: string, ifNotCiThen: string) => (isCI ? ifCiThen : ifNotCiThen);
 const popups = twoslashPayloads();
-// Pilot the native analyzer on the flags guide. Other fences use VitePress's usual analyzer.
-const tsrsOptions =
-	env.DREAMCLI_TSRS_FLAGS === '1'
-		? {
-				typesCache: await import('../scripts/tsrs-twoslash.ts').then(({ createFlagsCache }) =>
-					createFlagsCache(projectRoot),
-				),
-			}
-		: {};
+const analyzer = createBuildAnalyzer(projectRoot);
 
 const compilerOptions = {
 	baseUrl: projectRoot,
@@ -81,6 +74,7 @@ const links = {
 } as const;
 
 export default defineConfig({
+	buildEnd: () => analyzer.finish(),
 	title: pkg.name,
 	description: pkg.description,
 	cleanUrls: true,
@@ -312,7 +306,7 @@ export default defineConfig({
 		codeTransformers: [
 			transformerTwoslash({
 				explicitTrigger: true,
-				...tsrsOptions,
+				typesCache: analyzer.typesCache,
 				twoslashOptions: {
 					vfsRoot: projectRoot,
 					compilerOptions,
@@ -328,7 +322,7 @@ export default defineConfig({
 		languages: ['bash', 'js', 'jsx', 'json', 'ts', 'tsx'],
 	},
 	vite: {
-		plugins: [...dreamcliDocsPlugin(), popups.plugin, localSearchPayload()],
+		plugins: [...dreamcliDocsPlugin(), popups.plugin, localSearchPayload(), analyzer.plugin],
 		ssr: { noExternal: ['vue'] },
 		build: {
 			chunkSizeWarningLimit: 600,
