@@ -105,6 +105,23 @@ async function serversWith(
 describe('readIndexedEnv()', () => {
 	const values = { count: 'N', value: 'V_{index}' } as const;
 
+	it('can skip an empty count while preserving explicit zero and empty members', async () => {
+		const cmd = command('servers')
+			.flag(
+				'servers',
+				flag.array(flag.string()).env(values, { empty: 'missing' }).default(['local']),
+			)
+			.action(({ flags, out }) => out.json(flags.servers));
+		for (const [env, expected] of [
+			[{ N: '' }, ['local']],
+			[{ N: '0' }, []],
+			[{ N: '1', V_0: '' }, ['']],
+		] as const) {
+			const result = await runCommand(cmd, [], { env });
+			expect(result.stdout.join('')).toBe(`${JSON.stringify(expected)}\n`);
+		}
+	});
+
 	it('treats an unset count as an absent source', () => {
 		expect(readIndexedEnv(values, { V_0: 'stray' })).toEqual({ kind: 'absent' });
 	});

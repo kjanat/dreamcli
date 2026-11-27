@@ -25,7 +25,11 @@ import {
 } from './cardinality.ts';
 import type { CompletionHandler } from './completion.ts';
 import type { EnvOptions, IndexedEnvBinding } from './env-binding.ts';
-import { isIndexedEnvBinding, normalizeIndexedEnvBinding } from './env-binding.ts';
+import {
+	isIndexedEnvBinding,
+	normalizeEnvEmpty,
+	normalizeIndexedEnvBinding,
+} from './env-binding.ts';
 import { assertNumberConstraints, type NumberConstraints } from './number-constraints.ts';
 import type {
 	ConfirmPromptConfig,
@@ -338,6 +342,8 @@ interface FlagSchema<K extends FlagKind = FlagKind> {
 	 * @defaultValue `false`
 	 */
 	readonly envAbsolute: boolean;
+	/** Treat a zero-length env value (the count for an indexed family) as missing. */
+	readonly envEmpty: EnvOptions['empty'];
 	/**
 	 * Whether `.env()` was called without a name. Registration on a command
 	 * replaces it with the derived {@link FlagSchema.envVar}.
@@ -548,6 +554,8 @@ interface FlagDefinitionBase {
 	 * @defaultValue `false`
 	 */
 	readonly envAbsolute?: boolean | undefined;
+	/** Policy for a zero-length env value or indexed count. Requires an env binding. */
+	readonly envEmpty?: EnvOptions['empty'];
 	/**
 	 * Derive `envVar` from the registered name.
 	 * @defaultValue `false`
@@ -843,6 +851,7 @@ const NORMALIZED_FLAG_SCHEMA_KEYS: readonly (keyof FlagSchema)[] = [
 	'envVar',
 	'envIndexed',
 	'envAbsolute',
+	'envEmpty',
 	'envFromName',
 	'configPath',
 	'description',
@@ -898,6 +907,7 @@ function assertEligibleFlagElementBuilder(schema: FlagSchema): void {
 		['envVar', undefined],
 		['envIndexed', undefined],
 		['envAbsolute', false],
+		['envEmpty', undefined],
 		['envFromName', false],
 		['configPath', undefined],
 		['description', undefined],
@@ -1146,15 +1156,16 @@ function assertValidFlagDefinition(kind: FlagKind, fields: FlagDefinitionFields)
 	}
 
 	if (
-		fields.envAbsolute === true &&
+		(fields.envAbsolute === true || fields.envEmpty !== undefined) &&
 		fields.envVar === undefined &&
 		fields.envIndexed === undefined &&
 		fields.envFromName !== true
 	) {
-		throw new CLIError("Flag schema field 'envAbsolute' requires an env source", {
+		const field = fields.envEmpty === undefined ? 'envAbsolute' : 'envEmpty';
+		throw new CLIError(`Flag schema field '${field}' requires an env source`, {
 			code: 'INVALID_SCHEMA',
-			details: { kind, field: 'envAbsolute' },
-			suggest: "Bind an env source, or drop 'envAbsolute'",
+			details: { kind, field },
+			suggest: `Bind an env source, or drop '${field}'`,
 		});
 	}
 }
@@ -1307,6 +1318,7 @@ function assembleFlagSchema<K extends FlagKind>(
 		stdin,
 		unique,
 		envAbsolute,
+		envEmpty,
 		envFromName,
 		sensitive,
 		propagate,
@@ -1337,6 +1349,7 @@ function assembleFlagSchema<K extends FlagKind>(
 		duplicateKeys: duplicateKeys ?? 'last',
 		unique: unique ?? false,
 		envAbsolute: envAbsolute ?? false,
+		envEmpty: normalizeEnvEmpty(envEmpty),
 		envFromName: envFromName ?? false,
 		pathChecks: undefined,
 		valueHint: undefined,
@@ -1632,7 +1645,7 @@ class FlagBuilder<C extends FlagConfig> {
 	 * `{ absolute: true }` to read the name exactly as written.
 	 *
 	 * @param varName - Environment variable name (e.g. `'PORT'`).
-	 * @param options - Whether the name ignores the CLI namespace.
+	 * @param options - Namespace and empty-value handling for the variable.
 	 * @returns The builder (for chaining).
 	 *
 	 * @example
@@ -1664,7 +1677,7 @@ class FlagBuilder<C extends FlagConfig> {
 	 * same as a single name; `{ absolute: true }` reads them as written.
 	 *
 	 * @param binding - The count variable plus a `value` template or `fields` templates.
-	 * @param options - Whether the names ignore the CLI namespace.
+	 * @param options - Namespace and empty-count handling for the family.
 	 * @returns The builder (for chaining).
 	 * @throws {CLIError} With code `'INVALID_SCHEMA'` on a malformed template or a
 	 *   flag kind that cannot hold a list.
@@ -1688,7 +1701,7 @@ class FlagBuilder<C extends FlagConfig> {
 	 * name (`api-token` and `apiToken` → `API_TOKEN`), relative to the CLI
 	 * namespace unless `{ absolute: true }`.
 	 *
-	 * @param options - Whether the derived name ignores the CLI namespace.
+	 * @param options - Namespace and empty-value handling for the derived variable.
 	 * @returns The builder (for chaining).
 	 */
 	env(options?: EnvOptions): FlagBuilder<WithoutElementEligibility<C>>;
@@ -1703,6 +1716,7 @@ class FlagBuilder<C extends FlagConfig> {
 				envIndexed: undefined,
 				envFromName: false,
 				envAbsolute: options?.absolute === true,
+				envEmpty: normalizeEnvEmpty(options?.empty),
 			});
 		}
 		if (isIndexedEnvBinding(source)) {
@@ -1712,6 +1726,7 @@ class FlagBuilder<C extends FlagConfig> {
 				envIndexed: normalizeIndexedEnvBinding(source),
 				envFromName: false,
 				envAbsolute: options?.absolute === true,
+				envEmpty: normalizeEnvEmpty(options?.empty),
 			});
 		}
 		return new FlagBuilder({
@@ -1720,6 +1735,7 @@ class FlagBuilder<C extends FlagConfig> {
 			envIndexed: undefined,
 			envFromName: true,
 			envAbsolute: source?.absolute === true,
+			envEmpty: normalizeEnvEmpty(source?.empty),
 		});
 	}
 

@@ -469,6 +469,27 @@ command('auth')
 
 If `API_TOKEN=secret` and no CLI value is provided, `args.token === 'secret'`.
 
+Suppose a `lint` command checks the directories you give it. Running `lint docs`
+checks `docs`. When you omit the directories, the command reads them from
+`LINT_PATHS`, with `src` as its default.
+
+```ts twoslash
+import { arg, command } from '@kjanat/dreamcli';
+
+command('lint').arg(
+  'paths',
+  arg
+    .string()
+    .variadic()
+    .env('LINT_PATHS', { empty: 'missing' })
+    .default(['src']),
+);
+```
+
+`LINT_PATHS=src,tests lint` checks both directories. With `LINT_PATHS='' lint`,
+`empty: 'missing'` treats the variable as unset, so the command checks `src`.
+Without that option, the empty string supplies an empty list of directories.
+
 Under a CLI-wide [environment namespace](/guide/flags#env-namespace),
 `.env('TARGET')` reads the prefixed name, such as `FOO_TARGET`; pass
 `{ absolute: true }` to read it as written. `.env()` without a name derives the

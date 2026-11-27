@@ -601,6 +601,11 @@ Resolution order:
 5. Interactive select prompt (TTY only)
 6. Default value `"us"`
 
+By default, a variable set to an empty string supplies a value. With
+`.env('DEPLOY_REGION', { empty: 'missing' })`, `DEPLOY_REGION=''` skips the env
+stage and resolution continues through config, prompt, and default. The check
+runs before trimming, splitting, or decoding.
+
 ### Indexed environment families {#indexed-env}
 
 Some tools spread one value across a numbered family of variables. Git's config
@@ -652,7 +657,8 @@ flag
 The family is still one stage in the chain, and the count variable decides it:
 
 - An unset count means the env stage supplied nothing, so config, the prompt,
-  and the default stay reachable.
+  and the default stay reachable. With `{ empty: 'missing' }` as the second
+  argument to `.env()`, an empty count also skips the env stage.
 - A set count claims the flag. `COUNT=0` resolves an explicit empty list, which
   wins over a non-empty config value or default.
 - The count must be a canonical non-negative integer: no sign, no leading zero,

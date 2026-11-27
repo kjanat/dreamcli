@@ -1246,6 +1246,7 @@ describe('generateSchema — definition metadata', () => {
 					fields: { key: 'GIT_CONFIG_KEY_{index}', value: 'GIT_CONFIG_VALUE_{index}' },
 				},
 				envAbsolute: true,
+				envEmpty: 'missing',
 			}),
 			force: flagDef({
 				kind: 'boolean',
@@ -1292,9 +1293,14 @@ describe('generateSchema — definition metadata', () => {
 			Object.keys(flagMetaProperties)
 				.filter(
 					(field) =>
-						!['defaultDescription', 'sensitive', 'group', 'advanced', 'completionValues'].includes(
-							field,
-						),
+						![
+							'defaultDescription',
+							'sensitive',
+							'group',
+							'advanced',
+							'completionValues',
+							'envEmpty',
+						].includes(field),
 				)
 				.sort(),
 		);
@@ -1416,6 +1422,7 @@ describe('generateSchema — definition metadata', () => {
 				unique: true,
 				envIndexed: { count: 'EXTRA_COUNT', value: 'EXTRA_{index}' },
 				envAbsolute: true,
+				envEmpty: 'missing',
 			}),
 		];
 		const cli = minimalCLI({ commands: [commandDef({ args: allFieldsArgs })] });

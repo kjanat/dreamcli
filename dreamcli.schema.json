@@ -66,6 +66,10 @@
           "description": "Whether the env source is read exactly as written, outside the CLI-wide\nnamespace set by `CLIBuilder.envPrefix()` (set by `.env(…, { absolute:\ntrue })`). Applies to ArgSchema.envVar and\nArgSchema.envIndexed alike.\n\nDefault: `false`",
           "const": true
         },
+        "envEmpty": {
+          "description": "Treat a zero-length env value (the count for an indexed family) as missing.",
+          "const": "missing"
+        },
         "envIndexed": {
           "$ref": "#/$defs/envIndexed",
           "description": "Indexed environment family read as the env source, set by `.env()` with an\nIndexedEnvBinding (`undefined` otherwise). An arg declares at most\none env source, so this and ArgSchema.envVar are never both set."
@@ -143,6 +147,9 @@
       "additionalProperties": false,
       "dependentSchemas": {
         "envAbsolute": {
+          "$ref": "#/$defs/envBound"
+        },
+        "envEmpty": {
           "$ref": "#/$defs/envBound"
         }
       },
@@ -718,6 +725,10 @@
           "description": "Whether the env source is read exactly as written, outside the CLI-wide\nnamespace set by `CLIBuilder.envPrefix()` (set by `.env(…, { absolute:\ntrue })`). Applies to FlagSchema.envVar and\nFlagSchema.envIndexed alike.\n\nDefault: `false`",
           "const": true
         },
+        "envEmpty": {
+          "description": "Treat a zero-length env value (the count for an indexed family) as missing.",
+          "const": "missing"
+        },
         "envIndexed": {
           "$ref": "#/$defs/envIndexed",
           "description": "Indexed environment family read as the env source, set by `.env()` with an\nIndexedEnvBinding (`undefined` otherwise). A flag declares at most\none env source, so this and FlagSchema.envVar are never both set."
@@ -803,6 +814,9 @@
       "additionalProperties": false,
       "dependentSchemas": {
         "envAbsolute": {
+          "$ref": "#/$defs/envBound"
+        },
+        "envEmpty": {
           "$ref": "#/$defs/envBound"
         }
       },
