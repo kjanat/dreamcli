@@ -469,24 +469,26 @@ command('auth')
 
 If `API_TOKEN=secret` and no CLI value is provided, `args.token === 'secret'`.
 
-For a variadic argument, an empty environment variable normally supplies an
-empty list. To use the default cask selection when `CASK=''`, set the policy
-on the binding:
+Suppose a `lint` command checks the directories you give it. Running `lint docs`
+checks `docs`. When you omit the directories, the command reads them from
+`LINT_PATHS`, with `src` as its default.
 
 ```ts twoslash
-import { arg } from '@kjanat/dreamcli';
+import { arg, command } from '@kjanat/dreamcli';
 
-const names = ['alpha', 'beta'] as const;
-arg
-  .enum(names)
-  .variadic()
-  .env('CASK', { empty: 'missing' })
-  .unique()
-  .default([...names]);
+command('lint').arg(
+  'paths',
+  arg
+    .string()
+    .variadic()
+    .env('LINT_PATHS', { empty: 'missing' })
+    .default(['src']),
+);
 ```
 
-An explicit positional selection still wins. A nonempty variable such as
-`CASK=','` goes through normal collection splitting.
+`LINT_PATHS=src,tests lint` checks both directories. With `LINT_PATHS='' lint`,
+`empty: 'missing'` treats the variable as unset, so the command checks `src`.
+Without that option, the empty string supplies an empty list of directories.
 
 Under a CLI-wide [environment namespace](/guide/flags#env-namespace),
 `.env('TARGET')` reads the prefixed name, such as `FOO_TARGET`; pass
