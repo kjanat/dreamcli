@@ -318,16 +318,8 @@ export default defineConfig({
 		ssr: { noExternal: ['vue'] },
 		build: {
 			chunkSizeWarningLimit: 600,
-			rollupOptions: {
+			rolldownOptions: {
 				maxParallelFileOps: isCI ? 2 : undefined,
-				output: {
-					manualChunks(id) {
-						// Shiki/twoslash syntax highlighting — large WASM + grammars
-						if (id.includes('shiki')) {
-							return 'shiki';
-						}
-					},
-				},
 			},
 		},
 	},

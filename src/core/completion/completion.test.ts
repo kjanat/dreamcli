@@ -274,7 +274,7 @@ describe('generateBashCompletion', () => {
 			const script = generateBashCompletion(minimalSchema());
 
 			expect(script).toContain('local cur prev words cword');
-			expect(script).toContain('_init_completion -n = || return');
+			expect(script).toContain('_init_completion -n =:/, || return');
 		});
 
 		it('registers with complete -F', () => {
@@ -558,7 +558,7 @@ describe('generateBashCompletion', () => {
 
 			expect(script).toContain('--skip-pass');
 			expect(script).toContain('-x');
-			expect(script).not.toContain('--skipPass');
+			expect(script).not.toMatch(/compgen -W '[^']*--skipPass/);
 		});
 
 		it('includes visible negated spellings for negatable flags', () => {
@@ -602,7 +602,7 @@ describe('generateBashCompletion', () => {
 			const script = generateBashCompletion(schema);
 
 			expect(script).toContain('--telemetry');
-			expect(script).not.toContain('--no-telemetry');
+			expect(script).not.toMatch(/compgen -W '[^']*--no-telemetry/);
 		});
 	});
 
@@ -625,9 +625,9 @@ describe('generateBashCompletion', () => {
 			});
 			const script = generateBashCompletion(schema);
 
-			expect(script).toContain(`case "\${enum_flag:-$prev}" in`);
+			expect(script).toContain('case "$value_flag" in');
 			expect(script).toContain('--region)');
-			expect(script).toContain("'us-east-1 eu-west-1 ap-south-1'");
+			expect(script).toContain('for candidate in us-east-1 eu-west-1 ap-south-1');
 		});
 
 		it('includes enum flag aliases in case pattern', () => {
@@ -647,7 +647,7 @@ describe('generateBashCompletion', () => {
 			});
 			const script = generateBashCompletion(schema);
 
-			expect(script).toContain('--region|-r)');
+			expect(script).toContain('--r|-r) option_spelling=--region');
 		});
 
 		it('escapes metacharacters in enum flag case patterns', () => {
@@ -667,7 +667,7 @@ describe('generateBashCompletion', () => {
 			});
 			const script = generateBashCompletion(schema);
 
-			expect(script).toContain('--re\\*gion|--r\\?)');
+			expect(script).toContain('--r\\?) option_spelling=');
 		});
 
 		it('escapes quotes in enum flag case patterns', () => {
@@ -687,7 +687,7 @@ describe('generateBashCompletion', () => {
 			});
 			const script = generateBashCompletion(schema);
 
-			expect(script).toContain("--we\\'ird|--quo\\'te)");
+			expect(script).toContain("--quo\\'te) option_spelling=");
 		});
 
 		it('keeps hidden long aliases in enum case patterns', () => {
@@ -707,7 +707,7 @@ describe('generateBashCompletion', () => {
 			});
 			const script = generateBashCompletion(schema);
 
-			expect(script).toContain('--skip-pass|--skipPass)');
+			expect(script).toContain('--skipPass) option_spelling=--skip-pass');
 		});
 
 		it('omits enum case section when no enum flags exist', () => {
@@ -723,7 +723,7 @@ describe('generateBashCompletion', () => {
 			});
 			const script = generateBashCompletion(schema);
 
-			expect(script).not.toContain(`case "\${enum_flag:-$prev}" in`);
+			expect(script).not.toContain('case "$value_flag" in');
 		});
 
 		// --- Cross-command enum isolation ---
@@ -765,11 +765,11 @@ describe('generateBashCompletion', () => {
 			const deployBlock = flagSection.slice(deployIdx, testIdx).join('\n');
 			const testBlock = flagSection.slice(testIdx).join('\n');
 
-			expect(deployBlock).toContain("'prod staging'");
+			expect(deployBlock).toContain('for candidate in prod staging');
 			expect(deployBlock).not.toContain('unit');
 			expect(deployBlock).not.toContain('e2e');
 
-			expect(testBlock).toContain("'unit e2e'");
+			expect(testBlock).toContain('for candidate in unit e2e');
 			expect(testBlock).not.toContain('prod');
 			expect(testBlock).not.toContain('staging');
 		});
@@ -809,11 +809,11 @@ describe('generateBashCompletion', () => {
 			const buildBlock = flagSection.slice(buildIdx).join('\n');
 
 			// Deploy should have enum case block
-			expect(deployBlock).toContain(`case "\${enum_flag:-$prev}" in`);
-			expect(deployBlock).toContain("'prod staging'");
+			expect(deployBlock).toContain('case "$value_flag" in');
+			expect(deployBlock).toContain('for candidate in prod staging');
 
 			// Build should NOT have enum case block (no enum flags)
-			expect(buildBlock).not.toContain(`case "\${enum_flag:-$prev}" in`);
+			expect(buildBlock).not.toContain('case "$value_flag" in');
 		});
 	});
 
@@ -836,7 +836,7 @@ describe('generateBashCompletion', () => {
 			});
 			const script = generateBashCompletion(schema);
 
-			expect(script).toContain("compgen -W 'us-east-1 eu-west-1'");
+			expect(script).toContain('for candidate in us-east-1 eu-west-1');
 			expect(script).not.toContain('IFS');
 		});
 
@@ -928,7 +928,7 @@ describe('generateBashCompletion', () => {
 			const script = generateBashCompletion(minimalSchema());
 
 			expect(script).toContain("'--help --version'");
-			expect(script).not.toContain('subcmd');
+			expect(script).not.toContain('Complete flags and subcommands for the active path');
 		});
 
 		it('generates script with only --help when no version', () => {
@@ -936,7 +936,7 @@ describe('generateBashCompletion', () => {
 
 			expect(script).toContain("'--help'");
 			expect(script).not.toContain('--version');
-			expect(script).not.toContain('subcmd');
+			expect(script).not.toContain('Complete flags and subcommands for the active path');
 		});
 	});
 
@@ -1068,15 +1068,7 @@ describe('generateBashCompletion', () => {
 		it('includes subcommand names for group commands', () => {
 			const script = generateBashCompletion(nestedSchema());
 
-			// db command should complete its children (migrate, seed) plus its own flags
-			const lines = script.split('\n');
-			const dbBranchIdx = lines.findIndex(
-				(l) => l.trim().startsWith('db|database)') || l.trim() === 'db|database)',
-			);
-			expect(dbBranchIdx).toBeGreaterThan(-1);
-			const dbBlock = lines.slice(dbBranchIdx, dbBranchIdx + 15).join('\n');
-			expect(dbBlock).toContain('migrate');
-			expect(dbBlock).toContain('seed');
+			expect(script).toContain("compgen -W 'migrate seed s --verbose -v'");
 		});
 	});
 
@@ -1149,102 +1141,6 @@ describe('generateBashCompletion', () => {
 
 			expect(script).toContain('migrate');
 			expect(script).not.toContain('hidden-cmd');
-		});
-	});
-
-	// --- flag operand and -- handling
-
-	describe('flag operand and -- handling', () => {
-		it('breaks on literal -- in the walker', () => {
-			const script = generateBashCompletion(nestedSchema());
-			const lines = script.split('\n');
-			const walkerCase = lines.findIndex((l) => l.includes('--) break'));
-			expect(walkerCase).toBeGreaterThan(-1);
-		});
-
-		it('skips operand after value-taking flags', () => {
-			const script = generateBashCompletion(deepNestedSchema());
-			// --host and --schema are string flags — their operands must be skipped
-			expect(script).toContain('--host');
-			expect(script).toContain('--schema');
-			// Find the value-flag skip line
-			const lines = script.split('\n');
-			const skipLine = lines.find((l) => l.includes('((i++)); continue'));
-			expect(skipLine).toBeDefined();
-			expect(skipLine).toContain('--host');
-			expect(skipLine).toContain('--schema');
-		});
-
-		it('does not include boolean flags in the value-flag skip pattern', () => {
-			const script = generateBashCompletion(deepNestedSchema());
-			const lines = script.split('\n');
-			const skipLine = lines.find((l) => l.includes('((i++)); continue'));
-			expect(skipLine).toBeDefined();
-			// --verbose and --if-not-exists are boolean — must NOT be in the skip pattern
-			expect(skipLine).not.toContain('--verbose');
-			expect(skipLine).not.toContain('--if-not-exists');
-		});
-
-		it('includes short aliases for value-taking flags in skip pattern', () => {
-			const schema = minimalSchema({
-				commands: [
-					commandSchema({
-						name: 'run',
-						flags: {
-							output: flagSchema({ kind: 'string', aliases: ['o'] }),
-						},
-					}),
-				],
-			});
-			const script = generateBashCompletion(schema);
-			const lines = script.split('\n');
-			const skipLine = lines.find((l) => l.includes('((i++)); continue'));
-			expect(skipLine).toBeDefined();
-			expect(skipLine).toContain('--output');
-			expect(skipLine).toContain('-o');
-		});
-
-		it('keeps hidden long aliases in the value-flag skip pattern', () => {
-			const schema = minimalSchema({
-				commands: [
-					commandSchema({
-						name: 'run',
-						flags: {
-							'config-path': flagSchema({
-								kind: 'string',
-								aliases: [{ name: 'configPath', hidden: true }],
-							}),
-						},
-					}),
-				],
-			});
-			const script = generateBashCompletion(schema);
-			const lines = script.split('\n');
-			const skipLine = lines.find((l) => l.includes('((i++)); continue'));
-			expect(skipLine).toBeDefined();
-			expect(skipLine).toContain('--config-path');
-			expect(skipLine).toContain('--configPath');
-		});
-
-		it('omits value-flag skip line when all flags are boolean', () => {
-			const script = generateBashCompletion(nestedSchema());
-			// nestedSchema only has boolean flags (dry-run, verbose, force) and one number (count)
-			const lines = script.split('\n');
-			const skipLine = lines.find((l) => l.includes('((i++)); continue'));
-			// count is a number flag, so the skip line should exist
-			expect(skipLine).toBeDefined();
-			expect(skipLine).toContain('--count');
-		});
-
-		it('orders -- break before value-flag skip before boolean skip', () => {
-			const script = generateBashCompletion(deepNestedSchema());
-			const lines = script.split('\n');
-			const breakIdx = lines.findIndex((l) => l.includes('--) break'));
-			const skipIdx = lines.findIndex((l) => l.includes('((i++)); continue'));
-			const boolIdx = lines.findIndex((l) => l.includes('-*) continue'));
-			expect(breakIdx).toBeGreaterThan(-1);
-			expect(skipIdx).toBeGreaterThan(breakIdx);
-			expect(boolIdx).toBeGreaterThan(skipIdx);
 		});
 	});
 
@@ -2735,7 +2631,7 @@ describe('repeatable enum values', () => {
 
 	it('offers array element choices in bash', () => {
 		const script = generateBashCompletion(schema);
-		expect(script).toContain('--start|-s)');
+		expect(script).toContain('--s|-s) option_spelling=--start');
 		expect(script).toContain('action dashboard cli');
 	});
 

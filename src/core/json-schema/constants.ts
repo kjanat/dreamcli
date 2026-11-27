@@ -23,4 +23,7 @@ const DEFINITION_SCHEMA_URL = 'https://dreamcli.kjanat.dev/schemas/definition/v1
  */
 const DEFINITION_SCHEMA_VERSION = 1;
 
-export { DEFINITION_SCHEMA_URL, DEFINITION_SCHEMA_VERSION };
+/** Meta-schema URL for JSON Schema draft 2020-12 (input validation). */
+const JSON_SCHEMA_DRAFT = 'https://json-schema.org/draft/2020-12/schema';
+
+export { DEFINITION_SCHEMA_URL, DEFINITION_SCHEMA_VERSION, JSON_SCHEMA_DRAFT };

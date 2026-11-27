@@ -15,13 +15,9 @@ import type {
 	FlagKind,
 	FlagSchema,
 } from '#internals/core/schema/index.ts';
+import { definitionMetaSchema } from './definition-meta-schema.ts';
 import type { FlagElementFragmentV1 } from './index.ts';
-import {
-	definitionMetaSchema,
-	generateCommandSchema,
-	generateInputSchema,
-	generateSchema,
-} from './index.ts';
+import { generateCommandSchema, generateInputSchema, generateSchema } from './index.ts';
 
 // === Test helpers
 
