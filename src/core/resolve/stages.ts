@@ -25,7 +25,7 @@ import type { CliFinish, CoerceResult } from './coerce.ts';
 import { resolveConfigPath } from './config.ts';
 import type { ResolutionProvenance } from './contracts.ts';
 import type { IndexedEnvRead } from './indexed-env.ts';
-import { readIndexedEnv } from './indexed-env.ts';
+import { readEnv, readIndexedEnv } from './indexed-env.ts';
 
 /** What the parser produced for one input in this invocation. */
 type CliValue =
@@ -223,7 +223,7 @@ function envStage(
 	state: StageState,
 ): StageOutcome {
 	if ('indexed' in binding) {
-		const read = readIndexedEnv(binding.indexed, state.env);
+		const read = readIndexedEnv(binding.indexed, state.env, binding.empty);
 		if (read.kind === 'absent') return ABSENT;
 		const result = input.coerceIndexed(binding, read);
 		if (!result.ok) return { kind: 'error', error: result.error };
@@ -241,9 +241,7 @@ function envStage(
 		};
 	}
 	const envVar = binding.envVar;
-	// An env var named after an Object.prototype member would otherwise read
-	// that inherited method as a supplied value.
-	const raw = Object.hasOwn(state.env, envVar) ? state.env[envVar] : undefined;
+	const raw = readEnv(state.env, envVar, binding.empty);
 	if (raw === undefined) return ABSENT;
 	return coerced(input, binding, raw, { stage: 'env', envVar });
 }

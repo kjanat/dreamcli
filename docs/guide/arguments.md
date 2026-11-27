@@ -469,6 +469,25 @@ command('auth')
 
 If `API_TOKEN=secret` and no CLI value is provided, `args.token === 'secret'`.
 
+For a variadic argument, an empty environment variable normally supplies an
+empty list. To use the default cask selection when `CASK=''`, set the policy
+on the binding:
+
+```ts twoslash
+import { arg } from '@kjanat/dreamcli';
+
+const names = ['alpha', 'beta'] as const;
+arg
+  .enum(names)
+  .variadic()
+  .env('CASK', { empty: 'missing' })
+  .unique()
+  .default([...names]);
+```
+
+An explicit positional selection still wins. A nonempty variable such as
+`CASK=','` goes through normal collection splitting.
+
 Under a CLI-wide [environment namespace](/guide/flags#env-namespace),
 `.env('TARGET')` reads the prefixed name, such as `FOO_TARGET`; pass
 `{ absolute: true }` to read it as written. `.env()` without a name derives the

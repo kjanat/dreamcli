@@ -244,6 +244,21 @@ interface EnvOptions {
 	 * @defaultValue `false` (the name is relative to the CLI namespace)
 	 */
 	readonly absolute?: boolean;
+	/**
+	 * With `'missing'`, a zero-length value lets resolution continue to the next source.
+	 * For indexed families this applies to the count variable only.
+	 */
+	readonly empty?: 'missing';
+}
+
+/** Validate the empty-value policy supplied by a builder or schema definition. */
+function normalizeEnvEmpty(empty: EnvOptions['empty']): EnvOptions['empty'] {
+	if (empty === undefined || empty === 'missing') return empty;
+	throw new CLIError('Unknown empty environment value policy', {
+		code: 'INVALID_SCHEMA',
+		details: { field: 'envEmpty' },
+		suggest: "Use 'missing' or omit the empty policy",
+	});
 }
 
 /**
@@ -475,6 +490,7 @@ export {
 	indexedEnvMembers,
 	isIndexedEnvBinding,
 	MAX_INDEXED_ENV_COUNT,
+	normalizeEnvEmpty,
 	normalizeEnvPrefix,
 	normalizeIndexedEnvBinding,
 };

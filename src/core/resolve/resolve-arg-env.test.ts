@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { isValidationError, type ValidationError } from '#internals/core/errors/index.ts';
 import type { ParseResult } from '#internals/core/parse/index.ts';
-import { createArgSchema } from '#internals/core/schema/arg.ts';
+import { arg, createArgSchema } from '#internals/core/schema/arg.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
-import { createCommandSchema } from '#internals/core/schema/command.ts';
+import { command, createCommandSchema } from '#internals/core/schema/command.ts';
+import { flag } from '#internals/core/schema/flag.ts';
+import { runCommand } from '#internals/core/testkit/index.ts';
 import type { ResolveOptions } from './index.ts';
 import { resolve } from './index.ts';
 
@@ -20,6 +22,52 @@ function makeParsed(overrides: Partial<ParseResult> = {}): ParseResult {
 		...overrides,
 	};
 }
+
+describe('empty environment policy', () => {
+	const names = ['alpha', 'beta'] as const;
+	const check = command('check')
+		.arg(
+			'casks',
+			arg
+				.enum(names)
+				.variadic()
+				.env('CASK', { empty: 'missing' })
+				.unique()
+				.config('selection')
+				.default([...names]),
+		)
+		.action(({ args, sources, out }) => out.json([args.casks, sources.args.casks?.stage]));
+
+	it.each([
+		[[], {}, {}, names, 'default'],
+		[[], { CASK: '' }, {}, names, 'default'],
+		[[], { CASK: '' }, { selection: ['beta'] }, ['beta'], 'config'],
+		[[], { CASK: 'beta' }, {}, ['beta'], 'env'],
+		[[], { CASK: ',' }, {}, [], 'env'],
+		[['alpha'], { CASK: 'beta' }, {}, ['alpha'], 'cli'],
+	] as const)(
+		'resolves argv %j, env %j and config %j',
+		async (argv, env, config, expected, stage) => {
+			const result = await runCommand(check, [...argv], { env, config });
+			expect(result.stdout.join('')).toBe(`${JSON.stringify([expected, stage])}\n`);
+		},
+	);
+
+	it('checks derived flag names before decoding and preserves explicit empty strings by default', async () => {
+		const cmd = command('read')
+			.flag('port', flag.number().env({ empty: 'missing' }).default(42))
+			.flag('text', flag.string().env('TEXT', { empty: 'missing' }).default('fallback'))
+			.flag('literal', flag.string().env('TEXT').default('fallback'))
+			.action(({ flags, out }) => out.json([flags.port, flags.text, flags.literal]));
+		const result = await runCommand(cmd, [], {
+			envPrefix: 'APP_',
+			env: { APP_PORT: '', APP_TEXT: '' },
+		});
+		expect(result.stdout.join('')).toBe('[42,"fallback",""]\n');
+		const spaces = await runCommand(cmd, [], { env: { TEXT: '  ' } });
+		expect(spaces.stdout.join('')).toBe('[42,"  ","  "]\n');
+	});
+});
 
 // === resolve
 

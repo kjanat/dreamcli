@@ -58,7 +58,12 @@ type SourceBinding =
 			readonly trim: boolean;
 			readonly split: SplitPolicy;
 	  }
-	| { readonly stage: 'env'; readonly envVar: string; readonly split: SplitPolicy }
+	| {
+			readonly stage: 'env';
+			readonly envVar: string;
+			readonly empty?: 'missing';
+			readonly split: SplitPolicy;
+	  }
 	| IndexedEnvSourceBinding
 	| { readonly stage: 'config'; readonly configPath: string; readonly split: SplitPolicy }
 	| { readonly stage: 'prompt'; readonly prompt: PromptConfig; readonly split: SplitPolicy }
@@ -75,6 +80,8 @@ interface IndexedEnvSourceBinding {
 	readonly stage: 'env';
 	/** The family to read. */
 	readonly indexed: IndexedEnvBinding;
+	/** Empty-value policy for the count variable. */
+	readonly empty?: 'missing';
 }
 
 /** The env source of an input, by name or as an indexed family. */
@@ -140,12 +147,14 @@ function sourceBindings(
 	if (schema.envVar !== undefined) {
 		bindings.push({
 			stage: 'env',
+			...(schema.envEmpty === undefined ? {} : { empty: schema.envEmpty }),
 			envVar: effectiveEnvName(schema.envVar, envPrefix, schema.envAbsolute),
 			split: splitting.env,
 		});
 	} else if (schema.envIndexed !== undefined) {
 		bindings.push({
 			stage: 'env',
+			...(schema.envEmpty === undefined ? {} : { empty: schema.envEmpty }),
 			indexed: effectiveIndexedEnvBinding(schema.envIndexed, envPrefix, schema.envAbsolute),
 		});
 	}

@@ -10,7 +10,7 @@
  * @internal
  */
 
-import type { IndexedEnvBinding } from '#internals/core/schema/env-binding.ts';
+import type { EnvOptions, IndexedEnvBinding } from '#internals/core/schema/env-binding.ts';
 import {
 	expandEnvTemplate,
 	indexedEnvMembers,
@@ -76,13 +76,16 @@ const CANONICAL_COUNT = /^(?:0|[1-9][0-9]*)$/;
  *
  * @param env - The environment snapshot.
  * @param name - The concrete variable name.
+ * @param empty - How to handle a zero-length value.
  * @returns The variable's value, or `undefined` when it is unset.
  */
 function readEnv(
 	env: Readonly<Record<string, string | undefined>>,
 	name: string,
+	empty?: EnvOptions['empty'],
 ): string | undefined {
-	return Object.hasOwn(env, name) ? env[name] : undefined;
+	const raw = Object.hasOwn(env, name) ? env[name] : undefined;
+	return raw === '' && empty === 'missing' ? undefined : raw;
 }
 
 /**
@@ -91,23 +94,24 @@ function readEnv(
  * An unset count means the env source supplied nothing. A set count claims the
  * input, so from there every problem is a fault rather than an absence: a
  * count that is not a canonical non-negative integer, a count above the limit,
- * or a declared entry missing one of its members. An empty string counts as
- * set, for the count and for members alike; whether `''` is a valid member is
- * the input schema's call.
+ * or a declared entry missing one of its members. With the 'missing' policy, an empty
+ * count also skips the env stage. Empty members reach the input's decoder.
  *
  * Indices are enumerated from the count, never discovered by scanning the
  * snapshot, so unrelated variables and the snapshot's key order play no part.
  *
  * @param binding - The normalized family to read.
  * @param env - The environment snapshot.
+ * @param empty - How to handle an empty count.
  * @returns The entries, the first fault, or `absent`.
  */
 function readIndexedEnv(
 	binding: IndexedEnvBinding,
 	env: Readonly<Record<string, string | undefined>>,
+	empty?: EnvOptions['empty'],
 ): IndexedEnvRead {
 	const countVar = binding.count;
-	const rawCount = readEnv(env, countVar);
+	const rawCount = readEnv(env, countVar, empty);
 	if (rawCount === undefined) return { kind: 'absent' };
 	if (!CANONICAL_COUNT.test(rawCount)) {
 		return { kind: 'fault', fault: { kind: 'count', countVar, raw: rawCount } };
@@ -149,4 +153,4 @@ function readIndexedEnv(
 }
 
 export type { IndexedEnvEntries, IndexedEnvEntry, IndexedEnvFault, IndexedEnvRead };
-export { readIndexedEnv };
+export { readEnv, readIndexedEnv };

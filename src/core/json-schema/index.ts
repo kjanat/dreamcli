@@ -307,6 +307,7 @@ type FlagElementFragmentV1 = {
  * only for non-sensitive inputs when the value survives a JSON round-trip.
  */
 type FlagDefinitionFragmentV1 = FlagElementFragmentV1 & {
+	readonly envEmpty?: 'missing';
 	readonly completionValues?: readonly string[];
 	readonly defaultDescription?: string | false;
 	readonly sensitive?: true;
@@ -354,6 +355,7 @@ type ArgDefinitionFragmentV1 = {
 	readonly envVar?: string;
 	readonly envIndexed?: EnvIndexedFragmentV1;
 	readonly envAbsolute?: true;
+	readonly envEmpty?: 'missing';
 	readonly configPath?: string;
 	readonly enumValues?: readonly string[];
 	readonly elementSchema?: ArgElementFragmentV1;
@@ -651,6 +653,7 @@ function serializeFlag(
 			? { envIndexed: serializeEnvIndexed(schema.envIndexed) }
 			: {}),
 		...(schema.envAbsolute ? { envAbsolute: true } : {}),
+		...(schema.envEmpty === undefined ? {} : { envEmpty: schema.envEmpty }),
 		...(schema.configPath !== undefined ? { configPath: schema.configPath } : {}),
 		...(schema.description !== undefined
 			? { description: resolvePlainHelpDescription(schema.description) }
@@ -789,6 +792,7 @@ function serializeArgValue(schema: ArgSchema, opts: ResolvedOptions): ArgValueFr
 			? { envIndexed: serializeEnvIndexed(schema.envIndexed) }
 			: {}),
 		...(schema.envAbsolute ? { envAbsolute: true } : {}),
+		...(schema.envEmpty === undefined ? {} : { envEmpty: schema.envEmpty }),
 		...(schema.configPath !== undefined ? { configPath: schema.configPath } : {}),
 		...(schema.enumValues !== undefined ? { enumValues: [...schema.enumValues] } : {}),
 		...(schema.elementSchema !== undefined
@@ -1477,6 +1481,7 @@ const argValueFragmentProperties = {
 	envVar: { type: 'string' },
 	envIndexed: { $ref: '#/$defs/envIndexed' },
 	envAbsolute: { const: true },
+	envEmpty: { const: 'missing' },
 	configPath: { type: 'string' },
 	enumValues: { type: 'array', items: { type: 'string' } },
 	elementSchema: { $ref: '#/$defs/argElement' },
@@ -1540,6 +1545,7 @@ const flagElementFragmentProperties = {
 /** Property schemas supported by a top-level flag definition. */
 const flagFragmentProperties = {
 	...flagElementFragmentProperties,
+	envEmpty: { const: 'missing' },
 	completionValues: { type: 'array', items: { type: 'string' } },
 	defaultDescription: { oneOf: [{ type: 'string' }, { const: false }] },
 	sensitive: { const: true },
@@ -1616,7 +1622,10 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 				properties: flagFragmentProperties,
 				required: ['kind', 'presence'],
 				not: { required: ['envVar', 'envIndexed'] },
-				dependentSchemas: { envAbsolute: { $ref: '#/$defs/envBound' } },
+				dependentSchemas: {
+					envAbsolute: { $ref: '#/$defs/envBound' },
+					envEmpty: { $ref: '#/$defs/envBound' },
+				},
 			},
 			flagElement: {
 				type: 'object',
@@ -1755,7 +1764,10 @@ const definitionMetaSchema: Record<string, unknown> = withDefinitionMetaSchemaDe
 					{ properties: { kind: { const: 'keyValue' } }, required: ['kind'] },
 				],
 				not: { required: ['envVar', 'envIndexed'] },
-				dependentSchemas: { envAbsolute: { $ref: '#/$defs/envBound' } },
+				dependentSchemas: {
+					envAbsolute: { $ref: '#/$defs/envBound' },
+					envEmpty: { $ref: '#/$defs/envBound' },
+				},
 			},
 			prompt: {
 				type: 'object',

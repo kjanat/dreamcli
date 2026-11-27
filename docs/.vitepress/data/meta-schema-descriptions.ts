@@ -104,6 +104,7 @@ const DEF_PROPERTY_TARGETS: Readonly<Record<string, Readonly<Record<string, Node
 	},
 	flag: {
 		...FLAG_PROPERTY_TARGETS,
+		envEmpty: { exportId: 'dreamcli:FlagSchema', property: 'envEmpty' },
 		completionValues: { exportId: 'dreamcli:FlagSchema', property: 'completionValues' },
 		group: { exportId: 'dreamcli:FlagSchema', property: 'group' },
 		advanced: { exportId: 'dreamcli:FlagSchema', property: 'advanced' },
@@ -139,6 +140,7 @@ const DEF_PROPERTY_TARGETS: Readonly<Record<string, Readonly<Record<string, Node
 		envVar: { exportId: 'dreamcli:ArgSchema', property: 'envVar' },
 		envIndexed: { exportId: 'dreamcli:ArgSchema', property: 'envIndexed' },
 		envAbsolute: { exportId: 'dreamcli:ArgSchema', property: 'envAbsolute' },
+		envEmpty: { exportId: 'dreamcli:ArgSchema', property: 'envEmpty' },
 		configPath: { exportId: 'dreamcli:ArgSchema', property: 'configPath' },
 		prompt: { exportId: 'dreamcli:ArgSchema', property: 'prompt' },
 		enumValues: { exportId: 'dreamcli:ArgSchema', property: 'enumValues' },
