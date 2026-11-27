@@ -6,7 +6,7 @@
 
 import { arg, CLIError, flag, group } from '@kjanat/dreamcli';
 
-import issues from '../data/issues.yaml' with { type: 'yaml' };
+import issues from '../data/issues.yaml';
 import { authedCommand } from '../lib/auth.ts';
 import { normalizeLimit } from '../lib/utils.ts';
 
