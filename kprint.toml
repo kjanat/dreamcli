@@ -1,4 +1,5 @@
 #:schema https://raw.githubusercontent.com/kjanat/kjanat/refs/heads/master/schemas/dprint.schema.json
+#:tombi toml-version = "v1.1.0"
 
 useTabs     = true
 indentWidth = 2
@@ -77,17 +78,25 @@ cwd          = "${configDir}"
 associations = ["!**"]
 
 [[exec.commands]]
-exts    = ["js", "json", "jsonc", "ts"]
-command = [
-  "node_modules/.bin/biome",
-  "format",
-  "--stdin-file-path={{file_path}}",
-  "--javascript-formatter-enabled=true",
-  "--javascript-formatter-indent-style=space",
-  "--javascript-formatter-indent-width={{indent_width}}",
-  "--javascript-formatter-line-width={{line_width}}",
-  "--json-formatter-enabled=true",
-  "--json-formatter-indent-style=space",
-  "--json-formatter-indent-width={{indent_width}}",
-  "--json-formatter-line-width={{line_width}}",
-]
+exts         = ["js", "json", "jsonc", "ts"]
+command      = {
+  executable = "./node_modules/biome/bin/biome",
+  args       = [
+    "format",
+    "--stdin-file-path={{file_path}}",
+    "--javascript-formatter-enabled=true",
+    "--javascript-formatter-indent-style=space",
+    "--javascript-formatter-indent-width={{indent_width}}",
+    "--javascript-formatter-line-width={{line_width}}",
+    "--json-formatter-enabled=true",
+    "--json-formatter-indent-style=space",
+    "--json-formatter-indent-width={{indent_width}}",
+    "--json-formatter-line-width={{line_width}}",
+  ],
+  env        = { MISE_DISABLE_TOOLS = "biome,aqua:biomejs/biome,kprint" },
+}
+setupCommand = {
+  executable = "bun",
+  args       = ["i", "biome@npm:@biomejs/biome", "--ignore-scripts", "--prefer-offline", "--only-missing", "--no-save"],
+  env        = { MISE_DISABLE_TOOLS = "biome,aqua:biomejs/biome,kprint" },
+}
