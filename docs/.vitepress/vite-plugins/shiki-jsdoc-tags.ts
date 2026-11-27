@@ -12,7 +12,7 @@
  * @module
  */
 
-import type { ShikiTransformer } from '@shikijs/transformers';
+import type { ShikiTransformer } from '@shikijs/core';
 
 /**
  * Matches `{@linkcode ref | display}` or `{@linkcode ref}`.

@@ -15,7 +15,9 @@ import {
 	toSymbolPageRoute,
 } from './data/symbol-pages.ts';
 import { dreamcliDocsPlugin, shikiClasses } from './vite-plugins/index.ts';
+import { localSearchPayload } from './vite-plugins/local-search-payload.ts';
 import { fixTsProcessedLinkcode, transformerJSDocTags } from './vite-plugins/shiki-jsdoc-tags.ts';
+import { twoslashPayloads } from './vite-plugins/twoslash-payloads.ts';
 
 const projectRoot = normalize(`${import.meta.dirname}/../..`);
 
@@ -25,6 +27,8 @@ const projectRoot = normalize(`${import.meta.dirname}/../..`);
 execFileSync('bun', ['scripts/emit-definition-schema.ts'], { cwd: projectRoot });
 const exampleMeta = await collectExampleMeta(examplesRoot);
 const apiIndex = await collectPublicApiIndex(packageJsonPath);
+const isGithubActions = Boolean(env.GITHUB_ACTIONS);
+const sitePrefix = isGithubActions ? '/dreamcli' : '';
 const symbolRoutes = new Map<string, string>();
 {
 	const allSymbols = apiIndex.flatMap((ep) =>
@@ -36,18 +40,16 @@ const symbolRoutes = new Map<string, string>();
 
 	for (const sym of allSymbols) {
 		if (symbolRoutes.has(sym.name)) continue;
-		symbolRoutes.set(
-			sym.name,
-			toSymbolPageRoute(sym.entrypoint, sym.name, {
-				publicKind: sym.kind,
-				hasCaseInsensitiveCollision: collisions.has(toCollisionKey(sym.entrypoint, sym.name)),
-			}),
-		);
+		const route = toSymbolPageRoute(sym.entrypoint, sym.name, {
+			publicKind: sym.kind,
+			hasCaseInsensitiveCollision: collisions.has(toCollisionKey(sym.entrypoint, sym.name)),
+		});
+		symbolRoutes.set(sym.name, `${sitePrefix}${route}`);
 	}
 }
 const isCI = Boolean(env.CI);
 const ifCI = (ifCiThen: string, ifNotCiThen: string) => (isCI ? ifCiThen : ifNotCiThen);
-const isGithubActions = Boolean(env.GITHUB_ACTIONS);
+const popups = twoslashPayloads();
 
 const compilerOptions = {
 	baseUrl: projectRoot,
@@ -72,7 +74,7 @@ export default defineConfig({
 	title: pkg.name,
 	description: pkg.description,
 	cleanUrls: true,
-	base: isGithubActions ? '/dreamcli' : '/',
+	base: `${sitePrefix}/`,
 	sitemap: {
 		hostname: isGithubActions
 			? 'https://kjanat.github.io/dreamcli'
@@ -84,7 +86,7 @@ export default defineConfig({
 			{
 				rel: 'icon',
 				type: 'image/svg+xml',
-				href: '/favicon.svg',
+				href: `${sitePrefix}/favicon.svg`,
 				media: '(prefers-color-scheme: light)',
 			},
 		],
@@ -93,7 +95,7 @@ export default defineConfig({
 			{
 				rel: 'icon',
 				type: 'image/svg+xml',
-				href: '/favicon-dark.svg',
+				href: `${sitePrefix}/favicon-dark.svg`,
 				media: '(prefers-color-scheme: dark)',
 			},
 		],
@@ -101,7 +103,7 @@ export default defineConfig({
 			'link',
 			{
 				rel: 'apple-touch-icon',
-				href: '/apple-touch-icon.png',
+				href: `${sitePrefix}/apple-touch-icon.png`,
 				sizes: '180x180',
 			},
 		],
@@ -110,7 +112,7 @@ export default defineConfig({
 			{
 				rel: 'manifest',
 				type: 'application/manifest+json',
-				href: '/manifest.json',
+				href: `${sitePrefix}/manifest.json`,
 			},
 		],
 		['meta', { name: 'theme-color', content: '#f8f3e7' }],
@@ -310,11 +312,12 @@ export default defineConfig({
 			}),
 			transformerJSDocTags({ symbolRoutes }),
 			shikiClasses,
+			popups.transformer,
 		],
 		languages: ['bash', 'js', 'jsx', 'json', 'ts', 'tsx'],
 	},
 	vite: {
-		plugins: dreamcliDocsPlugin(),
+		plugins: [...dreamcliDocsPlugin(), popups.plugin, localSearchPayload()],
 		ssr: { noExternal: ['vue'] },
 		build: {
 			chunkSizeWarningLimit: 600,
