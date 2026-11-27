@@ -10,12 +10,17 @@
  * @internal
  */
 
-import { adjacentArgvValue, removeArgvToken } from '#internals/core/parse/argv-boundaries.ts';
+import {
+	adjacentArgvValue,
+	isHyphenOperand,
+	removeArgvToken,
+} from '#internals/core/parse/argv-boundaries.ts';
 import type { FlagLookupEntry, ParseOptions } from '#internals/core/parse/index.ts';
 import {
 	buildFlagLookup,
 	consumesSeparateBoolean,
 	flagExpectsValue,
+	followingValueFlag,
 	variadicLongValueCount,
 } from '#internals/core/parse/index.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';
@@ -118,20 +123,14 @@ function dispatch(
 	let cmdIdx = -1;
 	for (let i = 0; i < argv.length; i++) {
 		const token = argv[i];
-		if (token === undefined) continue;
+		if (token === undefined || isHyphenOperand(argv, i)) continue;
 		if (token === '--') {
 			// End-of-flags marker: next token (if any) is the command name.
 			if (i + 1 < argv.length) cmdIdx = i + 1;
 			break;
 		}
 		if (token.startsWith('-')) {
-			const equals = token.indexOf('=');
-			const name = token.slice(2, equals < 0 ? undefined : equals);
-			if (token.startsWith('--') && valueFlags.get(name)?.schema.variadic === true) {
-				i += variadicLongValueCount(argv, i, valueFlags, equals >= 0);
-			} else if (consumesFollowingToken(token, valueFlags, adjacentArgvValue(argv, i))) {
-				i++;
-			}
+			i += followingDispatchValueCount(argv, i, token, valueFlags);
 			continue;
 		}
 		cmdIdx = i;
@@ -266,25 +265,31 @@ function consumesFollowingToken(
 	valueFlags: ValueFlagLookup,
 	next?: string,
 ): boolean {
-	if (token.startsWith('--')) {
-		if (token.includes('=')) return false;
-		const entry = valueFlags.get(token.slice(2));
-		return (
-			entry !== undefined &&
-			(flagExpectsValue(entry.schema) || consumesSeparateBoolean(entry, next))
-		);
-	}
+	const entry = followingValueFlag(token, valueFlags);
+	return (
+		entry !== undefined && (flagExpectsValue(entry.schema) || consumesSeparateBoolean(entry, next))
+	);
+}
 
-	// Short flag group (`-abc`). A value attaches to the trailing flag only; an
-	// earlier value-flag char swallows the remaining chars as an inline value.
-	const chars = token.slice(1);
-	for (let i = 0; i < chars.length; i++) {
-		const entry = valueFlags.get(chars.charAt(i));
-		if (entry === undefined) return false;
-		if (!flagExpectsValue(entry.schema)) continue;
-		return i === chars.length - 1;
+/** Count operands that can affect which positional token dispatch sees next. */
+function followingDispatchValueCount(
+	argv: readonly string[],
+	index: number,
+	token: string,
+	valueFlags: ValueFlagLookup | undefined,
+): number {
+	if (valueFlags === undefined) return 0;
+	if (token.startsWith('--')) {
+		const equals = token.indexOf('=');
+		const name = token.slice(2, equals === -1 ? undefined : equals);
+		if (valueFlags.get(name)?.schema.variadic === true) {
+			if (isHyphenOperand(argv, index + 1)) {
+				return 1 + variadicLongValueCount(argv, index + 1, valueFlags, true);
+			}
+			return variadicLongValueCount(argv, index, valueFlags, equals !== -1);
+		}
 	}
-	return false;
+	return consumesFollowingToken(token, valueFlags, adjacentArgvValue(argv, index)) ? 1 : 0;
 }
 
 // --- "Did you mean?" suggestion
@@ -393,4 +398,11 @@ export type {
 	DispatchUnknown,
 	ValueFlagLookup,
 };
-export { consumesFollowingToken, dispatch, findClosestCommand, levenshtein, uniqueCommands };
+export {
+	consumesFollowingToken,
+	dispatch,
+	findClosestCommand,
+	followingDispatchValueCount,
+	levenshtein,
+	uniqueCommands,
+};

@@ -17,7 +17,12 @@
 
 import { ParseError } from '#internals/core/errors/index.ts';
 import type { Verbosity } from '#internals/core/output/contracts.ts';
-import { hasArgvBoundary, markArgvBoundaries } from '#internals/core/parse/argv-boundaries.ts';
+import {
+	hasArgvBoundary,
+	isHyphenOperand,
+	markArgvBoundaries,
+	pushArgvToken,
+} from '#internals/core/parse/argv-boundaries.ts';
 import { coerceFlagValue } from '#internals/core/parse/index.ts';
 import { type FlagSchema, flag } from '#internals/core/schema/flag.ts';
 import type { BuiltinsConfig } from './builtins.ts';
@@ -157,9 +162,13 @@ function readRootOutputFlags(argv: readonly string[], builtins?: BuiltinsConfig)
 
 	for (const [index, token] of head.entries()) {
 		if (hasArgvBoundary(argv, index)) boundaries.add(keptHead.length);
+		if (isHyphenOperand(argv, index)) {
+			pushArgvToken(keptHead, argv, index, token);
+			continue;
+		}
 		const match = matchRootToken(token, builtins);
 		if (match.kind === 'unrelated') {
-			keptHead.push(token);
+			pushArgvToken(keptHead, argv, index, token);
 			continue;
 		}
 		stripped = true;
@@ -174,11 +183,8 @@ function readRootOutputFlags(argv: readonly string[], builtins?: BuiltinsConfig)
 	}
 
 	if (hasArgvBoundary(argv, head.length)) boundaries.add(keptHead.length);
-	const strippedArgv = !stripped
-		? argv
-		: separatorIndex === -1
-			? keptHead
-			: [...keptHead, ...argv.slice(separatorIndex)];
+	if (stripped && separatorIndex !== -1) keptHead.push(...argv.slice(separatorIndex));
+	const strippedArgv = stripped ? keptHead : argv;
 	const resolved = { json: selections.json, quiet: selections.quiet, argv: strippedArgv };
 	if (stripped) markArgvBoundaries(strippedArgv, boundaries);
 	const error = errors.values().next().value;
@@ -221,4 +227,4 @@ function resolveRootVerbosity(
 }
 
 export type { RootOutputFlagName, RootOutputFlags };
-export { readRootOutputFlags, resolveRootJsonMode, resolveRootVerbosity };
+export { matchRootToken, readRootOutputFlags, resolveRootJsonMode, resolveRootVerbosity };

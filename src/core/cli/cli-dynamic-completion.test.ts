@@ -29,7 +29,135 @@ it('completes flag-shaped first values and a lone dash after earlier values', as
 	const first = await app.execute(['__complete', '--', 'build', '--args', '--lo']);
 	expect(first.stdout).toEqual(['--load\n']);
 	const later = await app.execute(['__complete', '--', 'build', '--args', 'one', '-']);
-	expect(later.stdout).toEqual(['--load\n', '-\n']);
+	expect(later.stdout).toEqual(['-\n']);
+});
+
+it('filters dynamic suggestions by the value slot they will occupy', async () => {
+	const candidates = () => ['--', '--quiet', '--unknown', '-', 'plain'];
+	const app = cli('demo').default(
+		command('take')
+			.flag(
+				'items',
+				flag.array(flag.string(), { variadic: true }).allowHyphenValues().complete(candidates),
+			)
+			.flag('token', flag.string().allowHyphenValues().complete(candidates))
+			.flag('label', flag.string().complete(candidates))
+			.action(unexpected),
+	);
+	async function complete(...argv: string[]) {
+		return (await app.execute(['__complete', '--', ...argv])).stdout;
+	}
+	expect(await complete('--items', '')).toEqual(['--quiet\n', '--unknown\n', '-\n', 'plain\n']);
+	expect(await complete('--items', 'first', '-')).toEqual(['-\n']);
+	expect(await complete('--items=first', '-')).toEqual(['-\n']);
+	expect(await complete('--token', '')).toEqual(['--quiet\n', '--unknown\n', '-\n', 'plain\n']);
+	expect(await complete('--label', '')).toEqual(['-\n', 'plain\n']);
+	expect(await complete('--items=--')).toEqual([
+		'--items=--\n',
+		'--items=--quiet\n',
+		'--items=--unknown\n',
+	]);
+});
+
+it('offers framework spellings as variadic values only when the invocation can keep them', async () => {
+	const values = [
+		'--quiet',
+		'-q',
+		'--json=false',
+		'--version',
+		'-V',
+		'--completions=bash',
+		'--config=choice',
+		'--no-config',
+		'--help=inputs',
+		'--help=unregistered',
+		'--custom',
+	];
+	const app = cli('demo')
+		.version('1')
+		.config('demo', { noConfigFlag: true })
+		.completions({ as: 'flag' })
+		.default(
+			command('take')
+				.helpTopic('inputs', 'Inputs')
+				.flag(
+					'items',
+					flag.array(flag.string(), { variadic: true }).complete(() => values),
+				)
+				.action(unexpected),
+		);
+	const ask = async (...argv: string[]) =>
+		(await app.execute(['__complete', '--', ...argv])).stdout;
+	expect(await ask('--items', '-')).toEqual(['--help=unregistered\n', '--custom\n']);
+	expect(await ask('--config=first', '--items', '--config')).toEqual(['--config=choice\n']);
+	expect(await ask('--items=--quiet')).toEqual(['--items=--quiet\n']);
+	const released = app.builtins({ quiet: 'off', json: 'off' });
+	expect((await released.execute(['__complete', '--', '--items', '-'])).stdout).toEqual([
+		'--quiet\n',
+		'-q\n',
+		'--json=false\n',
+		'--help=unregistered\n',
+		'--custom\n',
+	]);
+});
+
+it('uses the same operand and separator boundaries for runtime completions as for execution', async () => {
+	const app = cli('app').command(
+		command('run')
+			.flag(
+				'token',
+				flag
+					.string()
+					.allowHyphenValues()
+					.complete(() => ['--mode']),
+			)
+			.flag(
+				'mode',
+				flag.string().complete(() => ['fast']),
+			)
+			.arg(
+				'words',
+				arg
+					.string()
+					.variadic()
+					.complete(() => ['far']),
+			),
+	);
+	for (const argv of [
+		['run', '--token', '--mode', 'fa'],
+		['run', '--token', '--', '--mode', 'fa'],
+	]) {
+		const result = await app.execute(['__complete', '--', ...argv]);
+		expect(result.stdout).toEqual(['far\n']);
+	}
+	const unclaimed = await app.execute(['__complete', '--', '--token', 'run', '--mode', 'fa']);
+	expect(unclaimed.stdout).toEqual(['fast\n']);
+});
+
+it('resolves the leaf that owns a flag-shaped value before completing a positional', async () => {
+	const app = cli('app').command(
+		group('parent')
+			.flag('mode', flag.string())
+			.command(
+				command('child')
+					.flag('token', flag.string().allowHyphenValues())
+					.arg(
+						'word',
+						arg.string().complete(() => ['far']),
+					)
+					.action(unexpected),
+			),
+	);
+	const result = await app.execute([
+		'__complete',
+		'--',
+		'parent',
+		'--token',
+		'--mode',
+		'child',
+		'fa',
+	]);
+	expect(result.stdout).toEqual(['far\n']);
 });
 
 function fixture() {

@@ -1,6 +1,11 @@
 /** Shared argv handling for config discovery and completion. @module dreamcli/core/cli/config-flag */
 import { type CLIError, ParseError } from '#internals/core/errors/index.ts';
-import { hasArgvBoundary, markArgvBoundaries } from '#internals/core/parse/argv-boundaries.ts';
+import {
+	hasArgvBoundary,
+	isHyphenOperand,
+	markArgvBoundaries,
+	pushArgvToken,
+} from '#internals/core/parse/argv-boundaries.ts';
 
 /** Extract runtime config flags and report conflicts before dispatch or completion. @internal */
 function extractConfigFlag(
@@ -24,6 +29,10 @@ function extractConfigFlag(
 			continue;
 		}
 
+		if (isHyphenOperand(argv, i)) {
+			pushArgvToken(filteredArgv, argv, i, arg);
+			continue;
+		}
 		if (arg === '--') {
 			filteredArgv.push(...argv.slice(i));
 			break;
@@ -42,7 +51,7 @@ function extractConfigFlag(
 				continue;
 			}
 
-			filteredArgv.push(arg);
+			pushArgvToken(filteredArgv, argv, i, arg);
 			continue;
 		}
 
@@ -55,11 +64,11 @@ function extractConfigFlag(
 				continue;
 			}
 
-			filteredArgv.push(arg);
+			pushArgvToken(filteredArgv, argv, i, arg);
 			continue;
 		}
 
-		filteredArgv.push(arg);
+		pushArgvToken(filteredArgv, argv, i, arg);
 	}
 
 	if (hasArgvBoundary(argv, argv.length)) boundaries.add(filteredArgv.length);

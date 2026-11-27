@@ -272,6 +272,7 @@ type FlagElementFragmentV1 = {
  */
 type FlagDefinitionFragmentV1 = FlagElementFragmentV1 & {
 	readonly envEmpty?: 'missing';
+	readonly allowHyphenValues?: true;
 	readonly completionValues?: readonly string[];
 	readonly defaultDescription?: string | false;
 	readonly sensitive?: true;
@@ -657,6 +658,7 @@ function serializeFlag(
 				}
 			: {}),
 		...(schema.duplicates !== 'last' ? { duplicates: schema.duplicates } : {}),
+		...(schema.allowHyphenValues ? { allowHyphenValues: true } : {}),
 		...(schema.separateValue === true ? { separateValue: true } : {}),
 		...(schema.variadic === true ? { variadic: true } : {}),
 	};

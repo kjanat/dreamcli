@@ -230,8 +230,16 @@ it.skipIf(readlinePrerequisites.length > 0)(
 				.flag('verbose', flag.boolean().alias('v'))
 				.flag('enabled', flag.boolean({ separateValue: true }))
 				.flag('token', flag.string())
+				.flag(
+					'expr',
+					flag
+						.string()
+						.allowHyphenValues()
+						.complete(['--mode', '--config=operand', '--json', 'value']),
+				)
 				.flag('left', flag.string())
 				.flag('right', flag.string())
+				.flag('pick', flag.enum(['vroot']))
 				.flag(
 					'choices',
 					flag.array(flag.enum(['--help=unknown', '--version=literal']), { variadic: true }),
@@ -253,6 +261,52 @@ it.skipIf(readlinePrerequisites.length > 0)(
 				)
 				.arg('rest', arg.string().variadic());
 			const single = cli('dcfixture').default(root);
+			const run = command('run')
+				.alias('r')
+				.flag(
+					'token',
+					flag
+						.string()
+						.alias('t')
+						.alias('filter')
+						.allowHyphenValues()
+						.complete([
+							'--mode',
+							'-preview',
+							'--config=operand',
+							'--no-config',
+							'--json',
+							'--quiet',
+							'--version',
+							'value',
+						]),
+				)
+				.flag('verbose', flag.boolean().alias('v'))
+				.flag('mode', flag.enum(['fast']))
+				.flag('left', flag.boolean())
+				.flag('pick', flag.enum(['vrun']))
+				.flag('config', flag.enum(['override']))
+				.flag(
+					'items',
+					flag
+						.array(flag.enum(['--mode', '--json', 'first', 'space value']), { variadic: true })
+						.allowHyphenValues(),
+				)
+				.arg('rest', arg.string().variadic().optional())
+				.action(() => {});
+			const parent = command('parent')
+				.alias('p')
+				.flag('filter', flag.boolean())
+				.flag('mode', flag.enum(['strict']))
+				.flag('select', flag.enum(['r']))
+				.flag('shade', flag.enum(['green']))
+				.command(run)
+				.command(
+					command('strict')
+						.flag('shade', flag.enum(['gray']))
+						.action(() => {}),
+				)
+				.action(() => {});
 			const hybrid = single.command(
 				command('child')
 					.alias('ch')
@@ -296,9 +350,34 @@ it.skipIf(readlinePrerequisites.length > 0)(
 					)
 					.action(() => {}),
 			);
+			const routes = hybrid.command(run).command(parent);
+			const releasedOutput = cli('dcfixture')
+				.builtins({ json: 'off', quiet: 'off' })
+				.command(
+					command('release')
+						.flag('json', flag.enum(['report']))
+						.flag('quiet', flag.enum(['soft']).alias('q')),
+				);
+			const topicValues = flag
+				.array(flag.enum(['--help=runners', '--help=other', '--version=literal']), {
+					variadic: true,
+				})
+				.group('Runners');
+			const topicRoute = (name: string) =>
+				command(name).flag('many', topicValues).helpTopic('runners', 'Runners');
+			const helpTopics = cli('dcfixture')
+				.version('1.0', { alias: 'z' })
+				.default(topicRoute('default'))
+				.command(topicRoute('named').alias('nr'))
+				.command(command('plain').flag('many', topicValues))
+				.command(
+					command('opted')
+						.flag('many', topicValues.allowHyphenValues())
+						.helpTopic('runners', 'Runners'),
+				);
 			const rootCases = [
-				{ line: '--mode=fa', argv: ['--mode=fast'] },
 				{ line: '--choices --help=un', argv: ['--choices', '--help=unknown'] },
+				{ line: '--mode=fa', argv: ['--mode=fast'] },
 				{ line: '-m fu', argv: ['-m', 'full'] },
 				{ line: '--old-mode=fa', argv: ['--old-mode=fast'] },
 				{ line: '-vmfu', argv: ['-vmfull'] },
@@ -320,6 +399,8 @@ it.skipIf(readlinePrerequisites.length > 0)(
 				{ line: '--literal=docs/cli/re', argv: ['--literal=docs/cli/reference'] },
 				{ line: '--literal docs,cli,re', argv: ['--literal', 'docs,cli,reference'] },
 				{ line: '--literal=docs,cli,re', argv: ['--literal=docs,cli,reference'] },
+				{ line: '--expr --mo', argv: ['--expr', '--mode'] },
+				{ line: '--expr --mode fa', argv: ['--expr', '--mode', 'fa'] },
 				{ line: '--token -- --mode fa', argv: ['--token', '--', '--mode', 'fa'] },
 				{ line: '-- --mode=fa', argv: ['--', '--mode=fa'] },
 				{ line: '-- --mo', argv: ['--', '--mo'] },
@@ -375,6 +456,75 @@ it.skipIf(readlinePrerequisites.length > 0)(
 					line: `--left ${outputFlag} child --mode fa`,
 					argv: ['--left', outputFlag, 'child', '--mode', 'fast'],
 				})),
+			];
+			const hyphenCases = [
+				{ line: 'run --token --mode fa', argv: ['run', '--token', '--mode', 'fa'] },
+				{ line: 'r --filter --mo', argv: ['r', '--filter', '--mode'] },
+				{ line: 'r -t -pre', argv: ['r', '-t', '-preview'] },
+				{ line: 'r -vt--mo', argv: ['r', '-vt--mode'] },
+				{ line: 'r --filter=--mo', argv: ['r', '--filter=--mode'] },
+				{ line: 'r --filter=--mo --mode fa', argv: ['r', '--filter=--mo', '--mode', 'fast'] },
+				{ line: 'r --filter -- --mode fa', argv: ['r', '--filter', '--', '--mode', 'fa'] },
+				{ line: 'r --items --mo', argv: ['r', '--items', '--mode'] },
+				{ line: 'r --items --mode sp', argv: ['r', '--items', '--mode', 'space value'] },
+				{
+					line: 'r --items --mode --mode fa',
+					argv: ['r', '--items', '--mode', '--mode', 'fast'],
+				},
+				{ line: 'r --items=first --mode fa', argv: ['r', '--items=first', '--mode', 'fast'] },
+				{ line: 'r --items -- --mode fa', argv: ['r', '--items', '--', '--mode', 'fa'] },
+				{
+					line: '--filter --mode r --mode fa',
+					argv: ['--filter', '--mode', 'r', '--mode', 'fast'],
+				},
+				{
+					line: '--filter --mode p r --mode fa',
+					argv: ['--filter', '--mode', 'p', 'r', '--mode', 'fast'],
+				},
+				{
+					line: 'p --filter --mode r --mode fa',
+					argv: ['p', '--filter', '--mode', 'r', '--mode', 'fast'],
+				},
+				{
+					line: 'p -vt --mode r --mode fa',
+					argv: ['p', '-vt', '--mode', 'r', '--mode', 'fast'],
+				},
+				{
+					line: 'p --items --mode r --mode fa',
+					argv: ['p', '--items', '--mode', 'r', '--mode', 'fast'],
+				},
+				{
+					line: 'p --filter --mode strict --select r --shade gr',
+					argv: ['p', '--filter', '--mode', 'strict', '--select', 'r', '--shade', 'green'],
+				},
+			];
+			const outputCases = [
+				{ line: '--left --quiet r --pick v', argv: ['--left', '--quiet', 'r', '--pick', 'vroot'] },
+				{ line: '--left --json r --pick v', argv: ['--left', '--json', 'r', '--pick', 'vroot'] },
+				{
+					line: '--left --quiet=false r --pick v',
+					argv: ['--left', '--quiet=false', 'r', '--pick', 'vroot'],
+				},
+				{
+					line: '--left --json=true r --pick v',
+					argv: ['--left', '--json=true', 'r', '--pick', 'vroot'],
+				},
+				{ line: '--left -q r --pick v', argv: ['--left', '-q', 'r', '--pick', 'vroot'] },
+				{ line: 'r --mode --quiet fa', argv: ['r', '--mode', '--quiet', 'fast'] },
+				{ line: 'r --token --qui', argv: ['r', '--token', '--quiet'] },
+				{ line: 'r -t --js', argv: ['r', '-t', '--json'] },
+				{ line: 'r -t -q va', argv: ['r', '-t', '-q', 'va'] },
+				{ line: 'r --token --json=false va', argv: ['r', '--token', '--json=false', 'va'] },
+				{ line: 'p --filter --json r va', argv: ['p', '--filter', '--json', 'r', 'va'] },
+				{ line: 'r --items --json sp', argv: ['r', '--items', '--json', 'space value'] },
+				{ line: 'r --items=first --json sp', argv: ['r', '--items=first', '--json', 'sp'] },
+				{ line: '--expr --js', argv: ['--expr', '--json'] },
+				{ line: '--expr --json va', argv: ['--expr', '--json', 'va'] },
+				{ line: 'child --many --qui', argv: ['child', '--many', '--qui'] },
+				{ line: 'child --many=--qui', argv: ['child', '--many=--quiet'] },
+				{ line: 'child --many --con', argv: ['child', '--many', '--config=chosen.json'] },
+				{ line: 'child --many --ver', argv: ['child', '--many', '--version'] },
+				{ line: 'child --many --comp', argv: ['child', '--many', '--completions=bash'] },
 			];
 			const configCases = [
 				{
@@ -479,6 +629,161 @@ it.skipIf(readlinePrerequisites.length > 0)(
 							line: '--config settings.json release --json re',
 							argv: ['--config', 'settings.json', 'release', '--json', 'report'],
 						},
+					],
+				},
+				{
+					script: generateBashCompletion(routes.schema, { rootMode: 'surface' }),
+					cases: outputCases,
+				},
+				{
+					script: generateBashCompletion(helpTopics.schema, { rootMode: 'surface' }),
+					cases: [
+						{ line: '--many --help=ru', argv: ['--many', '--help=ru'] },
+						{ line: '--many --help=ot', argv: ['--many', '--help=other'] },
+						{ line: '--many --ver', argv: ['--many', '--version=literal'] },
+						{ line: 'nr --many --help=ru', argv: ['nr', '--many', '--help=ru'] },
+						{ line: 'nr --many=--help=ru', argv: ['nr', '--many=--help=runners'] },
+						{ line: 'plain --many --help=ru', argv: ['plain', '--many', '--help=runners'] },
+						{ line: 'opted --many --help=ru', argv: ['opted', '--many', '--help=runners'] },
+					],
+				},
+				{
+					script: generateBashCompletion(helpTopics.builtins({ help: 'off' }).schema),
+					cases: [{ line: 'nr --many --help=ru', argv: ['nr', '--many', '--help=runners'] }],
+				},
+				{
+					script: generateBashCompletion(releasedOutput.schema),
+					cases: [
+						{ line: 'release --json re', argv: ['release', '--json', 'report'] },
+						{ line: 'release --quiet=so', argv: ['release', '--quiet=soft'] },
+						{ line: 'release -q so', argv: ['release', '-q', 'soft'] },
+					],
+				},
+				{
+					script: generateBashCompletion(
+						routes.version('1.0', { alias: 'z' }).completions({ as: 'flag' }).schema,
+					),
+					cases: [
+						{ line: 'child --many --ver', argv: ['child', '--many', '--ver'] },
+						{ line: 'child --many --comp', argv: ['child', '--many', '--comp'] },
+						{ line: 'child --many=--ver', argv: ['child', '--many=--version'] },
+						{ line: 'child --many=--comp', argv: ['child', '--many=--completions=bash'] },
+						{ line: 'r --token --ver', argv: ['r', '--token', '--version'] },
+					],
+				},
+				{
+					script: generateBashCompletion(single.config('dcfixture').schema),
+					cases: [{ line: '--expr --config=op', argv: ['--expr', '--config=operand'] }],
+				},
+				{
+					script: generateBashCompletion(
+						routes.config('dcfixture', { noConfigFlag: true }).schema,
+						{ rootMode: 'surface' },
+					),
+					cases: [
+						{
+							line: '--config /tmp/settings.json --token --config=operand r --mode fa',
+							argv: [
+								'--config',
+								'/tmp/settings.json',
+								'--token',
+								'--config=operand',
+								'r',
+								'--mode',
+								'fast',
+							],
+						},
+						{
+							line: '--config=primary.json r --config ov',
+							argv: ['--config=primary.json', 'r', '--config', 'override'],
+						},
+						{
+							line: '--config=primary.json --config r --mode fa',
+							argv: ['--config=primary.json', '--config', 'r', '--mode', 'fast'],
+						},
+						{
+							line: '--config r child --mode ch',
+							argv: ['--config', 'r', 'child', '--mode', 'child-mode'],
+						},
+						{
+							line: '--config= --config p r --mode fa',
+							argv: ['--config=', '--config', 'p', 'r', '--mode', 'fast'],
+						},
+						{
+							line: '--filter --config r --mode fa',
+							argv: ['--filter', '--config', 'r', '--mode', 'fast'],
+						},
+						{
+							line: 'r --token --config=op',
+							argv: ['r', '--token', '--config=operand'],
+						},
+						{
+							line: '--expr --config=operand --config p --mode fa',
+							argv: ['--expr', '--config=operand', '--config', 'p', '--mode', 'fast'],
+						},
+						{
+							line: '--no-config r --token --no-c',
+							argv: ['--no-config', 'r', '--token', '--no-config'],
+						},
+						{
+							line: '--no-config --config=p r --mode fa',
+							argv: ['--no-config', '--config=p', 'r', '--mode', 'fa'],
+						},
+						{
+							line: 'r --config ov',
+							argv: ['r', '--config', 'ov'],
+						},
+						{
+							line: 'r --config=ov',
+							argv: ['r', '--config=ov'],
+						},
+						{
+							line: 'r --mode --config primary.json fa',
+							argv: ['r', '--mode', '--config', 'primary.json', 'fast'],
+						},
+						{
+							line: '--filter r --config primary.json va',
+							argv: ['--filter', 'r', '--config', 'primary.json', 'value'],
+						},
+						{
+							line: '--filter r --config primary.json -pre',
+							argv: ['--filter', 'r', '--config', 'primary.json', '-pre'],
+						},
+						{
+							line: 'r --items=first --config primary.json sp',
+							argv: ['r', '--items=first', '--config', 'primary.json', 'sp'],
+						},
+						{ line: 'child --many --con', argv: ['child', '--many', '--con'] },
+						{
+							line: '--config primary.json child --many --con',
+							argv: ['--config', 'primary.json', 'child', '--many', '--config=chosen.json'],
+						},
+						{
+							line: '--left --config primary.json --right child --mode ch',
+							argv: [
+								'--left',
+								'--config',
+								'primary.json',
+								'--right',
+								'child',
+								'--mode',
+								'child-mode',
+							],
+						},
+					],
+				},
+				{
+					script: generateBashCompletion(routes.schema, { rootMode: 'surface' }),
+					cases: [...rootCases, ...namedCases, ...scopeCases, ...hyphenCases],
+				},
+				{
+					script: generateBashCompletion(routes.schema),
+					cases: [
+						{ line: '--mode fa', argv: ['--mode', 'fa'] },
+						{ line: '--literal=sp', argv: ['--literal=sp'] },
+						{ line: '--token child --mode ch', argv: ['--token', 'child', '--mode', 'ch'] },
+						...namedCases,
+						...hyphenCases,
 					],
 				},
 				{

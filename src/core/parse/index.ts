@@ -38,7 +38,14 @@ import type { StdinBinding } from '#internals/core/schema/stdin.ts';
 import { acceptsArgv, stdinReadsOnDash } from '#internals/core/schema/stdin.ts';
 import type { ValueFailure } from '#internals/core/schema/value.ts';
 import { argValueSchema, decodeValue, flagValueSchema } from '#internals/core/schema/value.ts';
-import { adjacentArgvValue, hasArgvBoundary } from './argv-boundaries.ts';
+import {
+	adjacentArgvValue,
+	hasArgvBoundary,
+	includesBeforeSeparator,
+	isHyphenOperand,
+	markHyphenOperand,
+	sliceArgvHead,
+} from './argv-boundaries.ts';
 import { createOccurrenceRecorder } from './context.ts';
 import type { Occurrence } from './occurrences.ts';
 import {
@@ -130,26 +137,6 @@ function tokenize(argv: readonly string[]): readonly Token[] {
 }
 
 /**
- * Whether `token` appears in argv before the `--` end-of-options separator.
- *
- * Everything at or after the first `--` is a literal positional, so root-level
- * flag interception (`--help` / `--version` / `--json`) must use this instead of
- * a naive `Array.includes()` — otherwise a post-separator literal (`-- --json`)
- * is wrongly treated as the flag.
- *
- * @param argv - Raw argument strings.
- * @param token - Exact flag token to look for (e.g. `--version`).
- * @returns `true` if `token` occurs before any `--` separator.
- */
-function includesBeforeSeparator(argv: readonly string[], token: string): boolean {
-	for (const arg of argv) {
-		if (arg === '--') return false;
-		if (arg === token) return true;
-	}
-	return false;
-}
-
-/**
  * Read the help mode requested by an exact built-in flag spelling.
  */
 function helpFlagMode(token: string): 'short' | 'all' | undefined {
@@ -173,7 +160,8 @@ function requestedHelpMode(
 	argv: readonly string[],
 	topics?: CommandSchema['helpTopics'],
 ): ReturnType<typeof helpFlagMode> | { readonly name: string; readonly group: string } {
-	for (const token of argv) {
+	for (const [index, token] of argv.entries()) {
+		if (isHyphenOperand(argv, index)) continue;
 		if (token === '--') break;
 		const mode = helpFlagMode(token);
 		if (mode !== undefined) return mode;
@@ -574,9 +562,89 @@ function consumesSeparateBoolean(entry: FlagLookupEntry, next: string | undefine
 	);
 }
 
+/** Identify operands before global flag readers run, retaining raw argv for hooks and traces. */
+function withHyphenOperands(
+	argv: readonly string[],
+	flags: CommandSchema['flags'],
+	options?: ParseOptions,
+	ignoreUnknownShorts = false,
+): readonly string[] {
+	if (!Object.values(flags).some((flag) => flag.allowHyphenValues)) return argv;
+	const lookup = buildFlagLookup(flags, options);
+	let marked: readonly string[] | undefined;
+	for (let index = 0; index < argv.length; index++) {
+		const token = argv[index];
+		if (token === '--') break;
+		const next = adjacentArgvValue(argv, index);
+		if (!token?.startsWith('-') || !next?.startsWith('-') || next === '--' || next === '-')
+			continue;
+		const entry = followingValueFlag(token, lookup, ignoreUnknownShorts);
+		if (entry?.schema.allowHyphenValues) {
+			marked ??= sliceArgvHead(argv, argv.length);
+			markHyphenOperand(marked, ++index);
+		} else if (
+			entry?.schema.variadic &&
+			token.startsWith('--') &&
+			variadicLongValueCount(argv, index, lookup, false) > 0
+		) {
+			// The variadic flag owns the token, so it cannot itself own another value.
+			index++;
+		}
+	}
+	return marked ?? argv;
+}
+
+/** Return the option that takes a separate value, including the last flag in a short cluster. */
+function followingValueFlag(
+	token: string,
+	lookup: ReadonlyMap<string, FlagLookupEntry>,
+	ignoreUnknownShorts = false,
+): FlagLookupEntry | undefined {
+	if (token.startsWith('--')) return token.includes('=') ? undefined : lookup.get(token.slice(2));
+	for (let i = 1; i < token.length; i++) {
+		const entry = lookup.get(token.charAt(i));
+		if (!entry) {
+			if (ignoreUnknownShorts) continue;
+			return undefined;
+		}
+		if (flagExpectsValue(entry.schema)) return i === token.length - 1 ? entry : undefined;
+	}
+	return undefined;
+}
+
+/** Read a required separate operand without crossing an option terminator or a removed token. */
+function separateFlagValue(
+	argv: readonly string[],
+	index: number,
+	schema: FlagSchema,
+	cursor?: string,
+): string | undefined {
+	const value = index === argv.length ? cursor : argv[index];
+	if (value === undefined || value === '--') return undefined;
+	return isPositionalValue(value) || (schema.allowHyphenValues && !hasArgvBoundary(argv, index))
+		? value
+		: undefined;
+}
+
 /** Whether argv would tokenize a value as a positional. */
 function isPositionalValue(raw: string): boolean {
 	return raw === '-' || !raw.startsWith('-');
+}
+
+/** Whether a token can occupy the next value slot of a variadic long flag. */
+function acceptsVariadicValue(
+	raw: string,
+	lookup: ReadonlyMap<string, FlagLookupEntry>,
+	first: boolean,
+	allowHyphenValues: boolean,
+): boolean {
+	if (raw === '--') return false;
+	if (isPositionalValue(raw)) return true;
+	if (!first) return false;
+	if (allowHyphenValues) return true;
+	if (helpFlagMode(raw) !== undefined) return false;
+	const spelling = raw.startsWith('--') ? raw.slice(2).split('=', 1)[0] : raw.charAt(1);
+	return spelling === undefined || !lookup.has(spelling);
 }
 
 /**
@@ -592,15 +660,17 @@ function variadicLongValueCount(
 	inline: boolean,
 	cursor?: string,
 ): number {
+	const owner = argv[index]?.slice(2);
+	const allowHyphenValues =
+		owner !== undefined && lookup.get(owner)?.schema.allowHyphenValues === true;
 	let count = 0;
 	for (let i = index + 1; !hasArgvBoundary(argv, i); i++) {
 		const raw = i === argv.length ? cursor : argv[i];
-		if (raw === undefined || raw === '--') break;
-		if (!isPositionalValue(raw)) {
-			if (inline || count > 0 || helpFlagMode(raw) !== undefined) break;
-			const spelling = raw.startsWith('--') ? raw.slice(2).split('=', 1)[0] : raw.charAt(1);
-			if (spelling !== undefined && lookup.has(spelling)) break;
-		}
+		if (
+			raw === undefined ||
+			!acceptsVariadicValue(raw, lookup, !inline && count === 0, allowHyphenValues)
+		)
+			break;
 		count++;
 	}
 	return count;
@@ -1033,7 +1103,7 @@ function parseCommand(
 			i =
 				token.kind === 'long-flag'
 					? parseLongFlag(token, argv, i, flagLookup, occurrences, record)
-					: parseShortFlags(token, tokens, i, flagLookup, occurrences, record);
+					: parseShortFlags(token, argv, i, flagLookup, occurrences, record);
 		} catch (error) {
 			if (!(error instanceof ParseError) || !deferredFlagDiagnostics.get(occurrences)?.size)
 				throw error;
@@ -1064,7 +1134,7 @@ function parseCommand(
  * Parse a long flag token, consuming a value from the next token if needed.
  *
  * @param token - Long-flag token to process
- * @param tokens - Full token array (for lookahead)
+ * @param argv - Original argument spellings (for separate values)
  * @param startIdx - Current index of `token` in the array
  * @param flagLookup - Spelling → {@link FlagLookupEntry} map from {@link buildFlagLookup}
  * @param occurrences - Per-parse occurrence accumulator
@@ -1170,8 +1240,8 @@ function parseLongFlag(
 	}
 
 	// --flag value (next token is the value)
-	const next = argv[startIdx + 1];
-	if (next === undefined || !isPositionalValue(next)) {
+	const next = separateFlagValue(argv, startIdx + 1, flagSchema);
+	if (next === undefined) {
 		throw missingValue(canonicalName, token.name, flagSchema.kind);
 	}
 	recordFlagOccurrence(occurrences, canonicalName, flagSchema, next, displayName, () =>
@@ -1201,7 +1271,7 @@ function missingValue(flag: string, input: string, kind: FlagSchema['kind']): Pa
  */
 function parseShortFlags(
 	token: { readonly kind: 'short-flags'; readonly chars: string },
-	tokens: readonly Token[],
+	argv: readonly string[],
 	startIdx: number,
 	flagLookup: ReadonlyMap<string, FlagLookupEntry>,
 	occurrences: Map<string, FlagOccurrences>,
@@ -1247,15 +1317,15 @@ function parseShortFlags(
 		}
 
 		// Last char in the group — consume next token as value
-		const nextToken = tokens[nextIdx];
-		if (nextToken?.kind !== 'positional') {
+		const nextToken = separateFlagValue(argv, nextIdx, flagSchema);
+		if (nextToken === undefined) {
 			throw new ParseError(`Flag -${ch} requires a value`, {
 				code: 'MISSING_VALUE',
 				details: { flag: canonicalName, input: ch, kind: flagSchema.kind },
 			});
 		}
-		recordFlagOccurrence(occurrences, canonicalName, flagSchema, nextToken.value, displayName, () =>
-			flagTokenOccurrences(canonicalName, flagSchema, nextToken.value, displayName),
+		recordFlagOccurrence(occurrences, canonicalName, flagSchema, nextToken, displayName, () =>
+			flagTokenOccurrences(canonicalName, flagSchema, nextToken, displayName),
 		);
 		nextIdx++;
 	}
@@ -1477,18 +1547,22 @@ function levenshtein(a: string, b: string): number {
 
 export type { FlagLookupEntry, ParseOptions, ParseResult, Token };
 export {
+	acceptsVariadicValue,
 	buildFlagLookup,
 	camelToKebab,
 	coerceFlagValue,
 	consumesSeparateBoolean,
 	flagExpectsValue,
+	followingValueFlag,
 	helpFlagMode,
 	includesBeforeSeparator,
 	kebabToCamel,
 	parse,
 	requestedHelpMode,
 	requestsHelp,
+	separateFlagValue,
 	stripBeforeSeparator,
 	tokenize,
 	variadicLongValueCount,
+	withHyphenOperands,
 };

@@ -87,6 +87,11 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 			: ['--version', escapeBashCasePatternValue(`-${schema.versionAlias ?? 'V'}`)]),
 		...(schema.completionsFlag === undefined ? [] : ['--completions', '--completions=*']),
 	];
+	const namedHyphenOperands = nodes.some(({ mergedFlags }) =>
+		Object.values(mergedFlags).some((flag) => flag.allowHyphenValues),
+	);
+	const defaultHyphenOperands =
+		hasPreflight && Object.values(rootScanFlags).some((flag) => flag.allowHyphenValues);
 	const dynamicCompletion = hasDynamicCompletion(schema);
 
 	const lines: string[] = [];
@@ -135,7 +140,15 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 	}
 	lines.push('');
 
-	emitBashOptionScan(lines, funcName, nodes.length > 0, hasPreflight, config);
+	emitBashOptionScan(
+		lines,
+		funcName,
+		nodes.length > 0,
+		namedHyphenOperands,
+		defaultHyphenOperands,
+		hasPreflight,
+		config,
+	);
 	if (visibleCommands.length > 0) {
 		// Per-path completions: one case branch per node
 		lines.push('\t# Complete flags and subcommands for the active path');
@@ -209,6 +222,8 @@ function generateBashCompletion(schema: CLISchema, options?: CompletionOptions):
 	if (nodes.length > 0) {
 		emitBashPathDetection(lines, funcName, visibleCommands, nodes, hasPreflight);
 	}
+	if (namedHyphenOperands || defaultHyphenOperands) emitBashMarkOperands(lines, funcName);
+	if (namedHyphenOperands) emitBashHyphenRouting(lines, funcName);
 	lines.push(`complete -F ${funcName} ${quoteShellArg(schema.name)}`);
 	lines.push('');
 
@@ -266,26 +281,42 @@ function emitBashOptionScan(
 	lines: string[],
 	funcName: string,
 	hasCommands: boolean,
+	namedHyphenOperands: boolean,
+	defaultHyphenOperands: boolean,
 	hasPreflight: boolean,
 	config: CLISchema['configSettings'],
 ): void {
 	lines.push(`	local subcmd_path="" cursor_index=$((cword - 1))
-	local -a removed_words=()
-	local i token option_spelling option_kind option_prefix
-	local value_flag="" value_kind="" value_prefix="" first_variadic=0
+	local -a removed_words=() hyphen_operands=()
+	local i token option_spelling option_kind option_prefix option_allows_hyphen
+	local value_flag="" value_kind="" value_prefix="" value_allows_hyphen=0 first_variadic=0
 	for ((i = 0; i < cursor_index; i++)); do
 		[[ "\${argv[i]}" == -- ]] && return 0
 	done`);
 	if (config !== undefined) {
 		lines.push('\tlocal config_seen=0 no_config_seen=0');
 	}
+	if (hasCommands) lines.push('\tlocal resolved_path');
+	if (namedHyphenOperands) lines.push(`\tif ! ${funcName}_find_operand_route "" 0; then`);
+	const indent = namedHyphenOperands ? '\t\t' : '\t';
+	if (defaultHyphenOperands) {
+		lines.push(`${indent}${funcName}_mark_operands "" || :`);
+	} else if (namedHyphenOperands) {
+		lines.push(`${indent}hyphen_operands=()`);
+	}
 	if (hasCommands) {
-		lines.push('\tlocal resolved_path');
-		lines.push(`\t${funcName}_route`);
-		lines.push('\tsubcmd_path="$resolved_path"');
+		lines.push(`${indent}${funcName}_route`);
+		if (defaultHyphenOperands) {
+			lines.push(`${indent}if [[ -n "$resolved_path" ]]; then
+${indent}	hyphen_operands=()
+${indent}	${funcName}_route
+${indent}fi`);
+		}
 	} else if (hasPreflight) {
 		lines.push(`\t${funcName}_filter_preflight`);
 	}
+	if (namedHyphenOperands) lines.push('\tfi');
+	if (hasCommands) lines.push('\tsubcmd_path="$resolved_path"');
 	if (hasPreflight) {
 		lines.push(`\t[[ -n "\${removed_words[cursor_index]-}" ]] && return 0`);
 		if (config?.noConfigFlag === true)
@@ -295,6 +326,7 @@ function emitBashOptionScan(
 	for ((i = 0; i <= cursor_index; i++)); do
 		if [[ -n "\${removed_words[i]-}" ]]; then
 			[[ "$value_kind" == value ]] || value_kind=""
+			value_allows_hyphen=0
 			continue
 		fi
 		token="\${argv[i]}"
@@ -327,6 +359,7 @@ function emitBashOptionHelpers(
 	reservedOperands: readonly string[],
 ): void {
 	lines.push(`${funcName}_flag() {
+	option_allows_hyphen=0
 	case "$subcmd_path" in`);
 	for (const { path, mergedFlags } of [{ path: [], mergedFlags: rootFlags }, ...nodes]) {
 		const lookup = buildFlagLookup(mergedFlags, parseOptions);
@@ -346,8 +379,9 @@ function emitBashOptionHelpers(
 					: 'switch';
 			const shortKind = takesValue ? 'value' : 'switch';
 			const canonical = quoteShellArg(entry.negated ? '' : `--${entry.name}`);
+			const allowsHyphen = entry.schema.allowHyphenValues ? ' option_allows_hyphen=1' : '';
 			const setKind = (kind: string) =>
-				`option_spelling=${canonical} option_kind=${kind}; return 0 ;;`;
+				`option_spelling=${canonical} option_kind=${kind}${allowsHyphen}; return 0 ;;`;
 			if (spelling.length === 1 && longKind === shortKind) {
 				lines.push(`\t\t\t\t${long}|${short}) ${setKind(longKind)}`);
 			} else {
@@ -388,7 +422,7 @@ ${funcName}_option() {
 }
 
 ${funcName}_start_operand() {
-	value_flag="$option_spelling" value_kind="$option_kind"
+	value_flag="$option_spelling" value_kind="$option_kind" value_allows_hyphen="$option_allows_hyphen"
 	first_variadic=0
 	if [[ "$option_kind" == variadic ]]; then
 		[[ -z "$option_prefix" ]] && first_variadic=1
@@ -406,6 +440,9 @@ ${funcName}_owns_operand() {
 		return
 	fi
 	[[ "$token" == - || "$token" != -* ]] && return 0
+	if ((value_allows_hyphen)) && [[ "$value_kind" != variadic || "$first_variadic" == 1 ]]; then
+		return 0
+	fi
 	((first_variadic)) || return 1`);
 	if (config !== undefined || reservedOperands.length > 0) {
 		lines.push(`	# A proposed standalone value would be subject to framework filtering.
@@ -442,7 +479,10 @@ function emitBashValueCompletions(
 	const candidates = Object.entries(flags).flatMap(([name, schema]) => {
 		const values = acceptsArgv(schema) ? staticFlagCandidates(schema) : undefined;
 		if (values === undefined) return [];
-		const blockedTopics = schema.variadic ? values.filter((value) => topicFlags.has(value)) : [];
+		const blockedTopics =
+			schema.variadic && !schema.allowHyphenValues
+				? values.filter((value) => topicFlags.has(value))
+				: [];
 		return [{ name, values, blockedTopics }];
 	});
 	if (candidates.length > 0) {
@@ -474,6 +514,7 @@ function emitBashPreflightFilter(
 	if (config !== undefined) lines.push('\tconfig_seen=0 no_config_seen=0');
 	lines.push(`
 	for ((i = 0; i <= cursor_index; i++)); do
+		[[ -n "\${hyphen_operands[i]-}" ]] && continue
 		token="\${argv[i]}"
 		case "$token" in
 			--) break ;;`);
@@ -551,14 +592,14 @@ function emitBashPathDetection(
 ${funcName}_route() {
 	local subcmd_path="" i token next_path next_has_children next_has_action fallback_path=""
 	local -a tentative_commands=()
-	local option_spelling option_kind option_prefix
-	local value_flag value_kind first_variadic
+	local option_spelling option_kind option_prefix option_allows_hyphen
+	local value_flag value_kind value_allows_hyphen first_variadic
 	resolved_path=""
 	removed_words=()`);
 	if (hasPreflight) lines.push(`\t${funcName}_filter_preflight`);
 	lines.push(`	while :; do
 		for ((i = 0; i < cursor_index; i++)); do
-			[[ -n "\${removed_words[i]-}" ]] && continue
+			[[ -n "\${removed_words[i]-}" || -n "\${hyphen_operands[i]-}" ]] && continue
 			token="\${argv[i]}"
 			if [[ "$token" != -* ]]; then
 				if ! ${funcName}_subcommand "$subcmd_path" "$token"; then
@@ -589,7 +630,11 @@ ${funcName}_route() {
 			fi
 			[[ -n "$value_kind" ]] || continue
 			while ((i + 1 < cursor_index)) && [[ -z "\${removed_words[i+1]-}" ]]; do
-				${funcName}_owns_operand "\${argv[i+1]}" || break
+				if ((first_variadic)) && [[ -n "\${hyphen_operands[i+1]-}" ]]; then
+					:
+				elif ! ${funcName}_owns_operand "\${argv[i+1]}"; then
+					break
+				fi
 				((++i))
 				first_variadic=0
 				[[ "$value_kind" == variadic ]] || break
@@ -597,6 +642,56 @@ ${funcName}_route() {
 		done
 		return 0
 	done
+}
+
+`);
+}
+
+/** Mark option-shaped operands using one prospective command scope. */
+function emitBashMarkOperands(lines: string[], funcName: string): void {
+	lines.push(`${funcName}_mark_operands() {
+	local subcmd_path="$1" i token next marked=1
+	local option_spelling option_kind option_prefix option_allows_hyphen
+	local value_kind=variadic value_allows_hyphen=0 first_variadic=1
+	hyphen_operands=()
+	for ((i = 0; i < cursor_index; i++)); do
+		token="\${argv[i]}" next="\${argv[i+1]}"
+		[[ "$token" == -* && "$next" == -?* && "$next" != -- ]] || continue
+		${funcName}_option "$token" && [[ -z "$option_prefix" ]] || continue
+		if ((option_allows_hyphen)); then
+			((++i))
+			hyphen_operands[i]=1
+			marked=0
+		elif [[ "$option_kind" == variadic ]] && ${funcName}_owns_operand "$next"; then
+			# A first variadic operand cannot itself own a subsequent operand.
+			((++i))
+		fi
+	done
+	return "$marked"
+}
+
+`);
+}
+
+/** Try operand ownership only for candidates whose names were typed, then verify dispatch. */
+function emitBashHyphenRouting(lines: string[], funcName: string): void {
+	lines.push(`${funcName}_find_operand_route() {
+	local parent="$1" start="$2" i next_path next_has_children next_has_action visited
+	local -a visited_paths=()
+	for ((i = start; i < cursor_index; i++)); do
+		${funcName}_subcommand "$parent" "\${argv[i]}" || continue
+		for visited in "\${visited_paths[@]}"; do
+			[[ "$visited" == "$next_path" ]] && continue 2
+		done
+		visited_paths+=("$next_path")
+		if ((next_has_children)) && ${funcName}_find_operand_route "$next_path" "$((i + 1))"; then
+			return 0
+		fi
+		${funcName}_mark_operands "$next_path" || continue
+		${funcName}_route
+		[[ "$resolved_path" == "$next_path" ]] && return 0
+	done
+	return 1
 }
 
 `);

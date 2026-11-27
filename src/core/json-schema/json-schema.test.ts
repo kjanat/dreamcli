@@ -1223,6 +1223,7 @@ describe('generateSchema — definition metadata', () => {
 				},
 				pathChecks: { mustExist: true, type: 'directory', create: true },
 			}),
+			token: flagDef({ kind: 'string', allowHyphenValues: true }),
 			variadicValues: flagDef({ kind: 'array', variadic: true }),
 			versions: flagDef({
 				kind: 'array',
@@ -1296,6 +1297,7 @@ describe('generateSchema — definition metadata', () => {
 							'advanced',
 							'completionValues',
 							'envEmpty',
+							'allowHyphenValues',
 						].includes(field),
 				)
 				.sort(),

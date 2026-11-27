@@ -13,6 +13,7 @@
 
 import { type Colors, createColors, isColorSupported } from 'ansispeck';
 import { padEnd, visibleWidth } from '#internals/core/help/ansi.ts';
+import { includesBeforeSeparator } from '#internals/core/parse/argv-boundaries.ts';
 import type {
 	ActivityEvent,
 	ProgressHandle,
@@ -188,10 +189,8 @@ function resolveHyperlinkOverride(
 	env: Readonly<Record<string, string | undefined>>,
 	argv: readonly string[],
 ): boolean | undefined {
-	const separator = argv.indexOf('--');
-	const flags = separator === -1 ? argv : argv.slice(0, separator);
-	if (flags.includes('--no-hyperlinks')) return false;
-	if (flags.includes('--hyperlinks')) return true;
+	if (includesBeforeSeparator(argv, '--no-hyperlinks')) return false;
+	if (includesBeforeSeparator(argv, '--hyperlinks')) return true;
 	if (env.NO_HYPERLINKS) return false;
 	if (env.FORCE_HYPERLINKS) return true;
 	return undefined;

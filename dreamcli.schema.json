@@ -655,6 +655,10 @@
             "type": "string"
           }
         },
+        "allowHyphenValues": {
+          "description": "Whether a separate value may start with a dash (except the separator `--`).",
+          "const": true
+        },
         "completionValues": {
           "description": "Static shell completion suggestions for this flag.",
           "type": "array",

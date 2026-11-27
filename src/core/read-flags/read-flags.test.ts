@@ -1092,6 +1092,68 @@ describe('readFlags() built-in help', () => {
 // === Non-strict parsing
 
 describe('readFlags() strict false', () => {
+	it.each([
+		{ argv: ['--items', 'first', 'second', '-zv'], items: ['first', 'second'] },
+		{ argv: ['--items', '--help', 'second', '-zv'], items: ['--help', 'second'] },
+		{ argv: ['--items', '--verbose', 'second', '-zv'], items: ['--verbose', 'second'] },
+		{ argv: ['--items=first', 'second', '-zv', '--', 'third'], items: ['first', 'second'] },
+		{ argv: ['--items', 'first', '-zv', '--', 'second', '--help'], items: ['first'] },
+		{ argv: ['-zi', '--help', 'stray', '-zv'], items: ['--help'] },
+	])('keeps the declared operands in $argv', async ({ argv, items }) => {
+		const values = await readFlags(
+			{
+				items: flag.array(flag.string(), { variadic: true }).alias('i').allowHyphenValues(),
+				verbose: flag.count().alias('v'),
+			},
+			{ argv, adapter: createTestAdapter(), strict: false },
+		);
+		expect(values).toEqual({ items, verbose: 1 });
+	});
+
+	it('keeps the first unrecognized flag-shaped variadic operand', async () => {
+		const values = await readFlags(
+			{ items: flag.array(flag.string(), { variadic: true }) },
+			{ argv: ['--items', '--file', 'second'], env: {}, strict: false },
+		);
+		expect(values.items).toEqual(['--file', 'second']);
+	});
+
+	it('does not absorb a help request after the first variadic operand', async () => {
+		const definitions = {
+			items: flag.array(flag.string(), { variadic: true }).allowHyphenValues(),
+		};
+		const argv = ['--items', 'first', '--help', 'stray'];
+		const adapter = createTestAdapter();
+		await expect(readFlags(definitions, { argv, adapter, strict: false })).rejects.toMatchObject({
+			name: 'ExitError',
+			code: 0,
+		});
+		expect(await readFlags(definitions, { argv, adapter, strict: false, help: 'off' })).toEqual({
+			items: ['first'],
+		});
+	});
+
+	it('recognizes help after a short cluster consumed by a variadic option', async () => {
+		const definitions = {
+			items: flag.array(flag.string(), { variadic: true }),
+			token: flag.string().alias('t').allowHyphenValues(),
+		};
+		const argv = ['--items', '-xt', '--help'];
+		const adapter = createTestAdapter();
+		await expect(readFlags(definitions, { argv, adapter, strict: false })).rejects.toMatchObject({
+			name: 'ExitError',
+			code: 0,
+		});
+	});
+
+	it('keeps a separate boolean value with its declared flag', async () => {
+		const values = await readFlags(
+			{ enabled: flag.boolean({ separateValue: true }) },
+			{ argv: ['--unused', '--enabled', 'false'], env: {}, strict: false },
+		);
+		expect(values.enabled).toBe(false);
+	});
+
 	it('drops unknown long flags and their inline values', async () => {
 		const values = await readFlags(
 			{ watch: flag.boolean() },
@@ -1153,6 +1215,27 @@ describe('readFlags() strict false', () => {
 		);
 
 		expect(values.name).toBe('booga');
+	});
+
+	it.each(['on', 'off'] as const)(
+		'keeps a dash-prefixed operand after ignored short flags with help %s',
+		async (help) => {
+			const values = await readFlags(
+				{ token: flag.string().alias('t').allowHyphenValues() },
+				{ argv: ['-xt', '--help'], adapter: createTestAdapter(), strict: false, help },
+			);
+			expect(values.token).toBe('--help');
+		},
+	);
+
+	it('treats characters following a value-taking short flag as an attached operand', async () => {
+		const adapter = createTestAdapter();
+		await expect(
+			readFlags(
+				{ token: flag.string().alias('t').allowHyphenValues() },
+				{ argv: ['-xtsuffix', '--help'], strict: false, adapter },
+			),
+		).rejects.toMatchObject({ name: 'ExitError', code: 0 });
 	});
 
 	it('keeps the inline value of a declared short flag', async () => {

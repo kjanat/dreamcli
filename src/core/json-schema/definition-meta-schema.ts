@@ -260,6 +260,7 @@ const flagElementFragmentProperties = {
 const flagFragmentProperties = {
 	...flagElementFragmentProperties,
 	envEmpty: { const: 'missing' },
+	allowHyphenValues: { const: true },
 	completionValues: { type: 'array', items: { type: 'string' } },
 	defaultDescription: { oneOf: [{ type: 'string' }, { const: false }] },
 	sensitive: { const: true },

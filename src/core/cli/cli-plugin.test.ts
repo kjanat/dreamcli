@@ -10,6 +10,7 @@ import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { middleware } from '#internals/core/schema/middleware.ts';
 import { cli, plugin } from './index.ts';
+import type { TransformArgvParams } from './plugin.ts';
 
 // === Hook observation
 
@@ -147,6 +148,73 @@ describe('CLIBuilder.plugin() — hook ordering', () => {
 });
 
 describe('transformArgv', () => {
+	it.each([
+		{ name: 'a metadata-only transform', transformArgv: () => ({ metadata: { seen: true } }) },
+		{ name: 'the same argv', transformArgv: ({ argv }: TransformArgvParams) => ({ argv }) },
+		{
+			name: 'an identical copy',
+			transformArgv: ({ argv }: TransformArgvParams) => ({ argv: [...argv] }),
+		},
+		{
+			name: 'an appended option',
+			transformArgv: ({ argv }: TransformArgvParams) => ({ argv: [...argv, '--extra'] }),
+		},
+		{
+			name: 'a prepended option',
+			transformArgv: ({ argv }: TransformArgvParams) => ({ argv: ['--extra', ...argv] }),
+		},
+	])('preserves dispatch boundaries after $name', async ({ transformArgv }) => {
+		const app = cli('demo')
+			.plugin(plugin({ transformArgv }))
+			.command(
+				command('run')
+					.flag('token', flag.string().allowHyphenValues())
+					.flag('other', flag.boolean())
+					.flag('extra', flag.boolean())
+					.action(() => {}),
+			);
+		expect((await app.execute(['--token', 'run', '--other'])).error?.code).toBe('MISSING_VALUE');
+	});
+
+	it('preserves a dispatch boundary between unrelated edits', async () => {
+		const app = cli('demo')
+			.plugin(
+				plugin({
+					transformArgv: ({ argv }) => ({
+						argv: argv.map((token) => {
+							if (token === '--before') return '--alpha';
+							if (token === '--after') return '--omega';
+							return token;
+						}),
+					}),
+				}),
+			)
+			.command(
+				command('run')
+					.flag('token', flag.string().allowHyphenValues())
+					.flag('other', flag.boolean())
+					.flag('alpha', flag.boolean())
+					.flag('omega', flag.boolean())
+					.action(() => {}),
+			);
+		const result = await app.execute(['--before', '--token', 'run', '--other', '--after']);
+		expect(result.error?.code).toBe('MISSING_VALUE');
+	});
+
+	it('allows a transform to insert a value at a dispatch boundary', async () => {
+		const app = cli('demo')
+			.plugin(plugin({ transformArgv: () => ({ argv: ['--token', '--replacement', '--other'] }) }))
+			.command(
+				command('run')
+					.flag('token', flag.string().allowHyphenValues())
+					.flag('other', flag.boolean())
+					.action(({ flags, out }) => out.log(`${flags.token} ${flags.other}`)),
+			);
+		expect((await app.execute(['--token', 'run', '--other'])).stdout).toEqual([
+			'--replacement true\n',
+		]);
+	});
+
 	it('preserves argv when named and inline transforms return nothing', async () => {
 		async function observe() {}
 		const app = cli('demo')

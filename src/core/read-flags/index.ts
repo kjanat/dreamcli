@@ -15,13 +15,23 @@
 
 import { CLIError } from '#internals/core/errors/index.ts';
 import { formatHelp } from '#internals/core/help/index.ts';
+import {
+	adjacentArgvValue,
+	hasArgvBoundary,
+	markArgvBoundaries,
+	pushArgvToken,
+} from '#internals/core/parse/argv-boundaries.ts';
 import type { FlagLookupEntry, ParseOptions } from '#internals/core/parse/index.ts';
 import {
 	buildFlagLookup,
+	consumesSeparateBoolean,
 	flagExpectsValue,
 	parse,
 	requestedHelpMode,
+	separateFlagValue,
 	tokenize,
+	variadicLongValueCount,
+	withHyphenOperands,
 } from '#internals/core/parse/index.ts';
 import type { DeprecationWarning, ResolveOptions } from '#internals/core/resolve/index.ts';
 import { resolve } from '#internals/core/resolve/index.ts';
@@ -148,10 +158,9 @@ function scriptName(adapter: RuntimeAdapter): string {
 
 /**
  * Drop argv entries the lookup does not declare: unknown long flags with their
- * inline value, unknown characters inside a short group, positional arguments,
- * and the `--` separator. The walk mirrors the parser's value consumption, so
- * the token after a declared value-expecting flag survives as that flag's
- * value while the token after an unknown flag is dropped as a positional.
+ * inline value, unknown characters inside a short group, and unclaimed
+ * positionals. Keep each declared option's complete operand span and the gaps
+ * created by removal so parsing the result cannot claim new operands.
  */
 function withoutUndeclaredTokens(
 	argv: readonly string[],
@@ -159,57 +168,60 @@ function withoutUndeclaredTokens(
 ): readonly string[] {
 	const tokens = tokenize(argv);
 	const kept: string[] = [];
-	let i = 0;
-	while (i < tokens.length) {
-		const token = tokens[i];
-		const raw = argv[i];
-		if (token === undefined || raw === undefined) break;
+	const boundaries = new Set<number>();
+	let nextKeptIndex = 0;
+	function keep(index: number, raw: string): void {
+		if (index !== nextKeptIndex || hasArgvBoundary(argv, index)) boundaries.add(kept.length);
+		pushArgvToken(kept, argv, index, raw);
+		nextKeptIndex = index + 1;
+	}
 
-		if (token.kind === 'positional' || token.kind === 'separator') {
-			i++;
-			continue;
-		}
+	for (let i = 0; i < tokens.length; ) {
+		const index = i++;
+		const token = tokens[index];
+		const raw = argv[index];
+		if (token === undefined || raw === undefined) break;
+		if (token.kind === 'separator') break;
+		if (token.kind === 'positional') continue;
 
 		if (token.kind === 'long-flag') {
 			const entry = lookup.get(token.name);
-			i++;
 			if (entry === undefined) continue;
-			kept.push(raw);
-			if (!entry.negated && token.value === undefined && flagExpectsValue(entry.schema)) {
-				const nextRaw = argv[i];
-				if (tokens[i]?.kind === 'positional' && nextRaw !== undefined) {
-					kept.push(nextRaw);
-					i++;
+			keep(index, raw);
+			if (entry.negated) continue;
+			if (entry.schema.variadic) {
+				const count = variadicLongValueCount(argv, index, lookup, token.value !== undefined);
+				for (const value of argv.slice(i, i + count)) keep(i++, value);
+			} else if (token.value === undefined) {
+				if (flagExpectsValue(entry.schema)) {
+					const value = separateFlagValue(argv, i, entry.schema);
+					if (value !== undefined) keep(i++, value);
+				} else {
+					const next = adjacentArgvValue(argv, index);
+					if (next !== undefined && consumesSeparateBoolean(entry, next)) keep(i++, next);
 				}
 			}
 			continue;
 		}
 
 		let declared = '';
-		let awaitsValue = false;
+		let separate: string | undefined;
 		for (let ci = 0; ci < token.chars.length; ci++) {
 			const ch = token.chars.charAt(ci);
 			const entry = lookup.get(ch);
 			if (entry === undefined) continue;
 			declared += ch;
-			if (flagExpectsValue(entry.schema)) {
-				const inline = token.chars.slice(ci + 1);
-				if (inline.length > 0) declared += inline;
-				else awaitsValue = true;
-				break;
-			}
+			if (!flagExpectsValue(entry.schema)) continue;
+			const inline = token.chars.slice(ci + 1);
+			if (inline.length > 0) declared += inline;
+			else separate = separateFlagValue(argv, i, entry.schema);
+			break;
 		}
-		i++;
 		if (declared.length === 0) continue;
-		kept.push(`-${declared}`);
-		if (awaitsValue) {
-			const nextRaw = argv[i];
-			if (tokens[i]?.kind === 'positional' && nextRaw !== undefined) {
-				kept.push(nextRaw);
-				i++;
-			}
-		}
+		keep(index, `-${declared}`);
+		if (separate !== undefined) keep(i++, separate);
 	}
+	markArgvBoundaries(kept, boundaries);
 	return kept;
 }
 
@@ -323,7 +335,12 @@ async function readFlags<const F extends FlagMap>(
 	const schema = createCommandSchema({ name: INTERNAL_COMMAND_NAME, flags });
 
 	const host = adapterReader(options?.adapter);
-	const argv = options?.argv ?? host().argv.slice(2);
+	const argv = withHyphenOperands(
+		options?.argv ?? host().argv.slice(2),
+		flags,
+		options?.parse,
+		options?.strict === false,
+	);
 	const lookup = buildFlagLookup(schema.flags, options?.parse);
 	const helpMode = requestedHelpMode(argv);
 
