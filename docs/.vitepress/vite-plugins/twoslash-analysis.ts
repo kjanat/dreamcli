@@ -1,8 +1,8 @@
 /** Analyze each expanded TypeScript fence once per production build. @module */
 import { join } from 'node:path';
 import { createSyncFn } from 'synckit';
-import type { Plugin } from 'vitepress';
 import type { TwoslashGenericResult } from 'twoslash-protocol';
+import type { Plugin } from 'vitepress';
 import type { checkSnippet } from '../../scripts/tsrs-worker.ts';
 
 export function createBuildAnalyzer(root: string) {
