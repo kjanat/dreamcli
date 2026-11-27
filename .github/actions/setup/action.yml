@@ -8,14 +8,14 @@ runs:
   using: composite
   steps:
     - uses: kjanat/runner@master
-    - uses: kjanat/setup-tombi@master
-    # install-dprint@v2 defaults to kjanat/kprint. It warms the plugin cache.
-    - uses: kjanat/install-dprint@v2
     - uses: denoland/setup-deno@v2
     - uses: oven-sh/setup-bun@v2
       with:
-        bun-version: ${{ !inputs.bun-version-file && 'canary' || '' }}
+        bun-version: ${{ case(inputs.bun-version-file == null, 'canary', '') }}
         bun-version-file: ${{ inputs.bun-version-file }}
         no-cache: true
     - uses: actions/setup-node@v7
       with: { node-version-file: .node-version }
+    - name: Prevent kprint from compiling plugins to cwasm
+      shell: bash
+      run: echo "DPRINT_WASM_FORMAT_ENGINE=interpreter" >> "${GITHUB_ENV}"
