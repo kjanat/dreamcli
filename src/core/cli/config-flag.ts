@@ -1,5 +1,6 @@
 /** Shared argv handling for config discovery and completion. @module dreamcli/core/cli/config-flag */
-import { type CLIError, ParseError } from '#internals/core/errors/index.ts';
+import type { CLIError } from '#internals/core/errors/index.ts';
+import { ParseError } from '#internals/core/errors/index.ts';
 import {
 	hasArgvBoundary,
 	isHyphenOperand,

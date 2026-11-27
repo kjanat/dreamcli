@@ -30,7 +30,8 @@ import {
 	normalizeEnvEmpty,
 	normalizeIndexedEnvBinding,
 } from './env-binding.ts';
-import { assertNumberConstraints, type NumberConstraints } from './number-constraints.ts';
+import type { NumberConstraints } from './number-constraints.ts';
+import { assertNumberConstraints } from './number-constraints.ts';
 import type {
 	ConfirmPromptConfig,
 	InputPromptConfig,
@@ -39,10 +40,12 @@ import type {
 	PromptConfig,
 	SelectPromptConfig,
 } from './prompt.ts';
-import { type InferStandardOutput, isStandardSchemaV1, type StandardSchemaV1 } from './standard.ts';
+import type { InferStandardOutput, StandardSchemaV1 } from './standard.ts';
+import { isStandardSchemaV1 } from './standard.ts';
 import type { StdinBinding, StdinOptions } from './stdin.ts';
 import { normalizeStdinBinding } from './stdin.ts';
-import { assertStringConstraints, type StringConstraints } from './string-constraints.ts';
+import type { StringConstraints } from './string-constraints.ts';
+import { assertStringConstraints } from './string-constraints.ts';
 import {
 	bytesValue,
 	customValue,

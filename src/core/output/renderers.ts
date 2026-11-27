@@ -13,8 +13,8 @@ import type {
 	ProgressOptions,
 	SpinnerHandle,
 } from '#internals/core/schema/activity.ts';
+import type { ActivityLine } from './activity.ts';
 import {
-	type ActivityLine,
 	noopProgressHandle,
 	noopSpinnerHandle,
 	StaticProgressHandle,

@@ -51,6 +51,15 @@ const symbolRoutes = new Map<string, string>();
 const isCI = Boolean(env.CI);
 const ifCI = (ifCiThen: string, ifNotCiThen: string) => (isCI ? ifCiThen : ifNotCiThen);
 const popups = twoslashPayloads();
+// Pilot the native analyzer on the flags guide. Other fences use VitePress's usual analyzer.
+const tsrsOptions =
+	env.DREAMCLI_TSRS_FLAGS === '1'
+		? {
+				typesCache: await import('../scripts/tsrs-twoslash.ts').then(({ createFlagsCache }) =>
+					createFlagsCache(projectRoot),
+				),
+			}
+		: {};
 
 const compilerOptions = {
 	baseUrl: projectRoot,
@@ -303,6 +312,7 @@ export default defineConfig({
 		codeTransformers: [
 			transformerTwoslash({
 				explicitTrigger: true,
+				...tsrsOptions,
 				twoslashOptions: {
 					vfsRoot: projectRoot,
 					compilerOptions,

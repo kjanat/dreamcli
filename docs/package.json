@@ -21,10 +21,14 @@
 		"@types/node": "catalog:",
 		"floating-vue": "^5.4.0",
 		"mermaid": "12.4.0",
+		"tsrs": "catalog:",
+		"twoslash": "0.3.9",
+		"twoslash-protocol": "0.3.9",
 		"typescript": "catalog:",
 		"vite": "8.4.0",
 		"vitepress": "next",
 		"vitest": "catalog:",
+		"vscode-jsonrpc": "9.0.2",
 		"wrangler": "4.169.0"
 	}
 }

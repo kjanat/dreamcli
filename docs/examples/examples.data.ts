@@ -7,7 +7,8 @@
  * @module
  */
 
-import { collectExamples, type ExampleEntry } from '../.vitepress/data/examples.ts';
+import type { ExampleEntry } from '../.vitepress/data/examples.ts';
+import { collectExamples } from '../.vitepress/data/examples.ts';
 import { examplesRoot, rootDirPath } from '../.vitepress/data/paths.ts';
 
 export type ExampleIndexEntry = Pick<

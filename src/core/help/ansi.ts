@@ -10,7 +10,8 @@
  * @module dreamcli/core/help/ansi
  */
 
-import { createColors, type LinkFormatter, strip } from 'ansispeck';
+import type { LinkFormatter } from 'ansispeck';
+import { createColors, strip } from 'ansispeck';
 
 // --- Escape stripping
 

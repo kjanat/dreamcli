@@ -1,6 +1,7 @@
 /** Extract static Twoslash popper slots before Vue compiles the page. @module */
 import { createHash } from 'node:crypto';
-import { hastToHtml, type ShikiTransformer } from '@shikijs/core';
+import type { ShikiTransformer } from '@shikijs/core';
+import { hastToHtml } from '@shikijs/core';
 import type { Element, Root } from 'hast';
 import type { Plugin } from 'vitepress';
 

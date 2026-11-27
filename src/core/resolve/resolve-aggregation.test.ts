@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { isValidationError, type ValidationError } from '#internals/core/errors/index.ts';
+import type { ValidationError } from '#internals/core/errors/index.ts';
+import { isValidationError } from '#internals/core/errors/index.ts';
 import type { ParseResult } from '#internals/core/parse/index.ts';
 import { createArgSchema } from '#internals/core/schema/arg.ts';
 import type { CommandSchema } from '#internals/core/schema/command.ts';

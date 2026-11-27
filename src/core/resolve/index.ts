@@ -14,7 +14,8 @@
  * @module dreamcli/core/resolve
  */
 
-import { isValidationError, type ValidationError } from '#internals/core/errors/index.ts';
+import type { ValidationError } from '#internals/core/errors/index.ts';
+import { isValidationError } from '#internals/core/errors/index.ts';
 import type { ParseResult } from '#internals/core/parse/index.ts';
 import { normalizeEnvPrefix } from '#internals/core/schema/env-binding.ts';
 import type { CommandSchema } from '#internals/core/schema/index.ts';

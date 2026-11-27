@@ -24,7 +24,8 @@ import {
 	pushArgvToken,
 } from '#internals/core/parse/argv-boundaries.ts';
 import { coerceFlagValue } from '#internals/core/parse/index.ts';
-import { type FlagSchema, flag } from '#internals/core/schema/flag.ts';
+import type { FlagSchema } from '#internals/core/schema/flag.ts';
+import { flag } from '#internals/core/schema/flag.ts';
 import type { BuiltinsConfig } from './builtins.ts';
 import { BUILTIN_SPECS, builtinEnabled } from './builtins.ts';
 
