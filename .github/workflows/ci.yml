@@ -57,7 +57,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: $/.github/actions/setup
-      - run: runner install --frozen schema:emit docs:build
+      - run: runner install --frozen docs:build
       - run: git diff --exit-code; status="$(git status --porcelain --untracked-files=all)"; test -z "${status}"
 
   build:
