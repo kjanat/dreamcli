@@ -2,10 +2,10 @@
 
 /** DreamCLI's package executable. @module */
 
-import { basename, resolve } from 'node:path';
+import { basename, relative, resolve, sep } from 'node:path';
 import { cwd, env, stderr, stdin } from 'node:process';
-import { arg, CLIError, cli, command, flag, wasExplicit } from '@kjanat/dreamcli';
-import { normalizeProjectName, scaffold } from '@kjanat/dreamcli/create';
+import { arg, CLIError, cli, command, flag } from '@kjanat/dreamcli';
+import { scaffold } from '@kjanat/dreamcli/create';
 import { prompt } from '@kjanat/dreamcli/prompt';
 import { DREAMCLI_REVISION, DREAMCLI_VERSION } from '@kjanat/dreamcli/version';
 import { initGit } from './git.mjs';
@@ -16,7 +16,6 @@ const create = command('create')
 	.arg('directory', arg.string().optional().describe('Project directory (or CLI name with --out)'))
 	.flag('name', flag.string().describe('Override the project name'))
 	.flag('yes', flag.boolean().alias('y').describe('Use defaults without prompting'))
-	.flag('mode', flag.enum(['single', 'multi']).default('single').describe('Starter layout'))
 	.flag(
 		'out',
 		flag.string().describe('Write files into this directory instead of creating a project'),
@@ -24,8 +23,8 @@ const create = command('create')
 	.flag('git', flag.boolean().default(true).negatable().describe('Create the initial Git commit'))
 	.flag('test', flag.boolean().default(true).negatable().describe('Generate a starter test'))
 	.flag('force', flag.boolean().default(false).describe('Replace existing starter files'))
-	.action(async ({ args, flags, sources, out, ask }) => {
-		const { git: defaultGit, name: explicitName, yes, ...options } = flags;
+	.action(async ({ args, flags, out, ask }) => {
+		const { git: useGit, name: explicitName, yes, ...options } = flags;
 		const project = options.out === undefined;
 		const inCI = env.CI && env.CI !== 'false' && env.CI !== '0';
 		const interactive =
@@ -35,8 +34,7 @@ const create = command('create')
 		if (!target && interactive) {
 			target = await ask(
 				prompt.input({
-					message: 'Project directory',
-					placeholder: 'e.g. ./my-cli',
+					message: 'Directory',
 				}),
 			);
 		}
@@ -54,64 +52,17 @@ const create = command('create')
 		}
 
 		const directory = resolve(target);
-		let name = explicitName ?? (project ? basename(directory) : target);
-		let { mode, test } = options;
-		let useGit = defaultGit;
-		if (interactive) {
-			if (explicitName === undefined) {
-				const suggested = normalizeProjectName(name);
-				name = await ask(
-					prompt.input({
-						message: 'Project name',
-						...(suggested !== undefined && { default: suggested }),
-						validate: (value) =>
-							normalizeProjectName(value) !== undefined ||
-							'Use a valid project name, such as my-cli.',
-					}),
-				);
-			}
-			if (!wasExplicit(sources.flags.mode)) {
-				mode = await ask(
-					prompt.input({
-						message: 'Starter layout (single or multi)',
-						default: mode,
-						validate: (value) =>
-							value === 'single' || value === 'multi' || 'Enter single or multi.',
-					}),
-				);
-			}
-			if (!wasExplicit(sources.flags.test)) {
-				test = await ask(prompt.confirm({ message: 'Generate a starter test?', default: test }));
-			}
-			if (!wasExplicit(sources.flags.git)) {
-				useGit = await ask(
-					prompt.confirm({ message: 'Create the initial Git commit?', default: useGit }),
-				);
-			}
-			if (
-				!(await ask(
-					prompt.confirm({
-						message: `Create the project in ${directory}?`,
-						default: directory !== cwd(),
-					}),
-				))
-			) {
-				out.status('Cancelled. No files written.');
-				return;
-			}
+		const name = explicitName ?? (project ? basename(directory) : target);
+		if (interactive && relative(cwd(), directory) === '') {
+			if (!(await ask(prompt.confirm({ message: 'Create here?', default: false })))) return;
 		}
 
-		const result = scaffold({ ...options, name, directory, mode, test });
+		const result = scaffold({ ...options, name, directory });
 		const git =
 			project && useGit
 				? initGit(
 						directory,
-						[
-							basename(result.entry),
-							'package.json',
-							'.gitignore',
-							...(result.test ? [basename(result.test)] : []),
-						],
+						result.files.map((path) => relative(directory, path).split(sep).join('/')),
 						DREAMCLI_VERSION,
 						DREAMCLI_REVISION,
 					)
@@ -120,12 +71,8 @@ const create = command('create')
 			out.json({ ...result, ...(git && { git }) });
 			return;
 		}
-		out.log(`Created ${result.entry}`);
-		if (result.test !== undefined) out.log(`Created ${result.test}`);
-		if (git?.commit) out.log(`Initial Git commit: ${git.commit.slice(0, 12)}`);
-		if (git?.skipped) out.status('Git skipped: the project is inside an existing repository.');
-		if (git?.error) out.warn(`Initial Git commit was not created: ${git.error}`);
-		if (project) out.log(`In ${directory}, run npm install, then npm start -- --help.`);
+		out.log(project ? `Created ${target}` : `Created ${relative(cwd(), result.entry)}`);
+		if (git?.error) out.warn(`Git: ${git.error}`);
 	});
 
 await cli('dreamcli')

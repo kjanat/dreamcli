@@ -1,5 +1,8 @@
 # Runtime Notes
 
+In a new project, run the CLI with `npm start -- hello Ada` or `bun src/cli.ts hello Ada`.
+Run the Vitest suite with `npm test`. The commands below are for files added with `--out`.
+
 ## Bun-first commands
 
 - Run CLI entrypoint: `bun mycli.ts --help`

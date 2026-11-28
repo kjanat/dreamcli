@@ -14,9 +14,14 @@ import {
 	rmSync,
 	writeFileSync,
 } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { CLIError } from './core/errors/index.ts';
-import { entryTemplates, testTemplate } from './create/templates.ts';
+import {
+	cliTemplate,
+	commandTemplate,
+	standaloneTemplate,
+	testTemplate,
+} from './create/templates.ts';
 import { detectTestRunner } from './create/test-runner.ts';
 import { DREAMCLI_VERSION } from './version.ts';
 
@@ -25,8 +30,6 @@ export interface ScaffoldOptions {
 	readonly name: string;
 	/** Exact project directory. Defaults to a directory named after the CLI. */
 	readonly directory?: string;
-	/** Starter layout. Defaults to a single root command. */
-	readonly mode?: 'single' | 'multi';
 	/** Write starter files into this directory instead of creating a named project. */
 	readonly out?: string;
 	/** Generate a test file. Defaults to true. */
@@ -40,14 +43,12 @@ export interface ScaffoldResult {
 	readonly name: string;
 	/** Absolute path to the generated entrypoint. */
 	readonly entry: string;
+	/** Absolute paths to all generated files. */
+	readonly files: readonly string[];
 	/** Absolute path to the generated test, when enabled. */
 	readonly test?: string;
 	/** Import specifier for the generated test runner, when tests are enabled. */
 	readonly testRunner?: 'bun:test' | 'vitest';
-}
-
-function renderTemplate(template: string, name: string): string {
-	return template.replaceAll('__CLI_NAME__', name).replaceAll('__ENTRY_FILE__', `./${name}.ts`);
 }
 
 function existingFile(path: string): CLIError {
@@ -58,7 +59,7 @@ function existingFile(path: string): CLIError {
 }
 
 /** Normalize a project name for use as a package name and filename. */
-export function normalizeProjectName(input: string): string | undefined {
+function normalizeProjectName(input: string): string | undefined {
 	const name = input
 		.toLowerCase()
 		.replace(/[^a-z0-9]+/g, '-')
@@ -82,41 +83,70 @@ export function scaffold(options: ScaffoldOptions): ScaffoldResult {
 
 	const project = options.out === undefined;
 	const directory = resolve(options.out ?? options.directory ?? name);
-	const mode = options.mode ?? 'single';
-	const entry = join(directory, `${name}.ts`);
-	const test = options.test === false ? undefined : join(directory, `${name}.test.ts`);
+	const entry = join(directory, project ? 'src/cli.ts' : `${name}.ts`);
+	const test =
+		options.test === false
+			? undefined
+			: join(directory, project ? 'src/commands/hello.test.ts' : `${name}.test.ts`);
 	const testRunner =
 		test === undefined ? undefined : project ? 'vitest' : detectTestRunner(directory);
 	const files: { path: string; content: string; mode?: number }[] = [
-		{ path: entry, content: renderTemplate(entryTemplates[mode], name) },
+		{
+			path: entry,
+			content: (project ? cliTemplate : standaloneTemplate).replace('__CLI_NAME__', name),
+		},
 	];
+	if (project)
+		files.push({ path: join(directory, 'src/commands/hello.ts'), content: commandTemplate });
 	if (test !== undefined && testRunner !== undefined) {
 		files.push({
 			path: test,
-			content: renderTemplate(testTemplate, name).replace('__TEST_RUNNER__', testRunner),
+			content: testTemplate
+				.replace('__COMMAND_FILE__', project ? './hello.ts' : `./${name}.ts`)
+				.replace('__TEST_RUNNER__', testRunner),
 		});
 	}
 
 	if (project) {
 		const manifest = {
 			name,
+			version: '0.1.0',
 			private: true,
 			type: 'module',
 			scripts: {
-				start: `node ./${name}.ts`,
+				start: 'node src/cli.ts',
+				typecheck: 'tsc --noEmit',
 				...(test !== undefined && { test: 'vitest run' }),
 			},
 			engines: { node: '>=22.22.2' },
 			dependencies: {
 				'@kjanat/dreamcli': DREAMCLI_VERSION === 'dev' ? 'latest' : DREAMCLI_VERSION,
 			},
-			...(test !== undefined && { devDependencies: { vitest: '^5.1.2' } }),
+			devDependencies: {
+				'@types/node': '^22.0.0',
+				typescript: '^6.0.3',
+				...(test !== undefined && { vitest: '^5.1.2' }),
+			},
 		};
 		files.push({
 			path: join(directory, 'package.json'),
 			content: `${JSON.stringify(manifest, null, 2)}\n`,
 		});
-		files.push({ path: join(directory, '.gitignore'), content: 'node_modules/\n' });
+		const tsconfig = {
+			compilerOptions: {
+				target: 'ES2022',
+				module: 'NodeNext',
+				strict: true,
+				noEmit: true,
+				allowImportingTsExtensions: true,
+				types: ['node'],
+			},
+			include: ['src'],
+		};
+		files.push(
+			{ path: join(directory, 'tsconfig.json'), content: `${JSON.stringify(tsconfig, null, 2)}\n` },
+			{ path: join(directory, '.gitignore'), content: 'node_modules/\ncoverage/\n' },
+		);
 		const existing = lstatSync(directory, { throwIfNoEntry: false });
 		if (existing && (!existing.isDirectory() || readdirSync(directory).length > 0)) {
 			throw new CLIError(`Project directory is not empty or not a directory: ${directory}`, {
@@ -152,6 +182,7 @@ export function scaffold(options: ScaffoldOptions): ScaffoldResult {
 		});
 
 		for (const { path, source } of staged) {
+			mkdirSync(dirname(path), { recursive: true });
 			if (options.force && !project) {
 				renameSync(source, path);
 				continue;
@@ -175,6 +206,7 @@ export function scaffold(options: ScaffoldOptions): ScaffoldResult {
 	return {
 		name,
 		entry,
+		files: files.map(({ path }) => path),
 		...(test !== undefined && { test }),
 		...(testRunner !== undefined && { testRunner }),
 	};

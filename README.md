@@ -61,34 +61,40 @@ deno add jsr:@kjanat/dreamcli  # or npm:@kjanat/dreamcli
 
 ## Quick start
 
-Create a runnable TypeScript CLI project in a new or empty directory.
+Create a TypeScript CLI project in a new or empty directory:
 
 ```sh
 npm exec --package=@kjanat/dreamcli -- dreamcli create mycli
 cd mycli
 npm install
-npm start -- --help
+npm start -- hello Ada
 npm test
+npm run typecheck
 ```
 
-`dreamcli init` is an alias for `dreamcli create`. Use `--mode multi` for a
-grouped CLI, `--out <directory>` to add just the starter files to an existing project, and `--no-test`
-to skip the test. Use `--force` with `--out` to replace existing starter files.
+```text
+mycli/
+├── .gitignore
+├── package.json
+├── tsconfig.json
+└── src/
+    ├── cli.ts
+    └── commands/
+        ├── hello.ts
+        └── hello.test.ts
+```
 
-Pass a relative or absolute path, or explicitly use `.` for the current directory.
-In a terminal, omitting the path prompts for one. The wizard asks for unset project options and
-shows the full path for confirmation before writing. Press Enter to keep each suggested option.
-When writing to the current directory, explicitly confirm with `y`. The package name defaults to the last
-component of the path, normalized to lowercase with hyphens. Override it with `--name`.
-Use `--yes` to skip the wizard. Scripts, CI, and JSON mode never prompt and must supply a path.
+`dreamcli init` is an alias. In a terminal, an omitted path prompts for a directory.
+Non-interactive runs require a path. Use `.` explicitly to create in an empty current
+directory, where the CLI asks for confirmation unless you pass `--yes`.
 
-For a standalone project,
-DreamCLI initializes Git and records the generator version in the first commit. Use `--no-git` to
-skip this. Existing Git repositories are left alone, and missing Git or commit identity does not
-prevent project creation.
+The package name comes from the directory; `--name` overrides it. A new Git repository
+gets an initial commit with the generator version. Use `--no-git` or `--no-test` to skip
+those steps. Existing repositories are left alone.
 
-To generate the files from code without running Git, import `scaffold` from
-`@kjanat/dreamcli/create`.
+Use `dreamcli create mycli --out .` to add just the starter files to an existing
+project. Use `--force` with `--out` to replace those files. The programmatic
+`scaffold()` from `@kjanat/dreamcli/create` generates files without running Git.
 
 ### Single command
 

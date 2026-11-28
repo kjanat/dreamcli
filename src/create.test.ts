@@ -35,11 +35,11 @@ describe('scaffold', () => {
 			expect(JSON.parse(manifest)).toMatchObject({
 				name: 'my-cli',
 				type: 'module',
-				scripts: { start: 'node ./my-cli.ts', test: 'vitest run' },
+				scripts: { start: 'node src/cli.ts', typecheck: 'tsc --noEmit', test: 'vitest run' },
 				dependencies: { '@kjanat/dreamcli': expect.any(String) },
 				devDependencies: { vitest: expect.any(String) },
 			});
-			expect(existsSync(join(directory, 'my-cli', 'my-cli.test.ts'))).toBe(true);
+			expect(existsSync(join(directory, 'my-cli', 'src/commands/hello.test.ts'))).toBe(true);
 			expect(() => run({ name: 'my-cli', force: true })).toThrow(/not empty/);
 			expect(readFileSync(packageFile, 'utf8')).toBe(manifest);
 
@@ -47,9 +47,9 @@ describe('scaffold', () => {
 			const withoutTests = JSON.parse(
 				readFileSync(join(directory, 'no-test', 'package.json'), 'utf8'),
 			);
-			expect(withoutTests.scripts).toEqual({ start: 'node ./no-test.ts' });
-			expect(withoutTests.devDependencies).toBeUndefined();
-			expect(existsSync(join(directory, 'no-test', 'no-test.test.ts'))).toBe(false);
+			expect(withoutTests.scripts).toEqual({ start: 'node src/cli.ts', typecheck: 'tsc --noEmit' });
+			expect(withoutTests.devDependencies.vitest).toBeUndefined();
+			expect(existsSync(join(directory, 'no-test', 'src/commands/hello.test.ts'))).toBe(false);
 		});
 	});
 
@@ -58,13 +58,13 @@ describe('scaffold', () => {
 			const target = join(directory, 'nested', 'My CLI');
 			mkdirSync(target, { recursive: true });
 			const result = scaffold({ name: 'My CLI', directory: target, test: false });
-			expect(result.entry).toBe(join(target, 'my-cli.ts'));
-			expect(readFileSync(join(target, '.gitignore'), 'utf8')).toBe('node_modules/\n');
+			expect(result.entry).toBe(join(target, 'src/cli.ts'));
+			expect(readFileSync(join(target, '.gitignore'), 'utf8')).toBe('node_modules/\ncoverage/\n');
 			expect(JSON.parse(readFileSync(join(target, 'package.json'), 'utf8')).name).toBe('my-cli');
 		});
 	});
 
-	it('creates a single-command starter under a nested destination in a Bun project', () => {
+	it('adds starter files under a nested destination in a Bun project', () => {
 		withProject((directory) => {
 			writeFileSync(join(directory, 'bun.lock'), '{}');
 			const out = join(directory, 'src', 'cli');
@@ -74,23 +74,24 @@ describe('scaffold', () => {
 				name: 'my-cli',
 				entry: join(out, 'my-cli.ts'),
 				test: join(out, 'my-cli.test.ts'),
+				files: [join(out, 'my-cli.ts'), join(out, 'my-cli.test.ts')],
 				testRunner: 'bun:test',
 			});
-			expect(readFileSync(result.entry, 'utf8')).toContain("cli('my-cli').default(hello)");
+			expect(readFileSync(result.entry, 'utf8')).toContain("cli('my-cli').command(hello)");
 			expect(readFileSync(join(out, 'my-cli.test.ts'), 'utf8')).toContain("from 'bun:test'");
 		});
 	});
 
-	it('uses Vitest for a multi-command starter when declared in a Bun workspace', () => {
+	it('uses Vitest for starter files when declared in a Bun workspace', () => {
 		withProject((directory) => {
 			writeFileSync(
 				join(directory, 'package.json'),
 				JSON.stringify({ packageManager: 'bun@1.4.5', devDependencies: { vitest: '^5.0.0' } }),
 			);
-			const result = scaffold({ name: 'my-cli', mode: 'multi', out: directory });
+			const result = scaffold({ name: 'my-cli', out: directory });
 
 			expect(result.testRunner).toBe('vitest');
-			expect(readFileSync(result.entry, 'utf8')).toContain("group('greet')");
+			expect(readFileSync(result.entry, 'utf8')).toContain("command('hello')");
 			const test = readFileSync(join(directory, 'my-cli.test.ts'), 'utf8');
 			expect(test).toContain("from 'vitest'");
 			expect(test).toContain("import { hello } from './my-cli.ts'");
@@ -116,7 +117,7 @@ describe('scaffold', () => {
 			writeFileSync(entry, 'old entry');
 			writeFileSync(test, 'keep this');
 			const result = scaffold({ name: 'my-cli', out: directory, test: false, force: true });
-			expect(result).toEqual({ name: 'my-cli', entry });
+			expect(result).toEqual({ name: 'my-cli', entry, files: [entry] });
 			expect(readFileSync(entry, 'utf8')).toContain("cli('my-cli')");
 			expect(readFileSync(test, 'utf8')).toBe('keep this');
 		});

@@ -1,4 +1,4 @@
-/** Source and test templates for the two starter layouts. @module */
+/** Templates for a DreamCLI project and for adding starter files to an existing project. @module */
 
 const hello = `export const hello = command('hello')
 	.description('Say hello')
@@ -8,29 +8,27 @@ const hello = `export const hello = command('hello')
 	});
 `;
 
-const run = `if (import.meta.main) {
-	await app.run();
+export const commandTemplate = `import { arg, command } from '@kjanat/dreamcli';
+
+${hello}`;
+
+export const cliTemplate = `import { cli } from '@kjanat/dreamcli';
+import { hello } from './commands/hello.ts';
+
+await cli('__CLI_NAME__').command(hello).run();
+`;
+
+export const standaloneTemplate = `import { arg, cli, command } from '@kjanat/dreamcli';
+
+${hello}
+if (import.meta.main) {
+	await cli('__CLI_NAME__').command(hello).run();
 }
 `;
 
-export const entryTemplates = {
-	single: `import { arg, cli, command } from '@kjanat/dreamcli';
-
-${hello}
-export const app = cli('__CLI_NAME__').default(hello);
-
-${run}`,
-	multi: `import { arg, cli, command, group } from '@kjanat/dreamcli';
-
-${hello}
-export const app = cli('__CLI_NAME__').command(group('greet').command(hello));
-
-${run}`,
-};
-
 export const testTemplate = `import { runCommand } from '@kjanat/dreamcli/testkit';
 import { expect, it } from '__TEST_RUNNER__';
-import { hello } from '__ENTRY_FILE__';
+import { hello } from '__COMMAND_FILE__';
 
 it('greets the name passed on the command line', async () => {
 	const result = await runCommand(hello, ['Ada']);

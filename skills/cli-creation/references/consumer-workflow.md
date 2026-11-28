@@ -19,7 +19,7 @@ template and ending with validated behavior.
 1. Scaffold starter files.
 
    ```bash
-   bunx --package @kjanat/dreamcli dreamcli create mycli --mode single --out .
+   bunx --package @kjanat/dreamcli dreamcli create mycli --out .
    ```
 
    The scaffolder detects the package manager and Vitest usage to choose either
