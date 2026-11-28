@@ -27,4 +27,6 @@
 - Root `wrangler.toml` is the Worker config. Assets directory is `docs/.vitepress/dist`. `html_handling` is `auto-trailing-slash`. `drop-trailing-slash` sent `/raw/` through a 307
 - `bun run docs:deploy` is `wrangler deploy`. `bun run docs:upload` is `wrangler versions upload`, which publishes a preview version and leaves production traffic where it is
 - `.github/workflows/docs.yml` uploads the same dist as a GitHub Pages artifact
+- Workers Builds restores highlighted popup content from `~/.bun/install/cache/dreamcli-docs/` when **Settings → Build → Build cache** is enabled. The build log reports restored and generated highlights.
+- To repeat the #327 hover comparison, run `bun docs/scripts/compare-twoslash.ts <stock-dist> <candidate-dist> <reference-dist>` with the stock build from `f0ff11b0` and reference from `6e5d5f40`. Omitting the reference requires stock signatures for non-query hovers.
 - Mermaid loads in the browser from a CDN

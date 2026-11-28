@@ -1,8 +1,7 @@
 /** Analyze documentation snippets with the tsrs language server. @module */
 import { spawn } from 'node:child_process';
-import { once } from 'node:events';
 import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { findCutNotations, findQueryMarkers } from 'twoslash';
 import type {
@@ -26,6 +25,7 @@ import {
 } from 'vscode-jsonrpc/node';
 
 import { createDeclarationLookup, overloadHint } from './tsrs-hover.ts';
+import { ownTsrsProcess } from './tsrs-process.ts';
 
 type Hover = {
 	contents: { value: string };
@@ -135,11 +135,10 @@ async function analyze(
 export async function openTsrs(root: string) {
 	const uri = pathToFileURL(join(root, 'docs/.vitepress/twoslash/snippet.ts')).href;
 	const rootUri = pathToFileURL(root).href;
-	const launcher = join(
-		dirname(createRequire(join(root, 'docs/package.json')).resolve('tsrs/package.json')),
-		'bin/tsrs',
-	);
-	const child = spawn('node', [launcher, '--lsp', '--stdio'], {
+	// Use tsrs's own platform lookup and own the native process directly on every OS.
+	const pkg = createRequire(join(root, 'docs/package.json')).resolve('tsrs/package.json');
+	const binary = await import(pathToFileURL(createRequire(pkg).resolve('#getExePath')).href);
+	const child = spawn(binary.default(), ['--lsp', '--stdio'], {
 		cwd: root,
 		stdio: ['pipe', 'pipe', 'inherit'],
 	});
@@ -149,21 +148,37 @@ export async function openTsrs(root: string) {
 	);
 	child.on('error', () => connection.dispose());
 	child.on('exit', () => connection.dispose());
+	const close = ownTsrsProcess(child, async () => {
+		await connection.sendRequest('shutdown');
+		// tsrs finishes its stdio server on EOF after acknowledging shutdown.
+		connection.end();
+	});
 	connection.listen();
+	// The sync caller has a 60 s deadline. Reap a stalled initialize request
+	// before that deadline, while the worker is still able to report its error.
+	const deadline = Promise.withResolvers<never>();
+	const initializeTimer = setTimeout(
+		() => deadline.reject(new Error('tsrs initialization timed out')),
+		15_000,
+	);
 	try {
-		await connection.sendRequest('initialize', {
-			processId: process.pid,
-			rootUri,
-			workspaceFolders: [{ uri: rootUri, name: 'dreamcli' }],
-			capabilities: {
-				textDocument: {
-					hover: { contentFormat: ['markdown'] },
-					signatureHelp: { signatureInformation: { documentationFormat: ['markdown'] } },
-					diagnostic: {},
+		await Promise.race([
+			deadline.promise,
+			connection.sendRequest('initialize', {
+				processId: process.pid,
+				rootUri,
+				workspaceFolders: [{ uri: rootUri, name: 'dreamcli' }],
+				capabilities: {
+					textDocument: {
+						hover: { contentFormat: ['markdown'] },
+						signatureHelp: { signatureInformation: { documentationFormat: ['markdown'] } },
+						diagnostic: {},
+					},
 				},
-			},
-		});
-		await connection.sendNotification('initialized', {});
+			}),
+		]);
+		await Promise.race([deadline.promise, connection.sendNotification('initialized', {})]);
+		clearTimeout(initializeTimer);
 		const lookup = createDeclarationLookup(connection);
 		let version = 0;
 		return {
@@ -189,20 +204,17 @@ export async function openTsrs(root: string) {
 			},
 			async close() {
 				try {
-					const stopped = once(child, 'close');
-					await connection.sendRequest('shutdown');
-					connection.end();
-					const [exitCode] = await stopped;
-					if (exitCode !== 0) throw new Error(`tsrs exited with code ${exitCode}`);
+					await close();
 				} finally {
 					connection.dispose();
-					child.kill();
 				}
 			},
 		};
 	} catch (error) {
-		connection.dispose();
+		clearTimeout(initializeTimer);
 		child.kill();
+		connection.dispose();
+		await close().catch(() => {});
 		throw error;
 	}
 }

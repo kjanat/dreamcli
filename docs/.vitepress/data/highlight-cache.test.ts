@@ -28,3 +28,21 @@ it('restores saved highlights for the same dependencies and replaces obsolete en
 		rmSync(root, { recursive: true, force: true });
 	}
 });
+
+it('invalidates highlights when the renderer changes with the same dependencies', () => {
+	const root = mkdtempSync(join(tmpdir(), 'dreamcli-renderer-'));
+	try {
+		const lock = join(root, 'bun.lock');
+		const renderer = join(root, 'renderer.ts');
+		writeFileSync(lock, 'unchanged dependencies');
+		writeFileSync(renderer, 'first renderer');
+		const open = () => highlightCache(root, lock, renderer);
+		const entries = new Map<string, Root>([['type', { type: 'root', children: [] }]]);
+		open().save(entries);
+		expect(open().restore()).toEqual(entries);
+		writeFileSync(renderer, 'updated renderer');
+		expect(open().restore().size).toBe(0);
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
