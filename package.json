@@ -1,7 +1,7 @@
 {
 	"name": "@kjanat/dreamcli",
 	"version": "5.7.0",
-	"description": "Schema-first, fully typed TypeScript CLI framework",
+	"description": "CLI types so tight they hurt. Schema in, full framework out.",
 	"keywords": [
 		"dreamcli",
 		"cli",
