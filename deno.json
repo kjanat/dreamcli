@@ -6,7 +6,7 @@
 	"tasks": {
 		"check": {
 			"description": "Type-check source with Deno's checker (may conflict with @types/node)",
-			"command": "deno check src/index.ts src/completion.ts src/config.ts src/json-schema.ts src/prompt.ts src/runtime.ts src/schema.ts src/testkit.ts src/version.ts"
+			"command": "deno check src/index.ts src/completion.ts src/config.ts src/create.ts src/json-schema.ts src/prompt.ts src/runtime.ts src/schema.ts src/testkit.ts src/version.ts"
 		},
 		"smoke": {
 			"description": "Run Deno adapter smoke test against source via import map",
@@ -42,6 +42,7 @@
 		"./version": "./src/version.ts",
 		"./completion": "./src/completion.ts",
 		"./config": "./src/config.ts",
+		"./create": "./src/create.ts",
 		"./json-schema": "./src/json-schema.ts",
 		"./prompt": "./src/prompt.ts"
 	},
@@ -57,6 +58,7 @@
 			"@kjanat/dreamcli/package.json": ["./package.json"],
 			"@kjanat/dreamcli/completion": ["./src/completion.ts"],
 			"@kjanat/dreamcli/config": ["./src/config.ts"],
+			"@kjanat/dreamcli/create": ["./src/create.ts"],
 			"@kjanat/dreamcli/json-schema": ["./src/json-schema.ts"],
 			"@kjanat/dreamcli/prompt": ["./src/prompt.ts"]
 		}

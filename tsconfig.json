@@ -31,6 +31,7 @@
 			"@kjanat/dreamcli/package.json": ["./package.json"],
 			"@kjanat/dreamcli/completion": ["./src/completion.ts"],
 			"@kjanat/dreamcli/config": ["./src/config.ts"],
+			"@kjanat/dreamcli/create": ["./src/create.ts"],
 			"@kjanat/dreamcli/json-schema": ["./src/json-schema.ts"],
 			"@kjanat/dreamcli/prompt": ["./src/prompt.ts"],
 			"@kjanat/dreamcli/version": ["./src/version.ts"]

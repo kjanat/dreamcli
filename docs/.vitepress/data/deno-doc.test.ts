@@ -170,6 +170,18 @@ describe('deno doc normalization', () => {
 				missingExports: [],
 			},
 			{
+				entrypoint: '@kjanat/dreamcli/create',
+				subpath: './create',
+				sourcePath: 'src/create.ts',
+				hasDocumentation: true,
+				exportIds: expect.arrayContaining([
+					'@kjanat/dreamcli/create:scaffold',
+					'@kjanat/dreamcli/create:ScaffoldOptions',
+					'@kjanat/dreamcli/create:ScaffoldResult',
+				]),
+				missingExports: [],
+			},
+			{
 				entrypoint: '@kjanat/dreamcli/json-schema',
 				subpath: './json-schema',
 				sourcePath: 'src/json-schema.ts',

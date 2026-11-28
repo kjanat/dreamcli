@@ -17,6 +17,7 @@ describe('api-index', () => {
 			'@kjanat/dreamcli',
 			'@kjanat/dreamcli/completion',
 			'@kjanat/dreamcli/config',
+			'@kjanat/dreamcli/create',
 			'@kjanat/dreamcli/json-schema',
 			'@kjanat/dreamcli/prompt',
 			'@kjanat/dreamcli/runtime',

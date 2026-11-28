@@ -61,6 +61,18 @@ deno add jsr:@kjanat/dreamcli  # or npm:@kjanat/dreamcli
 
 ## Quick start
 
+Generate a starter CLI and a matching test in the current directory.
+
+```sh
+npm exec --package=@kjanat/dreamcli -- dreamcli create mycli
+bun ./mycli.ts --help
+```
+
+`dreamcli init` is an alias for `dreamcli create`. Use `--mode multi` for a
+grouped CLI, `--out <directory>` to place the files elsewhere, and `--no-test`
+to skip the test. Use `--force` to replace existing starter files. To generate
+the same files from code, import `scaffold` from `@kjanat/dreamcli/create`.
+
 ### Single command
 
 ```ts

@@ -11,6 +11,7 @@ export const entries = {
 	index: 'src/index.ts',
 	completion: 'src/completion.ts',
 	config: 'src/config.ts',
+	create: 'src/create.ts',
 	'json-schema': 'src/json-schema.ts',
 	prompt: 'src/prompt.ts',
 	runtime: 'src/runtime.ts',

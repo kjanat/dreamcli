@@ -35,6 +35,7 @@
 		"#dreamcli": "./src/index.ts",
 		"#dreamcli/completion": "./src/completion.ts",
 		"#dreamcli/config": "./src/config.ts",
+		"#dreamcli/create": "./src/create.ts",
 		"#dreamcli/json-schema": "./src/json-schema.ts",
 		"#dreamcli/prompt": "./src/prompt.ts",
 		"#dreamcli/runtime": "./src/runtime.ts",
@@ -56,6 +57,10 @@
 		"./config": {
 			"types": "./dist/config.d.mts",
 			"default": "./dist/config.mjs"
+		},
+		"./create": {
+			"types": "./dist/create.d.mts",
+			"default": "./dist/create.mjs"
 		},
 		"./json-schema": {
 			"types": "./dist/json-schema.d.mts",
@@ -80,7 +85,11 @@
 		"./package.json": "./package.json",
 		"./schema": "./dreamcli.schema.json"
 	},
+	"bin": {
+		"dreamcli": "./bin/dreamcli.mjs"
+	},
 	"files": [
+		"bin",
 		"dist",
 		"dreamcli.schema.json",
 		"skills",
