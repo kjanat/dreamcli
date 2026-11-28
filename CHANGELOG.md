@@ -17,6 +17,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - [ ] Verify the version PR's latest commit is signed and all required checks pass before merging. Merging starts publication automatically, with no further approval.
 - [ ] Follow Beepboop's release execution through npm and JSR publication, the version tag and GitHub Release, and the docs deployment.
 
+### Changed
+
+- Bash and Zsh completion tests now use Bun’s terminal API instead of Python. A stalled prompt reports the input that timed out. CI installs Zsh and bash-completion so both suites run under Node and Bun. ([#329](https://github.com/kjanat/dreamcli/pull/329))
+
+### Fixed
+
+- Documentation search falls back to the uncompressed index if the compressed index fails to load or decompress. If both requests fail, reopening search retries without a page reload. ([#328](https://github.com/kjanat/dreamcli/pull/328))
+- Documentation builds can restart in the same process after a failure. They discard partial hover data and regenerate cached highlights when the renderer changes. ([#328](https://github.com/kjanat/dreamcli/pull/328))
+
 ## [5.7.0] - 2026-11-28
 
 ### Added
