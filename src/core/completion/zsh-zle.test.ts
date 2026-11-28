@@ -132,7 +132,7 @@ describe.skipIf(prerequisites.length > 0)('Zsh interactive completion', () => {
 			);
 			const actual = runTerminalCases({
 				shell: 'zsh',
-				setup: `export PATH=${quoteShellArg(directory)}:$PATH; autoload -Uz compinit; compinit -D; setopt COMPLETE_IN_WORD; bindkey -e; bindkey '^I' complete-word; source ${quoteShellArg(script)}`,
+				setup: `export PATH=${quoteShellArg(directory)}:$PATH; autoload -Uz compinit; compinit -D -i; setopt COMPLETE_IN_WORD; bindkey -e; bindkey '^I' complete-word; source ${quoteShellArg(script)}`,
 				capture,
 				completionCapture,
 				cases,
