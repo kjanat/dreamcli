@@ -9,6 +9,7 @@ import {
 	lstatSync,
 	mkdirSync,
 	mkdtempSync,
+	readdirSync,
 	renameSync,
 	rmSync,
 	writeFileSync,
@@ -22,6 +23,8 @@ import { DREAMCLI_VERSION } from './version.ts';
 export interface ScaffoldOptions {
 	/** CLI name. Converted to a lowercase, hyphen-separated filename. */
 	readonly name: string;
+	/** Exact project directory. Defaults to a directory named after the CLI. */
+	readonly directory?: string;
 	/** Starter layout. Defaults to a single root command. */
 	readonly mode?: 'single' | 'multi';
 	/** Write starter files into this directory instead of creating a named project. */
@@ -68,7 +71,7 @@ export function scaffold(options: ScaffoldOptions): ScaffoldResult {
 	}
 
 	const project = options.out === undefined;
-	const directory = resolve(options.out ?? name);
+	const directory = resolve(options.out ?? options.directory ?? name);
 	const mode = options.mode ?? 'single';
 	const entry = join(directory, `${name}.ts`);
 	const test = options.test === false ? undefined : join(directory, `${name}.test.ts`);
@@ -103,13 +106,13 @@ export function scaffold(options: ScaffoldOptions): ScaffoldResult {
 			path: join(directory, 'package.json'),
 			content: `${JSON.stringify(manifest, null, 2)}\n`,
 		});
-		try {
-			mkdirSync(directory);
-		} catch (error) {
-			if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
-			throw new CLIError(`Project directory already exists: ${directory}`, {
+		files.push({ path: join(directory, '.gitignore'), content: 'node_modules/\n' });
+		const existing = lstatSync(directory, { throwIfNoEntry: false });
+		if (existing && (!existing.isDirectory() || readdirSync(directory).length > 0)) {
+			throw new CLIError(`Project directory is not empty or not a directory: ${directory}`, {
 				code: 'SCAFFOLD_PROJECT_EXISTS',
-				suggest: 'Use --out to add starter files to an existing project.',
+				suggest:
+					'Choose an empty directory or use --out to add starter files to an existing project.',
 			});
 		}
 	}
@@ -127,7 +130,7 @@ export function scaffold(options: ScaffoldOptions): ScaffoldResult {
 		file.mode = existing.mode & 0o777;
 	}
 
-	if (!project) mkdirSync(directory, { recursive: true });
+	mkdirSync(directory, { recursive: true });
 	// Stage every file before publishing any output.
 	const staging = mkdtempSync(join(directory, '.dreamcli-'));
 	const created: string[] = [];

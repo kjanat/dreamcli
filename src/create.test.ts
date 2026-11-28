@@ -40,7 +40,7 @@ describe('scaffold', () => {
 				devDependencies: { vitest: expect.any(String) },
 			});
 			expect(existsSync(join(directory, 'my-cli', 'my-cli.test.ts'))).toBe(true);
-			expect(() => run({ name: 'my-cli', force: true })).toThrow(/already exists/);
+			expect(() => run({ name: 'my-cli', force: true })).toThrow(/not empty/);
 			expect(readFileSync(packageFile, 'utf8')).toBe(manifest);
 
 			run({ name: 'no-test', test: false });
@@ -50,6 +50,17 @@ describe('scaffold', () => {
 			expect(withoutTests.scripts).toEqual({ start: 'node ./no-test.ts' });
 			expect(withoutTests.devDependencies).toBeUndefined();
 			expect(existsSync(join(directory, 'no-test', 'no-test.test.ts'))).toBe(false);
+		});
+	});
+
+	it('uses an explicit project directory and keeps its existing parents', () => {
+		withProject((directory) => {
+			const target = join(directory, 'nested', 'My CLI');
+			mkdirSync(target, { recursive: true });
+			const result = scaffold({ name: 'My CLI', directory: target, test: false });
+			expect(result.entry).toBe(join(target, 'my-cli.ts'));
+			expect(readFileSync(join(target, '.gitignore'), 'utf8')).toBe('node_modules/\n');
+			expect(JSON.parse(readFileSync(join(target, 'package.json'), 'utf8')).name).toBe('my-cli');
 		});
 	});
 
