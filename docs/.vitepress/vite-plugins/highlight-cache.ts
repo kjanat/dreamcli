@@ -5,8 +5,11 @@ import { join } from 'node:path';
 import { gunzipSync, gzipSync } from 'node:zlib';
 import type { Root } from 'hast';
 
-export function highlightCache(directory: string, lockfile: string) {
-	const fingerprint = createHash('sha256').update(readFileSync(lockfile)).digest('hex');
+export function highlightCache(directory: string, ...inputs: string[]) {
+	const hash = createHash('sha256');
+	for (const input of inputs)
+		hash.update(createHash('sha256').update(readFileSync(input)).digest());
+	const fingerprint = hash.digest('hex');
 	const path = join(directory, 'highlights-v1.json.gz');
 	return {
 		restore(): Map<string, Root> {

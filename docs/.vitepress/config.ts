@@ -19,6 +19,7 @@ import { dreamcliDocsPlugin, shikiClasses } from './vite-plugins/index.ts';
 import { localSearchPayload } from './vite-plugins/local-search-payload.ts';
 import { fixTsProcessedLinkcode, transformerJSDocTags } from './vite-plugins/shiki-jsdoc-tags.ts';
 import { createBuildAnalyzer } from './vite-plugins/twoslash-analysis.ts';
+import { twoslashBuildCleanup } from './vite-plugins/twoslash-build-cleanup.ts';
 import { twoslashPayloads } from './vite-plugins/twoslash-payloads.ts';
 
 const projectRoot = normalize(`${import.meta.dirname}/../..`);
@@ -57,10 +58,17 @@ const popups = twoslashPayloads(
 		? highlightCache(
 				join(homedir(), '.bun/install/cache/dreamcli-docs'),
 				join(projectRoot, 'bun.lock'),
+				...[
+					'config.ts',
+					'vite-plugins/twoslash-payloads.ts',
+					'vite-plugins/shiki-jsdoc-tags.ts',
+					'vite-plugins/shiki-class-css.ts',
+				].map((file) => join(projectRoot, 'docs/.vitepress', file)),
 			)
 		: undefined,
 );
 const analyzer = createBuildAnalyzer(projectRoot);
+const cleanup = twoslashBuildCleanup(analyzer, popups);
 
 const compilerOptions = {
 	baseUrl: projectRoot,
@@ -83,8 +91,7 @@ const links = {
 
 export default defineConfig({
 	buildEnd() {
-		analyzer.finish();
-		popups.finish();
+		cleanup.api.finish(true);
 	},
 	title: pkg.name,
 	description: pkg.description,
@@ -334,7 +341,13 @@ export default defineConfig({
 		languages: ['bash', 'js', 'jsx', 'json', 'ts', 'tsx'],
 	},
 	vite: {
-		plugins: [...dreamcliDocsPlugin(), popups.plugin, localSearchPayload(), analyzer.plugin],
+		plugins: [
+			...dreamcliDocsPlugin(),
+			popups.plugin,
+			localSearchPayload(),
+			analyzer.plugin,
+			cleanup,
+		],
 		ssr: { noExternal: ['vue'] },
 		build: {
 			chunkSizeWarningLimit: 600,

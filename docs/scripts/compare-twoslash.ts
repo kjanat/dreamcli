@@ -1,4 +1,9 @@
-/** Compare the rendered examples in two complete VitePress builds. @module */
+/**
+ * Compare two VitePress dist directories with `bun docs/scripts/compare-twoslash.ts <before> <after>`.
+ * An inline baseline uses Chromium (`bun x playwright install chromium` or
+ * `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`). Two extracted builds use byte-for-byte checks.
+ * @module
+ */
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -17,8 +22,14 @@ async function sections(root: string, page: string) {
 	return html.match(/<pre\b[^>]*\bclass="[^"]*\btwoslash\b[^"]*"[^>]*>[\s\S]*?<\/pre>/g) ?? [];
 }
 
+const inline = !(await files(stock, 'assets/twoslash/*.txt')).length;
 const pages = await files(stock, '**/*.html');
 assert.deepEqual(await files(candidate, '**/*.html'), pages, 'Generated HTML paths');
+if (inline) {
+	const { compareInlineHovers } = await import('./inline-hovers.ts');
+	await compareInlineHovers(stock, candidate, pages);
+	process.exit(0);
+}
 let fences = 0;
 for (const page of pages) {
 	const expected = await sections(stock, page);

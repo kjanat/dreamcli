@@ -10,6 +10,11 @@ export function createBuildAnalyzer(root: string) {
 	let check: ReturnType<typeof createSyncFn<typeof checkSnippet>> | undefined;
 	let building = false;
 	let nativeCount = 0;
+	function closeSession() {
+		const current = check;
+		check = undefined;
+		current?.(root, null);
+	}
 	return {
 		plugin: {
 			name: 'dreamcli-twoslash-analysis',
@@ -19,14 +24,17 @@ export function createBuildAnalyzer(root: string) {
 			},
 		} satisfies Plugin,
 		finish() {
-			check?.(root, null);
-			console.log(
-				`Twoslash: ${nativeCount} snippets analyzed by tsrs, ${results.size - nativeCount} by TypeScript.`,
-			);
-			check = undefined;
-			results.clear();
-			building = false;
-			nativeCount = 0;
+			if (!building) return;
+			try {
+				closeSession();
+				console.log(
+					`Twoslash: ${nativeCount} snippets analyzed by tsrs, ${results.size - nativeCount} by TypeScript.`,
+				);
+			} finally {
+				results.clear();
+				building = false;
+				nativeCount = 0;
+			}
 		},
 		typesCache: {
 			read(code: string, lang = 'ts') {

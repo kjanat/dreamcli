@@ -58,6 +58,8 @@ jobs:
       - uses: actions/checkout@v7
       - uses: $/.github/actions/setup
       - run: runner install --frozen docs:build
+      - name: Check search recovery in Chrome
+        run: PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH="$(command -v google-chrome)" bun docs/scripts/check-search-recovery.ts docs/.vitepress/dist
       - run: git diff --exit-code; status="$(git status --porcelain --untracked-files=all)"; test -z "${status}"
 
   build:

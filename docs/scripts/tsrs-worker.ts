@@ -6,8 +6,9 @@ let session: Awaited<ReturnType<typeof openTsrs>> | undefined;
 
 export async function checkSnippet(root: string, code: string | null) {
 	if (code === null) {
-		await session?.close();
+		const previous = session;
 		session = undefined;
+		await previous?.close();
 		return null;
 	}
 	session ??= await openTsrs(root);

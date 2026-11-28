@@ -110,13 +110,21 @@ export function twoslashPayloads(cache?: ReturnType<typeof highlightCache>) {
 			}
 		},
 	} satisfies Plugin;
-	function finish() {
-		fences.clear();
-		if (!cache) return;
-		console.log(
-			`Twoslash highlights: ${hits} restored from disk, ${highlights.size - hits} generated.`,
-		);
-		if (hits !== highlights.size || hits !== restored.size) cache.save(highlights);
+	function finish(success = true) {
+		try {
+			if (!building || !success || !cache) return;
+			console.log(
+				`Twoslash highlights: ${hits} restored from disk, ${highlights.size - hits} generated.`,
+			);
+			if (hits !== highlights.size || hits !== restored.size) cache.save(highlights);
+		} finally {
+			building = false;
+			assets.clear();
+			fences.clear();
+			highlights.clear();
+			restored.clear();
+			hits = 0;
+		}
 	}
 	return { shikiSetup, twoslash, transformer, plugin, finish };
 }
