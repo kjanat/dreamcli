@@ -19,7 +19,7 @@ it.skipIf(spawnSync('git', ['--version']).status !== 0)(
 			const init = (cwd: string, extraEnv = {}) =>
 				JSON.parse(
 					execFileSync(
-						process.execPath,
+						typeof Deno === 'undefined' ? process.execPath : 'node',
 						[
 							'-e',
 							`import { initGit } from ${JSON.stringify(new URL('../../bin/git.mjs', import.meta.url).href)}; console.log(JSON.stringify(initGit(process.cwd(), ['starter.ts'], '5.7.0', 'abc1234')));`,

@@ -23,7 +23,7 @@ describe('scaffold', () => {
 				execFileSync(
 					process.execPath,
 					[
-						'-e',
+						...(typeof Deno === 'undefined' ? ['-e'] : ['eval', '--ext=mjs']),
 						`import { scaffold } from ${JSON.stringify(new URL('./create.ts', import.meta.url).href)}; scaffold(${JSON.stringify(options)});`,
 					],
 					{ cwd: directory, stdio: 'pipe' },
