@@ -61,6 +61,41 @@ deno add jsr:@kjanat/dreamcli  # or npm:@kjanat/dreamcli
 
 ## Quick start
 
+Create a TypeScript CLI project in a new or empty directory:
+
+```sh
+npm exec --package=@kjanat/dreamcli -- dreamcli create mycli
+cd mycli
+npm install
+npm start -- hello Ada
+npm test
+npm run typecheck
+```
+
+```text
+mycli/
+├── .gitignore
+├── package.json
+├── tsconfig.json
+└── src/
+    ├── cli.ts
+    └── commands/
+        ├── hello.ts
+        └── hello.test.ts
+```
+
+`dreamcli init` is an alias. In a terminal, an omitted path prompts for a directory.
+Non-interactive runs require a path. Use `.` explicitly to create in an empty current
+directory, where the CLI asks for confirmation unless you pass `--yes`.
+
+The package name comes from the directory; `--name` overrides it. A new Git repository
+gets an initial commit with the generator version. Use `--no-git` or `--no-test` to skip
+those steps. Existing repositories are left alone.
+
+Use `dreamcli create mycli --out .` to add just the starter files to an existing
+project. Use `--force` with `--out` to replace those files. The programmatic
+`scaffold()` from `@kjanat/dreamcli/create` generates files without running Git.
+
 ### Single command
 
 ```ts

@@ -7,7 +7,7 @@ template and ending with validated behavior.
 
 ## Inputs to confirm
 
-- CLI name (`--name`).
+- CLI name (positional argument).
 - Surface shape (`single` or `multi`).
 - Whether tests should be skipped (`--no-test`).
 - Runtime the user runs on (Bun, npm/tsx, Deno).
@@ -19,7 +19,7 @@ template and ending with validated behavior.
 1. Scaffold starter files.
 
    ```bash
-   python scripts/scaffold_cli.py --name mycli --mode single --out .
+   bunx --package @kjanat/dreamcli dreamcli create mycli --out .
    ```
 
    The scaffolder detects the package manager and Vitest usage to choose either
@@ -53,7 +53,8 @@ template and ending with validated behavior.
    ```bash
    bun ./mycli.ts --help
    bun ./mycli.ts --json | jq .      # stdout must parse
-   bun test ./mycli.test.ts
+   bun test ./mycli.test.ts       # for bun:test
+   bunx vitest run ./mycli.test.ts # for Vitest
    ```
 
 ## Done criteria

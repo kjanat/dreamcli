@@ -1,22 +1,23 @@
 # Runtime Notes
 
+In a new project, run the CLI with `npm start -- hello Ada` or `bun src/cli.ts hello Ada`.
+Run the Vitest suite with `npm test`. The commands below are for files added with `--out`.
+
 ## Bun-first commands
 
 - Run CLI entrypoint: `bun mycli.ts --help`
-- Run tests: `bun test mycli.test.ts`
+- Run tests: `bun test mycli.test.ts` for `bun:test`, or `bunx vitest run mycli.test.ts` for Vitest.
 
-The scaffolder prints path-aware run commands; use those exact printed paths when `--out` is not `.`.
+Use the generated paths printed by `dreamcli create` when `--out` points to another directory.
 The scaffolder auto-detects test style:
 
 - Bun project + no detected Vitest usage: generate `bun:test` template.
 - Otherwise: generate Vitest template.
 - Package manager detection checks lockfiles (including `pnpm-*.yaml/.yml`) and manifest `packageManager` entries in `package.json`, `package.json5`, and `package.yaml/.yml`.
 
-If Vitest template is generated inside a Bun project, `bun test` still runs those tests in this workflow.
-
 ## npm/Node alternative
 
-- Run CLI entrypoint: `npx tsx mycli.ts --help`
+- Run CLI entrypoint in an ESM package (`"type": "module"`): `node mycli.ts --help`
 - Run tests: `npx vitest run mycli.test.ts`
 
 ## Deno alternative
