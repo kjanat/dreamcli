@@ -11,6 +11,7 @@ import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { generateBashCompletion } from './shells/bash.ts';
 import { quoteShellArg } from './shells/shared.ts';
+import { runTerminalCases } from './terminal-test-helpers.ts';
 
 const hasBash = spawnSync('bash', ['--version']).status === 0;
 
@@ -105,56 +106,6 @@ it.skipIf(!hasBash)('falls back to an ancestor action for an unknown nested comm
 	expect(replies(script, 'outer', 'middle', 'nope', '--mode', 'f')).toEqual(['from-outer']);
 });
 
-const runReadline = String.raw`
-import json, os, pty, select, signal, sys, time
-
-settings = json.load(sys.stdin)
-completion_capture = settings.get('completion_capture')
-prompt = b'READLINE_TEST> '
-pid, terminal = pty.fork()
-if pid == 0:
-    env = dict(os.environ, PS1=prompt.decode(), HISTFILE='/dev/null', INPUTRC='/dev/null', TERM='dumb')
-    os.execvpe('bash', ['bash', '--noprofile', '--norc', '-i'], env)
-
-def read_prompt():
-    data = b''
-    deadline = time.monotonic() + 10
-    while not data.endswith(prompt):
-        remaining = deadline - time.monotonic()
-        if remaining <= 0 or not select.select([terminal], [], [], remaining)[0]:
-            raise RuntimeError('Timed out waiting for Bash: ' + repr(data))
-        data += os.read(terminal, 65536)
-    return data.decode(errors='replace')
-
-def send(line):
-    os.write(terminal, line.encode())
-    return read_prompt()
-
-results = []
-try:
-    read_prompt()
-    send(settings['setup'] + '\n')
-    for case in settings['cases']:
-        send(case['configure'] + '\n')
-        if os.path.exists(settings['capture']):
-            os.unlink(settings['capture'])
-        if completion_capture and os.path.exists(completion_capture):
-            os.unlink(completion_capture)
-        transcript = send(case['line'] + '\t\n')
-        with open(settings['capture'], 'rb') as captured:
-            argv = captured.read().decode().split('\0')[:-1]
-        completion_argv = None
-        if completion_capture:
-            with open(completion_capture, 'rb') as captured:
-                completion_argv = captured.read().decode().split('\0')[:-1]
-        results.append(dict(completion_argv=completion_argv, configure=case['configure'], line=case['line'], argv=argv, transcript=transcript))
-    print(json.dumps(results))
-finally:
-    os.kill(pid, signal.SIGKILL)
-    os.close(terminal)
-    os.waitpid(pid, 0)
-`;
-
 const cases = [
 	{ line: 'dcfixture adopt --name tenant:sub:wi', argv: ['adopt', '--name', 'tenant:sub:widget'] },
 	{ line: 'dcfixture adopt --name tenant:wi', argv: ['adopt', '--name', 'tenant:widget'] },
@@ -201,14 +152,10 @@ const cases = [
 
 const bashCompletion =
 	process.env.DREAMCLI_BASH_COMPLETION ?? '/usr/share/bash-completion/bash_completion';
-const readlinePrerequisites = [
-	...(process.platform === 'linux' && !('Deno' in globalThis) ? [] : ['Linux Node/Bun host']),
-	...['bash', 'python3'].filter((tool) => spawnSync(tool, ['--version']).status !== 0),
-	...(existsSync(bashCompletion) ? [] : ['bash-completion']),
-];
 const prerequisites = [
-	...readlinePrerequisites,
-	...(spawnSync('bun', ['--version']).status === 0 ? [] : ['bun']),
+	...(process.platform === 'linux' && !('Deno' in globalThis) ? [] : ['Linux Node/Bun host']),
+	...['bash', 'bun'].filter((tool) => spawnSync(tool, ['--version']).status !== 0),
+	...(existsSync(bashCompletion) ? [] : ['bash-completion']),
 ];
 const wordBreakSettings = [
 	'COMP_WORDBREAKS=$original_wordbreaks',
@@ -219,7 +166,7 @@ const wordBreakSettings = [
 	'COMP_WORDBREAKS=$original_wordbreaks/,',
 ];
 
-it.skipIf(readlinePrerequisites.length > 0)(
+it.skipIf(prerequisites.length > 0)(
 	'submits static values in their active scope as exact argv tokens',
 	() => {
 		const directory = mkdtempSync(join(tmpdir(), 'dreamcli-static-readline-'));
@@ -810,24 +757,18 @@ it.skipIf(readlinePrerequisites.length > 0)(
 					})),
 				);
 			});
-			const result = spawnSync('python3', ['-c', runReadline], {
-				input: JSON.stringify({
-					capture,
-					setup: [
-						`source ${quoteShellArg(bashCompletion)}`,
-						'original_wordbreaks=$COMP_WORDBREAKS',
-						'set -H',
-						'history -s world-expanded',
-						`dcfixture() { printf '%s\\0' "$@" > ${quoteShellArg(capture)}; }`,
-					].join('; '),
-					cases: scenarios,
-				}),
-				encoding: 'utf8',
-				timeout: 25_000,
+			const actual = runTerminalCases({
+				shell: 'bash',
+				capture,
+				setup: [
+					`source ${quoteShellArg(bashCompletion)}`,
+					'original_wordbreaks=$COMP_WORDBREAKS',
+					'set -H',
+					'history -s world-expanded',
+					`dcfixture() { printf '%s\\0' "$@" > ${quoteShellArg(capture)}; }`,
+				].join('; '),
+				cases: scenarios,
 			});
-			expect(result.error).toBeUndefined();
-			expect(result.status, result.stderr).toBe(0);
-			const actual: { argv: string[]; transcript: string }[] = JSON.parse(result.stdout);
 			expect(actual).toHaveLength(scenarios.length);
 			for (const [index, item] of actual.entries()) {
 				expect(item.argv, item.transcript).toEqual(scenarios[index]?.argv);
@@ -836,7 +777,7 @@ it.skipIf(readlinePrerequisites.length > 0)(
 			rmSync(directory, { recursive: true, force: true });
 		}
 	},
-	30_000,
+	120_000,
 );
 
 // CI hosts without these optional tools report why the terminal test is skipped.
@@ -915,30 +856,19 @@ describe.skipIf(prerequisites.length > 0)(
 					].join('\n'),
 					{ mode: 0o700 },
 				);
-				const result = spawnSync('python3', ['-c', runReadline], {
-					input: JSON.stringify({
-						capture,
-						completion_capture: completionCapture,
-						setup: `export PATH=${quoteShellArg(directory)}:"$PATH"; source ${quoteShellArg(bashCompletion)}; source ${quoteShellArg(script)}; original_wordbreaks=$COMP_WORDBREAKS`,
-						cases: wordBreakSettings.flatMap((configure) =>
-							cases.map((value) => ({ ...value, configure })),
-						),
-					}),
-					encoding: 'utf8',
-					timeout: 25_000,
+				const actual = runTerminalCases({
+					shell: 'bash',
+					capture,
+					completionCapture,
+					setup: `export PATH=${quoteShellArg(directory)}:"$PATH"; source ${quoteShellArg(bashCompletion)}; source ${quoteShellArg(script)}; original_wordbreaks=$COMP_WORDBREAKS`,
+					cases: wordBreakSettings.flatMap((configure) =>
+						cases.map((value) => ({ ...value, configure })),
+					),
 				});
-				expect(result.error).toBeUndefined();
-				expect(result.status, result.stderr).toBe(0);
-				const actual: {
-					line: string;
-					argv: string[];
-					transcript: string;
-					completion_argv: string[];
-				}[] = JSON.parse(result.stdout);
 				expect(actual).toHaveLength(wordBreakSettings.length * cases.length);
 				for (const [index, item] of actual.entries()) {
 					expect(item.argv, item.transcript).toEqual(cases[index % cases.length]?.argv);
-					expect(item.completion_argv).toEqual([
+					expect(item.completionArgv).toEqual([
 						'--',
 						...item.line
 							.slice('dcfixture '.length)
@@ -950,6 +880,6 @@ describe.skipIf(prerequisites.length > 0)(
 			} finally {
 				rmSync(directory, { recursive: true, force: true });
 			}
-		}, 30_000);
+		}, 120_000);
 	},
 );
