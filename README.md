@@ -75,8 +75,13 @@ npm test
 grouped CLI, `--out <directory>` to add just the starter files to an existing project, and `--no-test`
 to skip the test. Use `--force` with `--out` to replace existing starter files.
 
-Pass a relative or absolute path, or use `.` for the current directory. The package name defaults to
-the last component of the path, normalized to lowercase with hyphens. For a standalone project,
+Pass a relative or absolute path, or explicitly use `.` for the current directory.
+In a terminal, omitting the path prompts for one. The wizard asks for unset project options and
+shows the full path for confirmation before writing. The package name defaults to the last
+component of the path, normalized to lowercase with hyphens. Override it with `--name`.
+Use `--yes` to skip the wizard. Scripts, CI, and JSON mode never prompt and must supply a path.
+
+For a standalone project,
 DreamCLI initializes Git and records the generator version in the first commit. Use `--no-git` to
 skip this. Existing Git repositories are left alone, and missing Git or commit identity does not
 prevent project creation.
