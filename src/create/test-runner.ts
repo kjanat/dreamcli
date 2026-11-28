@@ -1,5 +1,6 @@
 /** Select the starter test template for the destination project. @module */
 
+import type { Dirent } from 'node:fs';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { cwd } from 'node:process';
@@ -29,8 +30,14 @@ function readOptional(path: string): string {
 }
 
 function projectLocks(directory: string): string[] {
-	if (!existsSync(directory)) return [];
-	const names = readdirSync(directory, { withFileTypes: true });
+	let names: Dirent[];
+	try {
+		names = readdirSync(directory, { withFileTypes: true });
+	} catch (error) {
+		const code = (error as NodeJS.ErrnoException).code;
+		if (code === 'ENOENT' || code === 'ENOTDIR' || code === 'EACCES' || code === 'EPERM') return [];
+		throw error;
+	}
 	return [
 		...lockfiles.filter((name) =>
 			names.some((entry) => !entry.isDirectory() && entry.name === name),

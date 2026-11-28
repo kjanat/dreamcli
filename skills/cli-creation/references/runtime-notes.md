@@ -14,7 +14,7 @@ The scaffolder auto-detects test style:
 
 ## npm/Node alternative
 
-- Run CLI entrypoint: `npx tsx mycli.ts --help`
+- Run CLI entrypoint in an ESM package (`"type": "module"`): `node mycli.ts --help`
 - Run tests: `npx vitest run mycli.test.ts`
 
 ## Deno alternative

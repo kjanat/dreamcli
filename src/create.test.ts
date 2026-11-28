@@ -1,5 +1,6 @@
 /** Verify starter generation and destination safeguards. @module */
 
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -16,6 +17,42 @@ function withProject(test: (directory: string) => void): void {
 }
 
 describe('scaffold', () => {
+	it('creates a runnable npm project by default without touching an existing directory', () => {
+		withProject((directory) => {
+			const run = (options: { name: string; test?: boolean; force?: boolean }) =>
+				execFileSync(
+					process.execPath,
+					[
+						'-e',
+						`import { scaffold } from ${JSON.stringify(new URL('./create.ts', import.meta.url).href)}; scaffold(${JSON.stringify(options)});`,
+					],
+					{ cwd: directory, stdio: 'pipe' },
+				);
+
+			run({ name: 'My CLI' });
+			const packageFile = join(directory, 'my-cli', 'package.json');
+			const manifest = readFileSync(packageFile, 'utf8');
+			expect(JSON.parse(manifest)).toMatchObject({
+				name: 'my-cli',
+				type: 'module',
+				scripts: { start: 'node ./my-cli.ts', test: 'vitest run' },
+				dependencies: { '@kjanat/dreamcli': expect.any(String) },
+				devDependencies: { vitest: expect.any(String) },
+			});
+			expect(existsSync(join(directory, 'my-cli', 'my-cli.test.ts'))).toBe(true);
+			expect(() => run({ name: 'my-cli', force: true })).toThrow(/already exists/);
+			expect(readFileSync(packageFile, 'utf8')).toBe(manifest);
+
+			run({ name: 'no-test', test: false });
+			const withoutTests = JSON.parse(
+				readFileSync(join(directory, 'no-test', 'package.json'), 'utf8'),
+			);
+			expect(withoutTests.scripts).toEqual({ start: 'node ./no-test.ts' });
+			expect(withoutTests.devDependencies).toBeUndefined();
+			expect(existsSync(join(directory, 'no-test', 'no-test.test.ts'))).toBe(false);
+		});
+	});
+
 	it('creates a single-command starter under a nested destination in a Bun project', () => {
 		withProject((directory) => {
 			writeFileSync(join(directory, 'bun.lock'), '{}');
@@ -42,10 +79,10 @@ describe('scaffold', () => {
 			const result = scaffold({ name: 'my-cli', mode: 'multi', out: directory });
 
 			expect(result.testRunner).toBe('vitest');
-			expect(readFileSync(result.entry, 'utf8')).toContain("group('party')");
+			expect(readFileSync(result.entry, 'utf8')).toContain("group('greet')");
 			const test = readFileSync(join(directory, 'my-cli.test.ts'), 'utf8');
 			expect(test).toContain("from 'vitest'");
-			expect(test).toContain("import { partyStart } from './my-cli.ts'");
+			expect(test).toContain("import { hello } from './my-cli.ts'");
 		});
 	});
 

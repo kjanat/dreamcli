@@ -11,7 +11,10 @@ const create = command('create')
 	.description('Generate a DreamCLI starter')
 	.arg('name', arg.string().required().describe('Name of the CLI'))
 	.flag('mode', flag.enum(['single', 'multi']).default('single').describe('Starter layout'))
-	.flag('out', flag.string().default('.').describe('Output directory'))
+	.flag(
+		'out',
+		flag.string().describe('Write files into this directory instead of creating a project'),
+	)
 	.flag('test', flag.boolean().default(true).negatable().describe('Generate a starter test'))
 	.flag('force', flag.boolean().default(false).describe('Replace existing starter files'))
 	.action(({ args, flags, out }) => {
@@ -21,8 +24,9 @@ const create = command('create')
 			return;
 		}
 		out.log(`Created ${result.entry}`);
-		if (result.test !== undefined) {
-			out.log(`Created ${result.test} (${result.testRunner})`);
+		if (result.test !== undefined) out.log(`Created ${result.test}`);
+		if (flags.out === undefined) {
+			out.log(`cd ${result.name} && npm install && npm start -- --help`);
 		}
 	});
 
