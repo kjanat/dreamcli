@@ -10,51 +10,7 @@ import { command } from '#internals/core/schema/command.ts';
 import { flag } from '#internals/core/schema/flag.ts';
 import { quoteShellArg } from './shells/shared.ts';
 import { generateZshCompletion } from './shells/zsh.ts';
-
-const runZsh = String.raw`
-import json, os, pty, re, select, signal, sys, time
-
-settings = json.load(sys.stdin)
-prompt = b'ZSH_COMPLETION_TEST> '
-pid, terminal = pty.fork()
-if pid == 0:
-    env = dict(os.environ, PS1=prompt.decode(), PROMPT=prompt.decode(), RPROMPT='', HISTFILE='/dev/null', TERM='xterm')
-    os.execvpe('zsh', ['zsh', '-f', '-i'], env)
-
-def read_prompt():
-    data = b''
-    deadline = time.monotonic() + 10
-    while not re.sub(rb'\x1b\[[0-?]*[ -/]*[@-~]', b'', data).endswith(prompt):
-        remaining = deadline - time.monotonic()
-        if remaining <= 0 or not select.select([terminal], [], [], remaining)[0]:
-            raise RuntimeError('Timed out waiting for Zsh: ' + repr(data))
-        data += os.read(terminal, 65536)
-    return data.decode(errors='replace')
-
-def send(line):
-    os.write(terminal, line.encode())
-    return read_prompt()
-
-results = []
-try:
-    read_prompt()
-    send(settings['setup'] + '\n')
-    for case in settings['cases']:
-        for path in [settings['capture'], settings['completion_capture']]:
-            if os.path.exists(path):
-                os.unlink(path)
-        transcript = send(case['line'] + '\x02' * case.get('back', 0) + '\t\x05\n')
-        result = dict(transcript=transcript)
-        for key, path in [('argv', settings['capture']), ('completion_argv', settings['completion_capture'])]:
-            with open(path, 'rb') as captured:
-                result[key] = captured.read().decode().split('\0')[:-1]
-        results.append(result)
-    print(json.dumps(results))
-finally:
-    os.kill(pid, signal.SIGKILL)
-    os.close(terminal)
-    os.waitpid(pid, 0)
-`;
+import { runTerminalCases } from './terminal-test-helpers.ts';
 
 const cases = [
 	{
@@ -124,7 +80,7 @@ const cases = [
 
 const prerequisites = [
 	...(process.platform === 'linux' && !('Deno' in globalThis) ? [] : ['Linux Node/Bun host']),
-	...['zsh', 'python3', 'bun'].filter((tool) => spawnSync(tool, ['--version']).status !== 0),
+	...['zsh', 'bun'].filter((tool) => spawnSync(tool, ['--version']).status !== 0),
 ];
 if (prerequisites.length > 0)
 	console.warn(`Skipping Zsh ZLE test: requires ${prerequisites.join(', ')}`);
@@ -174,25 +130,18 @@ describe.skipIf(prerequisites.length > 0)('Zsh interactive completion', () => {
 				].join('\n'),
 				{ mode: 0o700 },
 			);
-			const result = spawnSync('python3', ['-c', runZsh], {
-				input: JSON.stringify({
-					setup: `export PATH=${quoteShellArg(directory)}:$PATH; autoload -Uz compinit; compinit -D; setopt COMPLETE_IN_WORD; bindkey -e; bindkey '^I' complete-word; source ${quoteShellArg(script)}`,
-					capture,
-					completion_capture: completionCapture,
-					cases,
-				}),
-				encoding: 'utf8',
-				timeout: 25_000,
+			const actual = runTerminalCases({
+				shell: 'zsh',
+				setup: `export PATH=${quoteShellArg(directory)}:$PATH; autoload -Uz compinit; compinit -D -i; setopt COMPLETE_IN_WORD; bindkey -e; bindkey '^I' complete-word; source ${quoteShellArg(script)}`,
+				capture,
+				completionCapture,
+				cases,
 			});
-			expect(result.error).toBeUndefined();
-			expect(result.status, result.stderr).toBe(0);
-			const actual: { argv: string[]; completion_argv: string[]; transcript: string }[] =
-				JSON.parse(result.stdout);
 			expect(actual).toHaveLength(cases.length);
 			for (const [index, value] of actual.entries()) {
 				const testCase = cases[index];
 				expect(value.argv, value.transcript).toEqual(testCase?.argv);
-				expect(value.completion_argv, value.transcript).toEqual([
+				expect(value.completionArgv, value.transcript).toEqual([
 					'--',
 					...value.argv.slice(0, -1),
 					testCase?.prefix,
@@ -201,5 +150,5 @@ describe.skipIf(prerequisites.length > 0)('Zsh interactive completion', () => {
 		} finally {
 			rmSync(directory, { recursive: true, force: true });
 		}
-	}, 30_000);
+	}, 120_000);
 });
