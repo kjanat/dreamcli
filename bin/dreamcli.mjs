@@ -3,9 +3,9 @@
 /** DreamCLI's package executable. @module */
 
 import { basename, resolve } from 'node:path';
-import { env, stderr, stdin } from 'node:process';
+import { cwd, env, stderr, stdin } from 'node:process';
 import { arg, CLIError, cli, command, flag, wasExplicit } from '@kjanat/dreamcli';
-import { scaffold } from '@kjanat/dreamcli/create';
+import { normalizeProjectName, scaffold } from '@kjanat/dreamcli/create';
 import { prompt } from '@kjanat/dreamcli/prompt';
 import { DREAMCLI_REVISION, DREAMCLI_VERSION } from '@kjanat/dreamcli/version';
 import { initGit } from './git.mjs';
@@ -59,21 +59,24 @@ const create = command('create')
 		let useGit = defaultGit;
 		if (interactive) {
 			if (explicitName === undefined) {
+				const suggested = normalizeProjectName(name);
 				name = await ask(
 					prompt.input({
 						message: 'Project name',
-						...(name ? { default: name } : {}),
+						...(suggested !== undefined && { default: suggested }),
+						validate: (value) =>
+							normalizeProjectName(value) !== undefined ||
+							'Use a valid project name, such as my-cli.',
 					}),
 				);
 			}
 			if (!wasExplicit(sources.flags.mode)) {
 				mode = await ask(
-					prompt.select({
-						message: 'Starter layout',
-						choices: [
-							{ value: 'single', label: 'Single command' },
-							{ value: 'multi', label: 'Grouped commands' },
-						],
+					prompt.input({
+						message: 'Starter layout (single or multi)',
+						default: mode,
+						validate: (value) =>
+							value === 'single' || value === 'multi' || 'Enter single or multi.',
 					}),
 				);
 			}
@@ -87,7 +90,10 @@ const create = command('create')
 			}
 			if (
 				!(await ask(
-					prompt.confirm({ message: `Create the project in ${directory}?`, default: false }),
+					prompt.confirm({
+						message: `Create the project in ${directory}?`,
+						default: directory !== cwd(),
+					}),
 				))
 			) {
 				out.status('Cancelled. No files written.');

@@ -57,13 +57,23 @@ function existingFile(path: string): CLIError {
 	});
 }
 
-/** Create a named npm project or add starter files to an explicit output directory. */
-export function scaffold(options: ScaffoldOptions): ScaffoldResult {
-	const name = options.name
+/** Normalize a project name for use as a package name and filename. */
+export function normalizeProjectName(input: string): string | undefined {
+	const name = input
 		.toLowerCase()
 		.replace(/[^a-z0-9]+/g, '-')
 		.replace(/^-|-$/g, '');
 	if (name === '' || name.length > 214 || /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])$/.test(name)) {
+		return undefined;
+	}
+
+	return name;
+}
+
+/** Create a named npm project or add starter files to an explicit output directory. */
+export function scaffold(options: ScaffoldOptions): ScaffoldResult {
+	const name = normalizeProjectName(options.name);
+	if (name === undefined) {
 		throw new CLIError('Choose a CLI name that can be used as a filename.', {
 			code: 'SCAFFOLD_INVALID_NAME',
 			suggest: 'Use 1 to 214 letters, digits, or hyphens, such as my-cli.',
