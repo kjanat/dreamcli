@@ -1,16 +1,19 @@
 /**
  * Compare two VitePress dist directories with `bun docs/scripts/compare-twoslash.ts <before> <after>`.
  * An inline baseline uses Chromium (`bun x playwright install chromium` or
- * `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`). Two extracted builds use byte-for-byte checks.
+ * `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`). To allow existing compiler display differences,
+ * pass a third dist from a previously verified extracted build. Two extracted builds use byte-for-byte checks.
  * @module
  */
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-const [stock, candidate] = process.argv.slice(2);
+const [stock, candidate, reference] = process.argv.slice(2);
 if (!stock || !candidate) {
-	throw new Error('Usage: bun docs/scripts/compare-twoslash.ts <stock-dist> <candidate-dist>');
+	throw new Error(
+		'Usage: bun docs/scripts/compare-twoslash.ts <stock-dist> <candidate-dist> [reference-dist]',
+	);
 }
 
 async function files(root: string, pattern: string) {
@@ -25,9 +28,10 @@ async function sections(root: string, page: string) {
 const inline = !(await files(stock, 'assets/twoslash/*.txt')).length;
 const pages = await files(stock, '**/*.html');
 assert.deepEqual(await files(candidate, '**/*.html'), pages, 'Generated HTML paths');
+const actual = await popups(candidate);
 if (inline) {
 	const { compareInlineHovers } = await import('./inline-hovers.ts');
-	await compareInlineHovers(stock, candidate, pages);
+	await compareInlineHovers(stock, candidate, pages, reference);
 	process.exit(0);
 }
 let fences = 0;
@@ -57,7 +61,6 @@ async function popups(root: string) {
 }
 
 const expected = await popups(stock);
-const actual = await popups(candidate);
 assert.deepEqual(
 	[...actual.byPage.keys()].sort(),
 	[...expected.byPage.keys()].sort(),

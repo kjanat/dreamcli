@@ -153,12 +153,18 @@ async function readPage(
 	return { blocks, hovers };
 }
 
-export async function compareInlineHovers(stock: string, candidate: string, pages: string[]) {
+export async function compareInlineHovers(
+	stock: string,
+	candidate: string,
+	pages: string[],
+	reference?: string,
+) {
 	const browser = await launchChromium();
 	try {
-		const [originalSite, currentSite] = await Promise.all([
+		const [originalSite, currentSite, referenceSite] = await Promise.all([
 			openProbe(browser, stock),
 			openProbe(browser, candidate),
+			reference ? openProbe(browser, reference) : undefined,
 		]);
 		let references = 0,
 			examples = 0,
@@ -168,10 +174,15 @@ export async function compareInlineHovers(stock: string, candidate: string, page
 			overloads = 0;
 		const differences = { signature: 0, documentationOnly: 0, sameText: 0 };
 		for (const path of pages) {
-			const [before, after] = await Promise.all([
+			const [before, after, prior] = await Promise.all([
 				readPage(originalSite, path),
 				readPage(currentSite, path),
+				referenceSite && readPage(referenceSite, path),
 			]);
+			if (prior) {
+				assert.deepEqual(prior.blocks, before.blocks, path);
+				assert.equal(prior.hovers.length, before.hovers.length, path);
+			}
 			assert.deepEqual(after.blocks, before.blocks, path);
 			examples += before.blocks.length;
 			assert.equal(after.hovers.length, before.hovers.length, path);
@@ -212,6 +223,14 @@ export async function compareInlineHovers(stock: string, candidate: string, page
 							where,
 						);
 						reordered++;
+					}
+				} else if (original.signature !== current.signature) {
+					const normalize = (signature: string) => signature.replace(/\s+/g, ' ').trim();
+					const signature = normalize(current.signature);
+					if (signature !== normalize(original.signature)) {
+						const known = prior?.hovers[index];
+						assert.equal(signature, normalize(known?.signature ?? original.signature), where);
+						if (known) assert.equal(known.theme, original.theme, where);
 					}
 				}
 				references++;

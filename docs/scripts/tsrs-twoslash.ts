@@ -156,21 +156,28 @@ export async function openTsrs(root: string) {
 	connection.listen();
 	// The sync caller has a 60 s deadline. Reap a stalled initialize request
 	// before that deadline, while the worker is still able to report its error.
-	const initializeTimer = setTimeout(() => void close().catch(() => {}), 15_000);
+	const deadline = Promise.withResolvers<never>();
+	const initializeTimer = setTimeout(
+		() => deadline.reject(new Error('tsrs initialization timed out')),
+		15_000,
+	);
 	try {
-		await connection.sendRequest('initialize', {
-			processId: process.pid,
-			rootUri,
-			workspaceFolders: [{ uri: rootUri, name: 'dreamcli' }],
-			capabilities: {
-				textDocument: {
-					hover: { contentFormat: ['markdown'] },
-					signatureHelp: { signatureInformation: { documentationFormat: ['markdown'] } },
-					diagnostic: {},
+		await Promise.race([
+			deadline.promise,
+			connection.sendRequest('initialize', {
+				processId: process.pid,
+				rootUri,
+				workspaceFolders: [{ uri: rootUri, name: 'dreamcli' }],
+				capabilities: {
+					textDocument: {
+						hover: { contentFormat: ['markdown'] },
+						signatureHelp: { signatureInformation: { documentationFormat: ['markdown'] } },
+						diagnostic: {},
+					},
 				},
-			},
-		});
-		await connection.sendNotification('initialized', {});
+			}),
+		]);
+		await Promise.race([deadline.promise, connection.sendNotification('initialized', {})]);
 		clearTimeout(initializeTimer);
 		const lookup = createDeclarationLookup(connection);
 		let version = 0;
